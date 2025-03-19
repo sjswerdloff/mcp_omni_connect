@@ -62,14 +62,37 @@ class MCPClient:
         self.config = config
         self.sessions = {}
         self.exit_stack = AsyncExitStack()
-        self.llm_config = config.load_config("servers_config.json")["LLM"]
+        self.llm_config = None
         self.openai = OpenAI(api_key=self.config.openai_api_key)
         self.available_tools = {}
         self.available_resources = {}
         self.server_names = []
         self.message_history = []
         self.debug = debug
-        self.system_prompt = None 
+        self.system_prompt = None
+        
+    async def llm_configs(self):
+        """Load the LLM configuration"""
+        llm_config = self.config.load_config("servers_config.json")["LLM"]
+        try:
+            model = llm_config.get("model", "gpt-4o-mini")
+            temperature = llm_config.get("temperature", 0.5)
+            max_tokens = llm_config.get("max_tokens", 1000)
+            top_p = llm_config.get("top_p", 0)
+            frequency_penalty = llm_config.get("frequency_penalty", 0)
+            presence_penalty = llm_config.get("presence_penalty", 0)
+            self.llm_config = {
+                "model": model,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "top_p": top_p,
+                "frequency_penalty": frequency_penalty,
+                "presence_penalty": presence_penalty
+            }
+            return self.llm_config
+        except Exception as e:
+            logger.error(f"Error loading LLM configuration: {e}")
+            return None
 
     async def connect_to_servers(self):
         """Connect to an MCP server
@@ -117,7 +140,6 @@ class MCPClient:
                 "connected": True,
                 "capabilities": capabilities
             }
-            logger.info(self.sessions)
             if self.debug:
                 logger.info(f"Connected to server: {server_name} v{init_result.serverInfo.version}")
             # refresh capabilities and cache available tools
@@ -166,6 +188,8 @@ class MCPClient:
             
         # Update system prompt with new capabilities
         self.system_prompt = self.generate_system_prompt()
+        # update llm config
+        await self.llm_configs()
         if self.debug:
             logger.info("Updated system prompt with new capabilities")
             logger.info(f"System prompt:\n{self.system_prompt}")
@@ -213,10 +237,6 @@ class MCPClient:
             llm_response = self.openai.chat.completions.create(
                 model=self.llm_config["model"],
                 max_tokens=self.llm_config["max_tokens"],
-                temperature=self.llm_config["temperature"],
-                top_p=self.llm_config["top_p"],
-                frequency_penalty=self.llm_config["frequency_penalty"],
-                presence_penalty=self.llm_config["presence_penalty"],
                 messages=[
                     {
                     "role": "system", 

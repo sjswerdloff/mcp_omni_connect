@@ -150,7 +150,9 @@ class MCPClientCLI:
                         await handler(payload)
                     else:
                         await handler()
-
+            except KeyboardInterrupt:
+                self.console.print("[yellow]Shutting down client...[/]", style="yellow")
+                break
             except Exception as e:
                 self.console.print(f"[red]Error:[/] {str(e)}", style="bold red")
 
