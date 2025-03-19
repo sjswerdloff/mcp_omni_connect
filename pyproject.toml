@@ -1,0 +1,11 @@
+[project]
+name = "mcp-connect"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "colorlog>=6.9.0",
+    "mcp[cli]>=1.4.1",
+    "openai>=1.66.5",
+]
