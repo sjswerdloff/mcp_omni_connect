@@ -36,8 +36,8 @@ MCP Connect is a versatile command-line interface (CLI) client designed to conne
 
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/yourusername/mcp-connect.git
-   cd mcp-connect
+   git clone  https://github.com/Abiorh001/mcp_connect.git
+   cd mcp_connect
    ```
 
 2. **Set Up Virtual Environment**:
