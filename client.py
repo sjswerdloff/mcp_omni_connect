@@ -61,7 +61,7 @@ class MCPClient:
         # Initialize session and client objects
         self.config = config
         self.sessions = {}
-        self.exit_stack = AsyncExitStack()
+        self._cleanup_lock = asyncio.Lock()
         self.llm_config = None
         self.openai = OpenAI(api_key=self.config.openai_api_key)
         self.available_tools = {}
@@ -70,6 +70,7 @@ class MCPClient:
         self.message_history = []
         self.debug = debug
         self.system_prompt = None
+        self.exit_stack = AsyncExitStack()
         
     async def llm_configs(self):
         """Load the LLM configuration"""
@@ -77,17 +78,13 @@ class MCPClient:
         try:
             model = llm_config.get("model", "gpt-4o-mini")
             temperature = llm_config.get("temperature", 0.5)
-            max_tokens = llm_config.get("max_tokens", 1000)
+            max_tokens = llm_config.get("max_tokens", 5000)
             top_p = llm_config.get("top_p", 0)
-            frequency_penalty = llm_config.get("frequency_penalty", 0)
-            presence_penalty = llm_config.get("presence_penalty", 0)
             self.llm_config = {
                 "model": model,
                 "temperature": temperature,
                 "max_tokens": max_tokens,
-                "top_p": top_p,
-                "frequency_penalty": frequency_penalty,
-                "presence_penalty": presence_penalty
+                "top_p": top_p
             }
             return self.llm_config
         except Exception as e:
@@ -103,12 +100,15 @@ class MCPClient:
         server_config = self.config.load_config("servers_config.json")
         servers = [{"name": name, "srv_config": srv_config} for name, srv_config in server_config["mcpServers"].items()]
         # create tasks for connecting to each server
-        connections_tasks = []
+        # issue using for loops works and exist_stack closed but using asyncio.gather does not work
         for server in servers:
-            task = asyncio.create_task(self._connect_to_single_server(server))
-            connections_tasks.append(task)
-        # wait for all connections to complete
-        await asyncio.gather(*connections_tasks)
+            await self._connect_to_single_server(server)
+        # connections_tasks = []
+        # for server in servers:
+        #     task = asyncio.create_task(self._connect_to_single_server(server))
+        #     connections_tasks.append(task)
+        # # wait for all connections to complete
+        # await asyncio.gather(*connections_tasks)
         
     async def _connect_to_single_server(self, server):
         try:
@@ -147,7 +147,33 @@ class MCPClient:
         except Exception as e:
             logger.error(f"Error connecting to server: {e}")
            
+    async def clean_up_server(self):
+        """Clean up server connections individually"""
+        for server_name in list(self.server_names):
+            async with self._cleanup_lock:
+                if server_name in self.sessions and self.sessions[server_name]["connected"]:
+                    await self.exit_stack.aclose()
+                    # Mark as disconnected and clear references
+                    self.sessions[server_name]["connected"] = False
+                    self.sessions[server_name]["session"] = None
+                    self.sessions[server_name]["stdio"] = None
+                    self.sessions[server_name]["write"] = None
+            
     
+
+    async def cleanup(self):
+        """Clean up all resources"""
+        try:
+            # First make sure all servers are properly shut down
+            await self.clean_up_server()
+            # Clear any remaining data structures
+            self.server_names = []
+            self.available_tools = {}
+            self.available_resources = {}
+        except Exception as e:
+            logger.error(f"Error during shutdown: {e}")
+        finally:
+            logger.info("Client shutdown complete")
 
     async def refresh_capabilities(self):
         """Refresh the capabilities of the server and update system prompt"""
@@ -237,6 +263,8 @@ class MCPClient:
             llm_response = self.openai.chat.completions.create(
                 model=self.llm_config["model"],
                 max_tokens=self.llm_config["max_tokens"],
+                temperature=self.llm_config["temperature"],
+                top_p=self.llm_config["top_p"],
                 messages=[
                     {
                     "role": "system", 
@@ -406,8 +434,6 @@ class MCPClient:
                 max_tokens=self.llm_config["max_tokens"],
                 temperature=self.llm_config["temperature"],
                 top_p=self.llm_config["top_p"],
-                frequency_penalty=self.llm_config["frequency_penalty"],
-                presence_penalty=self.llm_config["presence_penalty"],
                 messages=messages,
                 tools=available_tools,
                 tool_choice="auto"
@@ -521,8 +547,6 @@ class MCPClient:
                     max_tokens=self.llm_config["max_tokens"],
                     temperature=self.llm_config["temperature"],
                     top_p=self.llm_config["top_p"],
-                    frequency_penalty=self.llm_config["frequency_penalty"],
-                    presence_penalty=self.llm_config["presence_penalty"],
                     messages=messages
                 )
                 final_assistant_message = second_response.choices[0].message
@@ -605,15 +629,3 @@ Remember:
         )
 
         return full_prompt
-
-    async def cleanup(self):
-        """Clean up resources"""
-        try:
-            await self.exit_stack.aclose()
-            # logger.info("Exit stack closed")
-        except Exception as e:
-            #logger.error(f"Error during shutdown: {e}")
-            pass
-        finally:
-            logger.info("Client shutdown complete")
-            await self.exit_stack.aclose()

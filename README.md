@@ -1,6 +1,6 @@
-# MCP Connect Client CLI
+# MCPOmni Connect Client CLI
 
-MCP Connect is a versatile command-line interface (CLI) client designed to connect to various Model Context Protocol (MCP) servers using stdio transport. It provides seamless integration with OpenAI models and supports dynamic tool and resource management across multiple servers.
+MCPOmin Connect is a versatile command-line interface (CLI) client designed to connect to various Model Context Protocol (MCP) servers using stdio transport. It provides seamless integration with OpenAI models and supports dynamic tool and resource management across multiple servers.
 
 ## Features
 

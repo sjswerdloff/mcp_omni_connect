@@ -19,7 +19,9 @@ async def main():
     except Exception as e:
         logger.error(f"Error: {e}")
     finally:
-        await client.cleanup()  
+        logger.info("Shutting down client...")
+        await client.cleanup()
+        logger.info("Client shut down successfully")
 
 if __name__ == "__main__":
     asyncio.run(main())
