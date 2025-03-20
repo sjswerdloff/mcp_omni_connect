@@ -1,10 +1,9 @@
 import asyncio
 from client import MCPClient, Configuration
 from cli import MCPClientCLI
-from utils import logger, setup_platform
+from utils import logger
 
 
-platform_config = setup_platform()
 
 async def main():
     try:
@@ -28,6 +27,4 @@ async def main():
         logger.info("Client shut down successfully")
 
 if __name__ == "__main__":
-    if platform_config["is_windows"]:
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(main())

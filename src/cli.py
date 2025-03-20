@@ -50,7 +50,7 @@ class MCPClientCLI:
         else:
             return CommandType.QUERY, input_text
 
-    async def handle_debug_command(self):
+    async def handle_debug_command(self, input_text: str=""):
         """Handle debug toggle command"""
         self.client.debug = not self.client.debug
         self.console.print(
@@ -58,7 +58,7 @@ class MCPClientCLI:
             f"{'enabled' if self.client.debug else 'disabled'}[/]"
         )
 
-    async def handle_refresh_command(self):
+    async def handle_refresh_command(self, input_text: str=""):
         """Handle refresh capabilities command"""
         with Progress(
             SpinnerColumn(),
@@ -69,7 +69,7 @@ class MCPClientCLI:
             await self.client.refresh_capabilities()
         self.console.print("[green]Capabilities refreshed successfully[/]")
 
-    async def handle_tools_command(self):
+    async def handle_tools_command(self, input_text: str=""):
         """Handle tools listing command"""
         tools = await self.client.list_tools()
         tools_table = Table(title="Available Tools", box=box.ROUNDED)
@@ -83,7 +83,7 @@ class MCPClientCLI:
             )
         self.console.print(tools_table)
 
-    async def handle_resources_command(self):
+    async def handle_resources_command(self, input_text: str=""):
         """Handle resources listing command"""
         resources = await self.client.list_resources()
         resources_table = Table(title="Available Resources", box=box.ROUNDED)
@@ -99,7 +99,7 @@ class MCPClientCLI:
             )
         self.console.print(resources_table)
     
-    async def handle_prompts_command(self):
+    async def handle_prompts_command(self, input_text: str=""):
         """Handle prompts listing command"""
         prompts = await self.client.list_prompts()
         prompts_table = Table(title="Available Prompts", box=box.ROUNDED)
@@ -253,17 +253,16 @@ class MCPClientCLI:
         while True:
             try:
                 query = Prompt.ask("\n[bold blue]Query[/]").strip()
+                # get the command type and payload from the query
                 command_type, payload = self.parse_command(query)
 
                 if command_type == CommandType.QUIT:
                     break
 
+                # get the handler for the command type from the handlers mapping
                 handler = handlers.get(command_type)
                 if handler:
-                    if payload:
-                        await handler(payload)
-                    else:
-                        await handler()
+                    await handler(payload)
             except KeyboardInterrupt:
                 self.console.print("[yellow]Shutting down client...[/]", style="yellow")
                 break

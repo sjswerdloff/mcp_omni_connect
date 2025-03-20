@@ -4,6 +4,7 @@ from contextlib import AsyncExitStack
 import os
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+from mcp.client.sse import sse_client
 from pathlib import Path
 import platform
 import sys
@@ -11,7 +12,7 @@ from mcp.types import ListPromptsRequest, ListResourcesRequest, ListToolsRequest
 from openai import OpenAI
 from dotenv import load_dotenv
 import json
-from utils import setup_platform, logger
+from utils import logger
 
 
 class Configuration:
@@ -21,8 +22,6 @@ class Configuration:
         """Initialize configuration with environment variables."""
         self.load_env()
         self.api_key = os.getenv("OPENAI_API_KEY")
-        self.config_dir = Path.home() / ".mcp_omni_connect"
-        self.config_dir.mkdir(exist_ok=True)
 
     @staticmethod
     def load_env() -> None:
@@ -42,11 +41,10 @@ class Configuration:
             FileNotFoundError: If configuration file doesn't exist.
             JSONDecodeError: If configuration file is invalid JSON.
         """
-        config_path = self.config_dir / file_path
-        if not config_path.exists():
-            # If not in user directory, try current directory
-            config_path = Path(file_path)
-        
+        config_path = Path(file_path)
+        logger.info(f"Loading configuration from: {config_path.name}")
+        if config_path.name.lower() != "servers_config.json":
+            raise FileNotFoundError(f"Configuration file not found: {config_path}, it should be 'servers_config.json'")
         with open(config_path, "r", encoding='utf-8') as f:
             return json.load(f)
 
@@ -80,29 +78,7 @@ class MCPClient:
         self.debug = debug
         self.system_prompt = None
         self.exit_stack = AsyncExitStack()
-        # Add platform-specific configurations
-        self.platform = platform.system().lower()
-        self._setup_platform_specific()
         
-    def _setup_platform_specific(self):
-        """Setup platform-specific configurations"""
-        platform_info = setup_platform()
-        self.platform_info = platform_info
-        
-        if platform_info["is_windows_like"]:
-            try:
-                import colorama
-                colorama.init()
-                if hasattr(sys.stdout, 'reconfigure'):
-                    sys.stdout.reconfigure(encoding='utf-8')
-            except ImportError:
-                logger.warning("Colorama not installed. Colors might not display correctly.")
-            
-            if platform_info["is_wsl"]:
-                os.environ['PYTHONIOENCODING'] = 'utf-8'
-                
-        elif platform_info["is_macos"]:
-            os.environ['LC_CTYPE'] = 'UTF-8'
 
     async def llm_configs(self):
         """Load the LLM configuration"""
@@ -144,31 +120,48 @@ class MCPClient:
         
     async def _connect_to_single_server(self, server):
         try:
-            # initialize server parameters
-            args = server["srv_config"]["args"]
-            command = server["srv_config"]["command"]
-            env = {**os.environ, **server["srv_config"]["env"]} if server["srv_config"].get("env") else None
-            server_params = StdioServerParameters(
-                command=command,
-                args=args,
-                env=env
-            )
+            if server["srv_config"].get("type") == "sse":
+                # SSE connection
+                url = server["srv_config"]["url"]
+                headers = server["srv_config"].get("headers", {})
+                timeout = server["srv_config"].get("timeout", 5)
+                sse_read_timeout = server["srv_config"].get("sse_read_timeout", 300)
+                if self.debug:
+                    logger.info(f"SSE connection to {url} with timeout {timeout} and sse_read_timeout {sse_read_timeout}")
 
-            # initialize stdio transport
-            stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
-            stdio, write = stdio_transport
-            session = await self.exit_stack.enter_async_context(ClientSession(stdio, write))
+                # initialize sse transport
+                sse_transport = await self.exit_stack.enter_async_context(
+                    sse_client(url, headers=headers, timeout=timeout, sse_read_timeout=sse_read_timeout)
+                )
+                read_stream, write_stream = sse_transport
+                session = await self.exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
+            else:
+                # stdio connection (default)
+                args = server["srv_config"]["args"]
+                command = server["srv_config"]["command"]
+                env = {**os.environ, **server["srv_config"]["env"]} if server["srv_config"].get("env") else None
+                server_params = StdioServerParameters(
+                    command=command,
+                    args=args,
+                    env=env
+                )
+
+                # initialize stdio transport
+                stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
+                read_stream, write_stream = stdio_transport
+                session = await self.exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
 
             # initialize the session
             init_result = await session.initialize()
             server_name = init_result.serverInfo.name
             capabilities = init_result.capabilities
             self.server_names.append(server_name)
+            
             # store the session
             self.sessions[server_name] = {
                 "session": session,
-                "stdio": stdio,
-                "write": write,
+                "read_stream": read_stream,
+                "write_stream": write_stream,
                 "connected": True,
                 "capabilities": capabilities
             }
@@ -188,8 +181,8 @@ class MCPClient:
                     # Mark as disconnected and clear references
                     self.sessions[server_name]["connected"] = False
                     self.sessions[server_name]["session"] = None
-                    self.sessions[server_name]["stdio"] = None
-                    self.sessions[server_name]["write"] = None
+                    self.sessions[server_name]["read_stream"] = None
+                    self.sessions[server_name]["write_stream"] = None
             
     async def cleanup(self):
         """Clean up all resources"""
