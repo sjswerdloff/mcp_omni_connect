@@ -80,7 +80,20 @@ MCPOmni Connect
 - OpenAI API key
 - UV package manager (recommended)
 
-### Quick Start
+### Install using package manager
+```bash
+# with uv recommended
+uv add mcpomni-connect
+# using pip
+pip install mcpomni-connect
+```
+### Start CLI
+```bash
+# start the cli running the command ensure your api key is export or create .env
+mcpomni_connect
+```
+
+### Development Quick Start
 
 1. **Installation**
    ```bash
@@ -247,7 +260,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Author**: Abiola Adeshina
 - **Email**: abioladedayo1993@gmail.com
-- **GitHub Issues**: [Report a bug](https://github.com/Abiorh001/mcp_connect/issues)
+- **GitHub Issues**: [Report a bug](https://github.com/Abiorh001/mcp_omni_connect/issues)
 
 ---
 
