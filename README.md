@@ -86,7 +86,7 @@ MCPOmni Connect
    ```bash
    # Clone the repository
    git clone https://github.com/Abiorh001/mcp_omni_connect.git
-   cd mcp_connect
+   cd mcp_omni_connect
 
    # Create and activate virtual environment
    uv venv
