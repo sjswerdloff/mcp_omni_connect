@@ -85,7 +85,7 @@ MCPOmni Connect
 1. **Installation**
    ```bash
    # Clone the repository
-   git clone https://github.com/Abiorh001/mcp_connect.git
+   git clone https://github.com/Abiorh001/mcp_omni_connect.git
    cd mcp_connect
 
    # Create and activate virtual environment
