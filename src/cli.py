@@ -8,10 +8,13 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich import box
 from enum import Enum
 from client import MCPClient
-from typing import Optional
+from rich import print as rprint
+from typing import Optional, Dict, Any
 import json
 
 class CommandType(Enum):
+    """Command types for the MCP client"""
+    HELP = "help"
     QUERY = "query"
     DEBUG = "debug"
     REFRESH = "refresh"
@@ -20,13 +23,173 @@ class CommandType(Enum):
     RESOURCE = "resource"
     PROMPTS = "prompts"
     PROMPT = "prompt"
+    HISTORY = "history"
+    CLEAR_HISTORY = "clear_history"
+    SAVE_HISTORY = "save_history"
     QUIT = "quit"
+
+
+
+
+class CommandHelp:
+    """Help documentation for CLI commands"""
+    
+    @staticmethod
+    def get_command_help(command_type: str) -> Dict[str, Any]:
+        """Get detailed help for a specific command type"""
+        help_docs = {
+            "tools": {
+                "description": "List and manage available tools across all connected servers",
+                "usage": "/tools",
+                "examples": [
+                    "/tools  # List all available tools"
+                ],
+                "subcommands": {},
+                "tips": [
+                    "Tools are automatically discovered from connected servers",
+                    "Use /debug to see more detailed tool information",
+                    "Tools can be chained together for complex operations"
+                ]
+            },
+            "prompts": {
+                "description": "List and manage available prompts",
+                "usage": "/prompts",
+                "examples": [
+                    "/prompts  # List all available prompts"
+                ],
+                "subcommands": {},
+                "tips": [
+                    "Prompts are discovered dynamically from servers",
+                    "Each prompt may have different argument requirements",
+                    "Use /help:prompt for detailed prompt usage"
+                ]
+            },
+            "prompt": {
+                "description": "Execute a specific prompt with arguments",
+                "usage": "/prompt:<name>/[arguments]",
+                "examples": [
+                    "/prompt:weather/location=tokyo",
+                    "/prompt:analyze/{\"data\":\"sample\",\"type\":\"full\"}",
+                    "/prompt:search/query=test/limit=10"
+                ],
+                "subcommands": {},
+                "tips": [
+                    "Arguments can be provided in key=value format",
+                    "Complex arguments can use JSON format",
+                    "Use /prompts to see available prompts",
+                    "Arguments are validated before execution"
+                ]
+            },
+            "resources": {
+                "description": "List available resources across all servers",
+                "usage": "/resources",
+                "examples": [
+                    "/resources  # List all available resources"
+                ],
+                "subcommands": {},
+                "tips": [
+                    "Resources are discovered from all connected servers",
+                    "Use /resource:<uri> to access specific resources",
+                    "Resources can be files, APIs, or other data sources"
+                ]
+            },
+            "resource": {
+                "description": "Access and analyze a specific resource",
+                "usage": "/resource:<uri>",
+                "examples": [
+                    "/resource:file:///path/to/file",
+                    "/resource:http://api.example.com/data"
+                ],
+                "subcommands": {},
+                "tips": [
+                    "URIs can be files, URLs, or other resource identifiers",
+                    "Resources are automatically parsed based on type",
+                    "Content is formatted for easy reading"
+                ]
+            },
+            "debug": {
+                "description": "Toggle debug mode for detailed information",
+                "usage": "/debug",
+                "examples": [
+                    "/debug  # Toggle debug mode on/off"
+                ],
+                "subcommands": {},
+                "tips": [
+                    "Debug mode shows additional information",
+                    "Useful for troubleshooting issues",
+                    "Shows detailed server responses"
+                ]
+            },
+            "refresh": {
+                "description": "Refresh server capabilities and connections",
+                "usage": "/refresh",
+                "examples": [
+                    "/refresh  # Refresh all server connections"
+                ],
+                "subcommands": {},
+                "tips": [
+                    "Use when adding new servers",
+                    "Updates tool and prompt listings",
+                    "Reconnects to disconnected servers"
+                ]
+            },
+            "help": {
+                "description": "Get help on available commands",
+                "usage": "/help or /help:<command>",
+                "examples": [
+                    "/help  # Show all commands",
+                    "/help:prompt  # Show prompt help",
+                    "/help:tools  # Show tools help"
+                ],
+                "subcommands": {},
+                "tips": [
+                    "Use /help for general overview",
+                    "Get detailed help with /help:<command>",
+                    "Examples show common usage patterns"
+                ]
+            },
+            "history": {
+                "description": "Show the message history",
+                "usage": "/history",
+                "examples": [
+                    "/history  # Show the message history"
+                ],
+                "subcommands": {},
+                "tips": [
+                    "Use to see the message history"
+                ]
+            },
+            "clear_history": {
+                "description": "Clear the message history",
+                "usage": "/clear_history",
+                "examples": [
+                    "/clear_history  # Clear the message history"
+                ],
+                "subcommands": {},
+                "tips": [
+                    "Use to clear the message history"
+                ]
+            },
+            "save_history": {
+                "description": "Save the message history to a file",
+                "usage": "/save_history:path/to/file",
+                "examples": [
+                    "/save_history:path/to/file  # Save the message history to a file"
+                ],
+                "subcommands": {},
+                "tips": [
+                    "Use to save the message history to a file"
+                ]
+            }
+        }
+        return help_docs.get(command_type, {})
+
 
 class MCPClientCLI:
     def __init__(self, client: MCPClient):
         self.client = client
         self.console = Console()
-
+        self.command_help = CommandHelp()
     def parse_command(self, input_text: str) -> tuple[CommandType, str]:
         """Parse input to determine command type and payload"""
         input_text = input_text.strip().lower()
@@ -37,6 +200,10 @@ class MCPClientCLI:
             return CommandType.DEBUG, ""
         elif input_text == '/refresh':
             return CommandType.REFRESH, ""
+        elif input_text == '/help':
+            return CommandType.HELP, ""
+        elif input_text.startswith('/help:'):
+            return CommandType.HELP, input_text[6:].strip()
         elif input_text == '/tools':
             return CommandType.TOOLS, ""
         elif input_text == '/resources':
@@ -47,8 +214,17 @@ class MCPClientCLI:
             return CommandType.RESOURCE, input_text[10:].strip()
         elif input_text.startswith('/prompt:'):
             return CommandType.PROMPT, input_text[8:].strip()
+        elif input_text == '/history':
+            return CommandType.HISTORY, ""
+        elif input_text == '/clear_history':
+            return CommandType.CLEAR_HISTORY, ""
+        elif input_text.startswith('/save_history:'):
+            return CommandType.SAVE_HISTORY, input_text[14:].strip()
         else:
-            return CommandType.QUERY, input_text
+            if input_text:
+                return CommandType.QUERY, input_text
+            else:
+                return None, None
 
     async def handle_debug_command(self, input_text: str=""):
         """Handle debug toggle command"""
@@ -68,6 +244,60 @@ class MCPClientCLI:
             progress.add_task("Refreshing capabilities...", total=None)
             await self.client.refresh_capabilities()
         self.console.print("[green]Capabilities refreshed successfully[/]")
+    
+
+    async def handle_help_command(self, command_type: Optional[str] = None):
+        """Show help information for commands"""
+        if command_type:
+            # Show specific command help
+            help_info = self.command_help.get_command_help(command_type.lower())
+            if help_info:
+                panel = Panel(
+                    f"[bold cyan]{command_type.upper()}[/]\n\n"
+                    f"[bold white]Description:[/]\n{help_info['description']}\n\n"
+                    f"[bold white]Usage:[/]\n{help_info['usage']}\n\n"
+                    f"[bold white]Examples:[/]\n" + "\n".join(help_info['examples']) + "\n\n"
+                    f"[bold white]Tips:[/]\n" + "\n".join(f"• {tip}" for tip in help_info['tips']),
+                    title="[bold blue]Command Help[/]",
+                    border_style="blue"
+                )
+                self.console.print(panel)
+            else:
+                self.console.print(f"[red]No help available for command: {command_type}[/]")
+        else:
+            # Show general help with all commands
+            help_table = Table(
+                title="[bold blue]Available Commands[/]",
+                box=box.ROUNDED,
+                show_header=True,
+                header_style="bold cyan"
+            )
+            help_table.add_column("Command", style="cyan")
+            help_table.add_column("Description", style="white")
+            help_table.add_column("Usage", style="green")
+
+            for cmd_type in CommandType:
+                help_info = self.command_help.get_command_help(cmd_type.value)
+                if help_info:
+                    help_table.add_row(
+                        f"/{cmd_type.value}",
+                        help_info['description'],
+                        help_info['usage']
+                    )
+
+            self.console.print(help_table)
+            
+            # Show general tips
+            tips_panel = Panel(
+                "• Use [cyan]/help:<command>[/] for detailed help on specific commands\n"
+                "• Commands are case-insensitive\n"
+                "• Use [cyan]quit[/] to exit the application\n"
+                "• Enable debug mode with [cyan]/debug[/] for more information",
+                title="[bold yellow]💡 Tips[/]",
+                border_style="yellow"
+            )
+            self.console.print(tips_panel)
+
 
     async def handle_tools_command(self, input_text: str=""):
         """Handle tools listing command"""
@@ -221,6 +451,13 @@ class MCPClientCLI:
 
     async def handle_query(self, query: str):
         """Handle general query processing"""
+        if not query or query.isspace():
+            return
+
+        # Parse the command first
+        cmd_type, payload = self.parse_command(query)
+        if not cmd_type:
+            return
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -233,7 +470,25 @@ class MCPClientCLI:
             self.console.print(Markdown(response))
         else:
             self.console.print(Panel(response, border_style="green"))
+    
+    async def handle_history_command(self, input_text: str=""):
+        """Handle history command"""
+        prompts_table = Table(title="Message History", box=box.ROUNDED)
+        prompts_table.add_column("Role", style="cyan", no_wrap=False)
+        prompts_table.add_column("Content", style="green")
+        for message in self.client.message_history:
+            prompts_table.add_row(message['role'], message['content'])
+        self.console.print(prompts_table)
 
+
+    async def handle_clear_history_command(self, input_text: str=""):
+        """Handle clear history command"""
+        await self.client.clear_history()
+        self.console.print("[green]Message history cleared[/]")
+    async def handle_save_history_command(self, input_text: str):
+        """Handle save history command"""
+        await self.client.save_message_history_to_file(input_text)
+        self.console.print(f"[green]Message history saved to {input_text}[/]")
     async def chat_loop(self):
         """Run an interactive chat loop with rich UI"""
         self.print_welcome_header()
@@ -242,12 +497,16 @@ class MCPClientCLI:
         handlers = {
             CommandType.DEBUG: self.handle_debug_command,
             CommandType.REFRESH: self.handle_refresh_command,
+            CommandType.HELP: self.handle_help_command,
             CommandType.TOOLS: self.handle_tools_command,
             CommandType.RESOURCES: self.handle_resources_command,
             CommandType.RESOURCE: self.handle_resource_command,
             CommandType.QUERY: self.handle_query,
             CommandType.PROMPTS: self.handle_prompts_command,
-            CommandType.PROMPT: self.handle_prompt_command
+            CommandType.PROMPT: self.handle_prompt_command,
+            CommandType.HISTORY: self.handle_history_command,
+            CommandType.CLEAR_HISTORY: self.handle_clear_history_command,
+            CommandType.SAVE_HISTORY: self.handle_save_history_command
         }
 
         while True:
@@ -328,6 +587,10 @@ class MCPClientCLI:
         commands = [
             ("/debug", "Toggle debug mode 🐛", ""),
             ("/refresh", "Refresh server capabilities 🔄", ""),
+            ("/help", "Show help 🆘", "/help:command"),
+            ("/history", "Show message history 📝", ""),
+            ("/clear_history", "Clear message history 🧹", ""),
+            ("/save_history", "Save message history to file 💾", "/save_history:path/to/file"),
             ("/tools", "List available tools 🔧", ""),
             ("/resources", "List available resources 📚", ""),
             ("/resource:<uri>", "Read a specific resource 🔍", "/resource:file:///path/to/file"),

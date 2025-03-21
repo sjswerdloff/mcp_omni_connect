@@ -443,6 +443,23 @@ class MCPClient:
         if self.debug:
             logger.info(f"Added message to history: {role} - {content[:100]}")
 
+    async def show_history(self):
+        """Show the message history"""
+        for i, message in enumerate(self.message_history):
+            logger.info(f"Message {i}: {message['role']} - {message['content']}")
+    async def clear_history(self):
+        """Clear the message history"""
+        self.message_history = []
+        if self.debug:
+            logger.info("Message history cleared")
+    async def save_message_history_to_file(self, file_path: str):
+        """Save the message history to a file"""
+        with open(file_path, "w") as f:
+            for message in self.message_history:
+                f.write(f"{message['role']}: {message['content']}\n")
+        if self.debug:
+            logger.info(f"Message history saved to {file_path}")
+    # process a query using OpenAI and available tools
     async def process_query(self, query: str) -> str:
         """Process a query using OpenAI and available tools"""
         # Ensure system prompt is updated
