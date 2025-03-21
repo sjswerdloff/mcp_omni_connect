@@ -66,7 +66,7 @@ class CommandHelp:
             },
             "prompt": {
                 "description": "Execute a specific prompt with arguments",
-                "usage": "/prompt:<name>/[arguments]",
+                "usage": "/prompt:<name>/<arguments>",
                 "examples": [
                     "/prompt:weather/location=tokyo",
                     "/prompt:analyze/{\"data\":\"sample\",\"type\":\"full\"}",
@@ -77,7 +77,8 @@ class CommandHelp:
                     "Arguments can be provided in key=value format",
                     "Complex arguments can use JSON format",
                     "Use /prompts to see available prompts",
-                    "Arguments are validated before execution"
+                    "Arguments are validated before execution",
+                    "If a prompt does not have arguments, you can just use /prompt:<name>"
                 ]
             },
             "resources": {
@@ -595,9 +596,7 @@ class MCPClientCLI:
             ("/resources", "List available resources 📚", ""),
             ("/resource:<uri>", "Read a specific resource 🔍", "/resource:file:///path/to/file"),
             ("/prompts", "List available prompts 💬", ""),
-            ("/prompt:<name>", "Read a prompt without arguments 💬", "/prompt:weather"),
-            ("/prompt:<name>/<args>", "Read a prompt with arguments 💬", "/prompt:weather/location=lagos/radius=2"),
-            ("/prompt:<name>/<json>", "Read a prompt with JSON args 💬", "/prompt:weather/{location:lagos,radius:2}"),
+            ("/prompt:<name>/<args>", "Read a prompt with arguments or without arguments 💬", "/prompt:weather/location=lagos/radius=2"),
             ("quit", "Exit the application 👋", "")
         ]
         
