@@ -225,6 +225,8 @@ User: "Analyze the contents of /path/to/document.pdf"
 3. Processes through LLM
 4. Provides intelligent summary
 ```
+### Demo
+
 
 ## 🤝 Contributing
 
