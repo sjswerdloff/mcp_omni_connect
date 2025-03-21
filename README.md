@@ -226,6 +226,7 @@ User: "Analyze the contents of /path/to/document.pdf"
 4. Provides intelligent summary
 ```
 ### Demo
+![mcp_client_new1-MadewithClipchamp-ezgif com-optimize](https://github.com/user-attachments/assets/3ede1d65-3304-4949-ab51-0cbe540b1563)
 
 
 ## 🤝 Contributing
