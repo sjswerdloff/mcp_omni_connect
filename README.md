@@ -103,6 +103,11 @@ MCPOmni Connect
 
    # Configure your servers in servers_config.json
    ```
+3. ** Start Client**
+   ```bash
+   # Start the cient
+   uv run src/main.py pr python src/main.py
+   ```
 
 ### Server Configuration Examples
 
