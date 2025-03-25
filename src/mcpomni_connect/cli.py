@@ -8,6 +8,13 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich import box
 from enum import Enum
 from mcpomni_connect.client import MCPClient
+from mcpomni_connect.resources import list_resources, read_resource
+from mcpomni_connect.prompts import list_prompts, get_prompt
+from mcpomni_connect.tools import list_tools
+from mcpomni_connect.llm import LLMConnection
+from mcpomni_connect.refresh_server_capabilities import refresh_capabilities
+from mcpomni_connect.process_user_query import process_query
+from mcpomni_connect.system_prompts import generate_system_prompt
 from rich import print as rprint
 from typing import Optional, Dict, Any
 import json
@@ -187,8 +194,9 @@ class CommandHelp:
 
 
 class MCPClientCLI:
-    def __init__(self, client: MCPClient):
+    def __init__(self, client: MCPClient, llm_connection: LLMConnection):
         self.client = client
+        self.llm_connection = llm_connection
         self.console = Console()
         self.command_help = CommandHelp()
     def parse_command(self, input_text: str) -> tuple[CommandType, str]:
@@ -243,7 +251,14 @@ class MCPClientCLI:
             transient=True
         ) as progress:
             progress.add_task("Refreshing capabilities...", total=None)
-            await self.client.refresh_capabilities()
+            await refresh_capabilities(
+                sessions=self.client.sessions,
+                server_names=self.client.server_names,
+                available_tools=self.client.available_tools,
+                available_resources=self.client.available_resources,
+                available_prompts=self.client.available_prompts,
+                debug=self.client.debug
+            )
         self.console.print("[green]Capabilities refreshed successfully[/]")
     
 
@@ -302,7 +317,10 @@ class MCPClientCLI:
 
     async def handle_tools_command(self, input_text: str=""):
         """Handle tools listing command"""
-        tools = await self.client.list_tools()
+        tools = await list_tools(
+            server_names=self.client.server_names,
+            sessions=self.client.sessions
+        )
         tools_table = Table(title="Available Tools", box=box.ROUNDED)
         tools_table.add_column("Tool", style="cyan", no_wrap=False)
         tools_table.add_column("Description", style="green", no_wrap=False)
@@ -316,7 +334,10 @@ class MCPClientCLI:
 
     async def handle_resources_command(self, input_text: str=""):
         """Handle resources listing command"""
-        resources = await self.client.list_resources()
+        resources = await list_resources(
+            server_names=self.client.server_names,
+            sessions=self.client.sessions
+        )
         resources_table = Table(title="Available Resources", box=box.ROUNDED)
         resources_table.add_column("URI", style="cyan", no_wrap=False)
         resources_table.add_column("Name", style="blue")
@@ -332,7 +353,10 @@ class MCPClientCLI:
     
     async def handle_prompts_command(self, input_text: str=""):
         """Handle prompts listing command"""
-        prompts = await self.client.list_prompts()
+        prompts = await list_prompts(
+            server_names=self.client.server_names,
+            sessions=self.client.sessions
+        )
         prompts_table = Table(title="Available Prompts", box=box.ROUNDED)
         prompts_table.add_column("Name", style="cyan", no_wrap=False)
         prompts_table.add_column("Description", style="blue")
@@ -369,7 +393,14 @@ class MCPClientCLI:
             transient=True
         ) as progress:
             progress.add_task("Loading resource...", total=None)
-            content = await self.client.read_resource(uri)
+            content = await read_resource(
+                uri=uri, 
+                sessions=self.client.sessions, 
+                available_resources=self.client.available_resources, 
+                add_message_to_history=self.client.add_message_to_history,
+                llm_call=self.llm_connection.llm_call, 
+                debug=self.client.debug
+            )
         
         if content.startswith("```") or content.startswith("#"):
             self.console.print(Markdown(content))
@@ -385,7 +416,21 @@ class MCPClientCLI:
         ) as progress:
             progress.add_task("Loading prompt...", total=None)
             name, arguments = self.parse_prompt_command(input_text)
-            content = await self.client.get_prompt(name, arguments)
+            # generate system prompt
+            system_prompt = generate_system_prompt(
+                available_tools=self.client.available_tools,
+                llm_connection=self.llm_connection
+            )
+            content = await get_prompt(
+                sessions=self.client.sessions,
+                system_prompt=system_prompt,
+                add_message_to_history=self.client.add_message_to_history,
+                llm_call=self.llm_connection.llm_call,
+                debug=self.client.debug,
+                available_prompts=self.client.available_prompts,
+                name=name,
+                arguments=arguments
+            )
         
         if content.startswith("```") or content.startswith("#"):
             self.console.print(Markdown(content))
@@ -465,7 +510,29 @@ class MCPClientCLI:
             transient=True
         ) as progress:
             progress.add_task("Processing query...", total=None)
-            response = await self.client.process_query(query)
+            # generate system prompt
+            system_prompt = generate_system_prompt(
+                available_tools=self.client.available_tools,
+                llm_connection=self.llm_connection
+            )
+            # get latest tools
+            tools = await list_tools(
+                server_names=self.client.server_names,
+                sessions=self.client.sessions
+            )
+            # process the query
+            response = await process_query(
+                query=query,
+                system_prompt=system_prompt,
+                llm_connection=self.llm_connection,
+                sessions=self.client.sessions,
+                server_names=self.client.server_names,
+                list_tools=tools,
+                available_tools=self.client.available_tools,
+                add_message_to_history=self.client.add_message_to_history,
+                message_history=self.client.message_history,
+                debug=self.client.debug
+            )
         
         if "```" in response or "#" in response:
             self.console.print(Markdown(response))

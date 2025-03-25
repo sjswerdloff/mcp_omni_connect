@@ -244,6 +244,23 @@ wheels = [
 ]
 
 [[package]]
+name = "groq"
+version = "0.20.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8f/fc/e5a03586ffad7ae6c7996f388ca321a3bf8b9fa544a36a934ce4b6b44211/groq-0.20.0.tar.gz", hash = "sha256:2a201d41cae768c53d411dabcfea2333e2e138df22d909ed555ece426f1e016f", size = 121936 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/95/37/9b415df5dd1e6a685d3e8fd4e564a5e80f4f87c19d82829ad027fa2bb150/groq-0.20.0-py3-none-any.whl", hash = "sha256:c27b89903eb2b77f94ed95837ff3cadfc8c9e670953b1c5e5e2e855fea54b6c5", size = 124919 },
+]
+
+[[package]]
 name = "h11"
 version = "0.14.0"
 source = { registry = "https://pypi.org/simple" }
@@ -483,11 +500,12 @@ cli = [
 
 [[package]]
 name = "mcpomni-connect"
-version = "0.0.1"
+version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "anyio" },
     { name = "colorlog" },
+    { name = "groq" },
     { name = "httpx" },
     { name = "httpx-sse" },
     { name = "mcp", extra = ["cli"] },
@@ -503,6 +521,7 @@ dependencies = [
 requires-dist = [
     { name = "anyio", specifier = ">=4.2.0" },
     { name = "colorlog", specifier = ">=6.9.0" },
+    { name = "groq", specifier = ">=0.20.0" },
     { name = "httpx", specifier = ">=0.26.0" },
     { name = "httpx-sse", specifier = ">=0.4.0" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.4.1" },

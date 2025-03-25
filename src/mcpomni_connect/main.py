@@ -1,6 +1,7 @@
 import asyncio
 from mcpomni_connect.client import MCPClient, Configuration
 from mcpomni_connect.cli import MCPClientCLI
+from mcpomni_connect.llm import LLMConnection
 from mcpomni_connect.utils import logger
 from pathlib import Path
 import json
@@ -46,7 +47,8 @@ async def async_main():
         config_path = check_config_exists()
         config = Configuration()
         client = MCPClient(config)
-        cli = MCPClientCLI(client)
+        llm_connection = LLMConnection(config)
+        cli = MCPClientCLI(client, llm_connection)
         
         await client.connect_to_servers()
         await cli.chat_loop()
