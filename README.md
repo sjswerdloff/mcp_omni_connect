@@ -14,10 +14,34 @@ MCPOmni Connect is a powerful, universal command-line interface (CLI) that serve
 
 ### 🧠 AI-Powered Intelligence
 - **Advanced LLM Integration**
-  - Seamless OpenAI model integration
+  - Seamless OpenAI models integration
+  - Seamless OpenRouter models integration
+  - Seamless Groq models integration
   - Dynamic system prompts based on available capabilities
   - Intelligent context management
   - Automatic tool selection and chaining
+  - Universal model support through custom ReAct Agent
+    - Handles models without native function calling
+    - Dynamic function execution based on user requests
+    - Intelligent tool orchestration
+
+### 🔒 Security & Privacy
+- **Explicit User Control**
+  - All tool executions require explicit user approval
+  - Clear explanation of tool actions before execution
+  - Transparent disclosure of data access and usage
+- **Data Protection**
+  - Strict data access controls
+  - Server-specific data isolation
+  - No unauthorized data exposure
+- **Privacy-First Approach**
+  - Minimal data collection
+  - User data remains on specified servers
+  - No cross-server data sharing without consent
+- **Secure Communication**
+  - Encrypted transport protocols
+  - Secure API key management
+  - Environment variable protection
 
 ### 💬 Prompt Management
 - **Advanced Prompt Handling**
@@ -76,8 +100,8 @@ MCPOmni Connect
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.12+
-- OpenAI API key
+- Python 3.10+
+- LLM API key
 - UV package manager (recommended)
 
 ### Install using package manager
@@ -91,6 +115,26 @@ pip install mcpomni-connect
 ```bash
 # start the cli running the command ensure your api key is export or create .env
 mcpomni_connect
+```
+
+## 🧪 Testing
+
+### Running Tests
+```bash
+# Run all tests with verbose output
+pytest tests/ -v
+
+# Run specific test file
+pytest tests/test_specific_file.py -v
+
+# Run tests with coverage report
+pytest tests/ --cov=src --cov-report=term-missing
+```
+
+### Test Structure
+```
+tests/
+├── unit/           # Unit tests for individual components
 ```
 
 ### Development Quick Start
@@ -112,7 +156,7 @@ mcpomni_connect
 2. **Configuration**
    ```bash
    # Set up environment variables
-   echo "OPENAI_API_KEY=your_key_here" > .env
+   echo "LLM_API_KEY=your_key_here" > .env
 
    # Configure your servers in servers_config.json
    ```
@@ -127,7 +171,8 @@ mcpomni_connect
 ```json
 {   
     "LLM": {
-        "model": "gpt-4o-mini",
+        "provider": "openai",  // Supports: "openai", "openrouter", "groq"
+        "model": "gpt-4",      // Any model from supported providers
         "temperature": 0.5,
         "max_tokens": 5000,
         "top_p": 0
@@ -217,6 +262,24 @@ The client intelligently:
 - Automatically selects appropriate tools
 - Handles errors gracefully
 - Maintains conversation context
+
+### Model Support
+- **OpenAI Models**
+  - Full support for all OpenAI models
+  - Native function calling for compatible models
+  - ReAct Agent fallback for older models
+- **OpenRouter Models**
+  - Access to all OpenRouter-hosted models
+  - Unified interface for model interaction
+  - Automatic capability detection
+- **Groq Models**
+  - Support for all Groq models
+  - Ultra-fast inference capabilities
+  - Seamless integration with tool system
+- **Universal Model Support**
+  - Custom ReAct Agent for models without function calling
+  - Dynamic tool execution based on model capabilities
+  - Intelligent fallback mechanisms
 
 ## 🔧 Advanced Features
 

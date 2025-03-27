@@ -24,7 +24,8 @@ def check_config_exists():
 
         default_config = {
             "LLM": {
-                "model": "gpt-4o-mini",
+                "provider": "openrouter",
+                "model": "qwen/qwq-32b:free",
                 "temperature": 0.5,
                 "max_tokens": 5000,
                 "top_p": 0,

@@ -69,7 +69,7 @@ class LLMConnection:
                 )
             return response
         elif self.llm_config["provider"].lower() == "groq":
-            messages = self.truncate_messages_for_groq(messages)
+            # messages = self.truncate_messages_for_groq(messages)
             if tools:
                 response = self.groq.chat.completions.create(
                     model=self.llm_config["model"],
