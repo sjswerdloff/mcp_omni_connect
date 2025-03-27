@@ -1,20 +1,26 @@
 import asyncio
-from mcpomni_connect.client import MCPClient, Configuration
+import json
+from pathlib import Path
+
 from mcpomni_connect.cli import MCPClientCLI
+from mcpomni_connect.client import Configuration, MCPClient
 from mcpomni_connect.llm import LLMConnection
 from mcpomni_connect.utils import logger
-from pathlib import Path
-import json
 
 DEFAULT_CONFIG_NAME = "servers_config.json"
+
 
 def check_config_exists():
     """Check if config file exists and provide guidance if missing"""
     config_path = Path.cwd() / DEFAULT_CONFIG_NAME
-    
+
     if not config_path.exists():
-        logger.warning(f"Configuration file '{DEFAULT_CONFIG_NAME}' not found. Creating default...")
-        logger.info("Please ensure you update the configuration file with your MCP server configuration.")
+        logger.warning(
+            f"Configuration file '{DEFAULT_CONFIG_NAME}' not found. Creating default..."
+        )
+        logger.info(
+            "Please ensure you update the configuration file with your MCP server configuration."
+        )
 
         default_config = {
             "LLM": {
@@ -28,17 +34,17 @@ def check_config_exists():
                     "type": "stdio",
                     "command": "mcp-server",
                     "args": [],
-                    "env": {}
+                    "env": {},
                 }
-            }
+            },
         }
         with open(config_path, "w") as f:
             json.dump(default_config, f, indent=4)
 
         logger.info(f"Default configuration file created at {config_path}")
 
-
     return config_path
+
 
 async def async_main():
     client = None
@@ -49,7 +55,7 @@ async def async_main():
         client = MCPClient(config)
         llm_connection = LLMConnection(config)
         cli = MCPClientCLI(client, llm_connection)
-        
+
         await client.connect_to_servers()
         await cli.chat_loop()
     except KeyboardInterrupt:
@@ -65,6 +71,7 @@ async def async_main():
 
 def main():
     asyncio.run(async_main())
+
 
 if __name__ == "__main__":
     main()
