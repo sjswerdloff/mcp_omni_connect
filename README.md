@@ -1,5 +1,13 @@
 # 🚀 MCPOmni Connect - Universal Gateway to MCP Servers
 
+[![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](https://github.com/Abiorh001/mcp_omni_connect/actions)
+[![PyPI version](https://badge.fury.io/py/mcpomni-connect.svg)](https://badge.fury.io/py/mcpomni-connect)
+[![Last Commit](https://img.shields.io/github/last-commit/Abiorh001/mcp_omni_connect)](https://github.com/Abiorh001/mcp_omni_connect/commits/main)
+[![Open Issues](https://img.shields.io/github/issues/Abiorh001/mcp_omni_connect)](https://github.com/Abiorh001/mcp_omni_connect/issues)
+[![Pull Requests](https://img.shields.io/github/issues-pr/Abiorh001/mcp_omni_connect)](https://github.com/Abiorh001/mcp_omni_connect/pulls)
+
 MCPOmni Connect is a powerful, universal command-line interface (CLI) that serves as your gateway to the Model Context Protocol (MCP) ecosystem. It seamlessly integrates multiple MCP servers, AI models, and various transport protocols into a unified, intelligent interface.
 
 ## ✨ Key Features
