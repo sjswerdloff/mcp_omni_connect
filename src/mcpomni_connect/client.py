@@ -6,7 +6,7 @@ import sys
 from contextlib import AsyncExitStack
 from pathlib import Path
 from typing import Any, Optional
-
+from uuid import UUID
 from dotenv import load_dotenv
 from groq import Groq
 from mcp import ClientSession, StdioServerParameters
@@ -17,12 +17,17 @@ from mcp.types import (
     ListPromptsRequest,
     ListResourcesRequest,
     ListToolsRequest,
+    ResourceUpdatedNotification,
+    ResourceListChangedNotification,
+    ToolListChangedNotification,
+    PromptListChangedNotification,
+    ProgressNotification
 )
 from openai import OpenAI
 from dataclasses import dataclass, field
 from mcpomni_connect.refresh_server_capabilities import refresh_capabilities
 from mcpomni_connect.utils import logger
-
+import uuid
 
 @dataclass
 class Configuration:
@@ -81,10 +86,11 @@ class MCPClient:
         failed_connections = []
 
         logger.info(f"Attempting to connect to {len(servers)} servers")
-
+        # generate a unique client id for the MCP client
+        client_id = str(uuid.uuid4())
         for server in servers:
             try:
-                await self._connect_to_single_server(server)
+                await self._connect_to_single_server(server, client_id)
                 successful_connections += 1
                 logger.info(
                     f"Successfully connected to server: {server.get('name', 'Unknown')}"
@@ -111,7 +117,8 @@ class MCPClient:
             raise RuntimeError(
                 "No servers could be connected. All connection attempts failed."
             )
-
+        # start the notifcation stream with an asyncio task
+        asyncio.create_task(self.handle_notifications(self.sessions))
         return successful_connections
 
     def _validate_and_convert_url(self, url: str, connection_type: str) -> str:
@@ -133,7 +140,7 @@ class MCPClient:
                 f"Invalid connection type: {connection_type}. Must be sse or websocket"
             )
 
-    async def _connect_to_single_server(self, server):
+    async def _connect_to_single_server(self, server, client_id: UUID):
         try:
             connection_type = server["srv_config"].get("type", "stdio")
             logger.info(f"connection_type: {connection_type}")
@@ -207,6 +214,7 @@ class MCPClient:
                 "capabilities": capabilities,
                 "type": connection_type,
             }
+            #logger.info(f"sessions: {self.sessions}")
 
             if self.debug:
                 logger.info(
@@ -316,6 +324,34 @@ class MCPClient:
         except Exception as e:
             logger.error(f"Error during shutdown: {e}")
 
+    async def handle_notifications(self, sessions: dict[str, dict[str, Any]]):
+        """Handle incoming notifications from the server."""
+        try:
+            for server_name in sessions:
+                async for message in sessions[server_name]["session"].incoming_messages:
+                    logger.info(f"Received raw message: {message}")
+                    match message.root:
+                        case ResourceUpdatedNotification(params=params):
+                            logger.info(f"Resource updated: {params.uri} from {server_name}")
+                            # Trigger a refresh or update logic here
+                        case ResourceListChangedNotification(params=params):
+                            logger.info(f"Resource list changed from {server_name}")
+                            # Trigger a refresh or update logic here
+                        case ToolListChangedNotification(params=params):
+                            logger.info(f"Tool list changed from {server_name}")
+                            # Trigger a refresh or update logic here
+                        case PromptListChangedNotification(params=params):
+                            logger.info(f"Prompt list changed from {server_name}")
+                            # Trigger a refresh or update logic here
+                        case ProgressNotification(params=params):
+                            logger.info(f"Progress notification from {server_name}: {params.progress} {params.total}")
+                            # Trigger a refresh or update logic here
+                        case _:
+                            logger.warning(f"Unhandled notification type: {type(message.root)}")
+
+        except Exception as e:
+            logger.error(f"Error handling notifications: {e}")
+    
     # add a message to the message history
     async def add_message_to_history(
         self, role: str, content: str, metadata: Optional[dict] = None

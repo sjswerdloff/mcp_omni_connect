@@ -1,6 +1,41 @@
 from typing import Any, Callable
-
+import asyncio
 from mcpomni_connect.utils import logger
+
+
+# handle subscribe to resource change
+async def subscribe_resource(
+    sessions: dict[str, dict[str, Any]], uri: str, available_resources: dict[str, list[str]]):
+    server_name, found = await find_resource_server(uri, available_resources)
+    try:
+        logger.info(f"Subscribing to {uri} resource on {server_name}")
+        # check if the server_name still connected
+        if found and sessions[server_name]["connected"]:
+            await sessions[server_name]["session"].subscribe_resource(uri)
+            logger.info(f"Subscribed to {uri} resource on {server_name}")
+        else:
+            logger.info(f"{server_name} is not connected")
+            return None
+    except Exception as e:
+        logger.info(f"exception to subscribe to resource: {e}")
+        return None
+    
+    return f"Subscribed to {uri} resource on {server_name}"
+
+async def unsubscribe_resource(
+    sessions: dict[str, dict[str, Any]], uri: str, available_resources: dict[str, list[str]]):
+    server_name, found = await find_resource_server(uri, available_resources)
+    if found and sessions[server_name]["connected"]:
+        try:
+            await sessions[server_name]["session"].unsubscribe_resource(uri)
+            logger.info(f"Unsubscribed from {uri} resource on {server_name}")
+        except Exception as e:
+            logger.info(f"exception to unsubscribe from resource: {e}")
+            return None
+    else:
+        logger.info(f"{server_name} is not connected")
+        return None
+    return f"Unsubscribed from {uri} resource on {server_name}"
 
 
 # list all resources in mcp server

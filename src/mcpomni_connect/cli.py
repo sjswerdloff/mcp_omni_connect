@@ -23,7 +23,7 @@ from mcpomni_connect.prompts import (
 )
 from mcpomni_connect.react_agent import ReActAgent
 from mcpomni_connect.refresh_server_capabilities import refresh_capabilities
-from mcpomni_connect.resources import list_resources, read_resource
+from mcpomni_connect.resources import list_resources, read_resource, subscribe_resource, unsubscribe_resource
 from mcpomni_connect.system_prompts import (
     generate_react_agent_prompt,
     generate_system_prompt,
@@ -41,6 +41,8 @@ class CommandType(Enum):
     TOOLS = "tools"
     RESOURCES = "resources"
     RESOURCE = "resource"
+    SUBSCRIBE = "subscribe"
+    UNSUBSCRIBE = "unsubscribe"
     PROMPTS = "prompts"
     PROMPT = "prompt"
     HISTORY = "history"
@@ -213,6 +215,10 @@ class MCPClientCLI:
             return CommandType.PROMPTS, ""
         elif input_text.startswith("/resource:"):
             return CommandType.RESOURCE, input_text[10:].strip()
+        elif input_text.startswith("/subscribe:"):
+            return CommandType.SUBSCRIBE, input_text[11:].strip()
+        elif input_text.startswith("/unsubscribe:"):
+            return CommandType.UNSUBSCRIBE, input_text[13:].strip()
         elif input_text.startswith("/prompt:"):
             return CommandType.PROMPT, input_text[8:].strip()
         elif input_text == "/history":
@@ -405,6 +411,48 @@ class MCPClientCLI:
                 llm_call=self.llm_connection.llm_call,
                 debug=self.client.debug,
             )
+
+        if content.startswith("```") or content.startswith("#"):
+            self.console.print(Markdown(content))
+        else:
+            self.console.print(Panel(content, title=uri, border_style="blue"))
+    
+    async def handle_subscribe(self, input_text: str):
+        """Handle subscribe command"""
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task("Subscribing to resource...", total=None)
+            if input_text.startswith("/resource:"):
+                uri = input_text[10:].strip()
+                content = await subscribe_resource(
+                    sessions=self.client.sessions,
+                    uri=uri,
+                    available_resources=self.client.available_resources
+                )
+
+        if content.startswith("```") or content.startswith("#"):
+            self.console.print(Markdown(content))
+        else:
+            self.console.print(Panel(content, title=uri, border_style="blue"))
+    
+    async def handle_unsubscribe(self, input_text: str):
+        """Handle unsubscribe command"""
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task("Unsubscribing from resource...", total=None)
+            if input_text.startswith("/resource:"):
+                uri = input_text[10:].strip()
+                content = await unsubscribe_resource(
+                    sessions=self.client.sessions,
+                    uri=uri,
+                    available_resources=self.client.available_resources
+                )
 
         if content.startswith("```") or content.startswith("#"):
             self.console.print(Markdown(content))
@@ -639,6 +687,8 @@ class MCPClientCLI:
             CommandType.HISTORY: self.handle_history_command,
             CommandType.CLEAR_HISTORY: self.handle_clear_history_command,
             CommandType.SAVE_HISTORY: self.handle_save_history_command,
+            CommandType.SUBSCRIBE: self.handle_subscribe,
+            CommandType.UNSUBSCRIBE: self.handle_unsubscribe,
         }
 
         while True:
@@ -745,6 +795,8 @@ class MCPClientCLI:
                 "Read a specific resource 🔍",
                 "/resource:file:///path/to/file",
             ),
+            ("/subscribe:/<type>:<uri>", "Subscribe to a resource 📚", "/subscribe:/resource:file:///path/to/file"),
+            ("/unsubscribe:/<type>:<uri>", "Unsubscribe from a resource 📚", "/unsubscribe:/resource:file:///path/to/file"),
             ("/prompts", "List available prompts 💬", ""),
             (
                 "/prompt:<name>/<args>",
