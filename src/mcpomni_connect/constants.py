@@ -1,1 +1,1 @@
-TOOL_ACCEPTING_PROVIDERS = {"groq", "openai", "openrouter"}
+TOOL_ACCEPTING_PROVIDERS = {"groq", "openai", "openrouter", "gemini"}

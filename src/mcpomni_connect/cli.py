@@ -182,6 +182,20 @@ class CommandHelp:
                 "subcommands": {},
                 "tips": ["Use to save the message history to a file"],
             },
+            "subscribe": {
+                "description": "Subscribe to a resource",
+                "usage": "/subscribe:/resource:<uri>",
+                "examples": ["/subscribe:/resource:http://api.example.com/data  # Subscribe to a resource"],
+                "subcommands": {},
+                "tips": ["Use to subscribe to a resource"],
+            },
+            "unsubscribe": {
+                "description": "Unsubscribe from a resource",
+                "usage": "/unsubscribe:/resource:<uri>",
+                "examples": ["/unsubscribe:/resource:http://api.example.com/data  # Unsubscribe from a resource"],
+                "subcommands": {},
+                "tips": ["Use to unsubscribe from a resource"],
+            },
         }
         return help_docs.get(command_type, {})
 
@@ -761,7 +775,7 @@ class MCPClientCLI:
             Panel(
                 content,
                 title="[bold blue]⚡ MCPOmni Connect ⚡[/]",
-                subtitle="[bold cyan]v0.1.1[/]",
+                subtitle="[bold cyan]v0.1.12[/]",
                 border_style="blue",
                 box=box.DOUBLE_EDGE,
             )

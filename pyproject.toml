@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcpomni_connect"
-version = "0.1.11"
+version = "0.1.12"
 description = "Universal MCP Client with multi-transport support and LLM-powered tool routing"
 readme = "README.md"
 authors = [{ name = "Abiola Adeshina", email = "abiolaadedayo1993@gmail.com" }]
@@ -33,9 +33,7 @@ dependencies = [
     "httpx-sse>=0.4.0",
     "pydantic>=2.6.0",
     "anyio>=4.2.0",
-    "groq>=0.20.0",
-    "pytest>=8.3.5",
-    "pytest-asyncio>=0.26.0",
+    "groq>=0.20.0"
 ]
 
 [project.scripts]

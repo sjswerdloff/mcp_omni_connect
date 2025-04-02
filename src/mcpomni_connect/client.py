@@ -87,10 +87,10 @@ class MCPClient:
 
         logger.info(f"Attempting to connect to {len(servers)} servers")
         # generate a unique client id for the MCP client
-        client_id = str(uuid.uuid4())
+        # client_id = str(uuid.uuid4())
         for server in servers:
             try:
-                await self._connect_to_single_server(server, client_id)
+                await self._connect_to_single_server(server)
                 successful_connections += 1
                 logger.info(
                     f"Successfully connected to server: {server.get('name', 'Unknown')}"
@@ -140,7 +140,7 @@ class MCPClient:
                 f"Invalid connection type: {connection_type}. Must be sse or websocket"
             )
 
-    async def _connect_to_single_server(self, server, client_id: UUID):
+    async def _connect_to_single_server(self, server):
         try:
             connection_type = server["srv_config"].get("type", "stdio")
             logger.info(f"connection_type: {connection_type}")
@@ -214,7 +214,6 @@ class MCPClient:
                 "capabilities": capabilities,
                 "type": connection_type,
             }
-            #logger.info(f"sessions: {self.sessions}")
 
             if self.debug:
                 logger.info(
@@ -325,32 +324,79 @@ class MCPClient:
             logger.error(f"Error during shutdown: {e}")
 
     async def handle_notifications(self, sessions: dict[str, dict[str, Any]]):
-        """Handle incoming notifications from the server."""
+        """Handle incoming notifications from the server.
+        
+        Args:
+            sessions: Dictionary of server sessions with their configurations.
+            
+        This handler processes various types of notifications:
+        - Resource updates
+        - Resource list changes
+        - Tool list changes
+        - Prompt list changes
+        - Progress updates
+        """
         try:
             for server_name in sessions:
                 async for message in sessions[server_name]["session"].incoming_messages:
-                    logger.info(f"Received raw message: {message}")
-                    match message.root:
-                        case ResourceUpdatedNotification(params=params):
-                            logger.info(f"Resource updated: {params.uri} from {server_name}")
-                            # Trigger a refresh or update logic here
-                        case ResourceListChangedNotification(params=params):
-                            logger.info(f"Resource list changed from {server_name}")
-                            # Trigger a refresh or update logic here
-                        case ToolListChangedNotification(params=params):
-                            logger.info(f"Tool list changed from {server_name}")
-                            # Trigger a refresh or update logic here
-                        case PromptListChangedNotification(params=params):
-                            logger.info(f"Prompt list changed from {server_name}")
-                            # Trigger a refresh or update logic here
-                        case ProgressNotification(params=params):
-                            logger.info(f"Progress notification from {server_name}: {params.progress} {params.total}")
-                            # Trigger a refresh or update logic here
-                        case _:
-                            logger.warning(f"Unhandled notification type: {type(message.root)}")
-
+                    logger.debug(f"Received notification from {server_name}: {message}")
+                    
+                    # Common refresh function for capability changes
+                    async def refresh_capabilities_task():
+                        try:
+                            await refresh_capabilities(
+                                sessions=self.sessions,
+                                server_names=self.server_names,
+                                available_tools=self.available_tools,
+                                available_resources=self.available_resources,
+                                available_prompts=self.available_prompts,
+                                debug=self.debug,
+                            )
+                            logger.debug(f"Successfully refreshed capabilities after notification from {server_name}")
+                        except Exception as e:
+                            logger.error(f"Failed to refresh capabilities after notification from {server_name}: {str(e)}")
+                    
+                    try:
+                        match message.root:
+                            case ResourceUpdatedNotification(params=params):
+                                logger.info(f"Resource updated: {params.uri} from {server_name}")
+                                # Create a new task for refresh_capabilities
+                                asyncio.create_task(refresh_capabilities_task())
+                                
+                            case ResourceListChangedNotification(params=params):
+                                logger.info(f"Resource list changed from {server_name}")
+                                # Create a new task for refresh_capabilities
+                                asyncio.create_task(refresh_capabilities_task())
+                                
+                            case ToolListChangedNotification(params=params):
+                                logger.info(f"Tool list changed from {server_name}")
+                                # Create a new task for refresh_capabilities
+                                asyncio.create_task(refresh_capabilities_task())
+                                
+                            case PromptListChangedNotification(params=params):
+                                logger.info(f"Prompt list changed from {server_name}")
+                                # Create a new task for refresh_capabilities
+                                asyncio.create_task(refresh_capabilities_task())
+                                
+                            case ProgressNotification(params=params):
+                                progress_percentage = (params.progress / params.total * 100) if params.total > 0 else 0
+                                logger.info(
+                                    f"Progress from {server_name}: {params.progress}/{params.total} "
+                                    f"({progress_percentage:.1f}%)"
+                                )
+                                
+                            case _:
+                                logger.warning(
+                                    f"Unhandled notification type from {server_name}: {type(message.root).__name__}"
+                                )
+                    except Exception as e:
+                        logger.error(f"Error processing notification from {server_name}: {str(e)}")
+                        continue
+                        
+        except AttributeError as e:
+            logger.error(f"Error in notification handler: {str(e)}")
         except Exception as e:
-            logger.error(f"Error handling notifications: {e}")
+            logger.error(f"Fatal error in notification handler: {str(e)}")
     
     # add a message to the message history
     async def add_message_to_history(

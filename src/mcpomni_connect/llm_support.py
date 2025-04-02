@@ -20,6 +20,10 @@ class LLMToolSupport:
             "provider": "openrouter",
             "models": ["openai", "anthropic", "groq", "mistralai", "gemini"],
         },
+        "gemini": {
+            "provider": "gemini",
+            "models": None,  # None means all models support tools
+        },
     }
 
     @classmethod

@@ -16,6 +16,10 @@ class LLMConnection:
             base_url="https://openrouter.ai/api/v1",
             api_key=self.config.llm_api_key,
         )
+        self.gemini = OpenAI(
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            api_key=self.config.llm_api_key,
+        )
         if not self.llm_config:
             logger.info("updating llm configuration")
             self.llm_configuration()
@@ -118,6 +122,26 @@ class LLMConnection:
                     top_p=self.llm_config["top_p"],
                     messages=messages,
                     stop=["\n\nObservation:"],
+                )
+            return response
+        elif self.llm_config["provider"].lower() == "gemini":
+            if tools:
+                response = self.gemini.chat.completions.create(
+                    model=self.llm_config["model"],
+                    max_tokens=self.llm_config["max_tokens"],
+                    temperature=self.llm_config["temperature"],
+                    top_p=self.llm_config["top_p"],
+                    messages=messages,
+                    tools=tools,
+                    tool_choice="auto",
+                )
+            else:
+                response = self.gemini.chat.completions.create(
+                    model=self.llm_config["model"],
+                    max_tokens=self.llm_config["max_tokens"],
+                    temperature=self.llm_config["temperature"],
+                    top_p=self.llm_config["top_p"],
+                    messages=messages,
                 )
             return response
 
