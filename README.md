@@ -25,6 +25,7 @@ MCPOmni Connect is a powerful, universal command-line interface (CLI) that serve
   - Seamless OpenAI models integration
   - Seamless OpenRouter models integration
   - Seamless Groq models integration
+  - Seamless Gemini models integration
   - Dynamic system prompts based on available capabilities
   - Intelligent context management
   - Automatic tool selection and chaining
