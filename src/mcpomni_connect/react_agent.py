@@ -281,7 +281,7 @@ class ReActAgent:
         llm_connection: Callable,
         available_tools: dict[str, Any],
         add_message_to_history: Callable[[str, str, Optional[dict]], Any],
-        message_history: list[dict[str, Any]],
+        message_history: Callable[[], Any],
     ) -> Optional[str]:
         """Execute ReAct loop with JSON communication"""
         messages = []
@@ -294,8 +294,9 @@ class ReActAgent:
         assistant_with_tool_calls = None
         pending_tool_responses = []
 
+        short_term_memory_message_history = await message_history()
         # Process message history in order that will be sent to LLM
-        for _, message in enumerate(message_history):
+        for _, message in enumerate(short_term_memory_message_history):
             if message["role"] == "user":
                 # First flush any pending tool responses if needed
                 if assistant_with_tool_calls and pending_tool_responses:

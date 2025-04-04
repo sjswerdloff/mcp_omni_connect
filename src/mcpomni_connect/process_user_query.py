@@ -2,8 +2,6 @@ import json
 from typing import Any, Callable, Optional
 
 from mcpomni_connect.utils import logger
-
-
 # process a query using LLM and available tools
 async def process_query(
     query: str,
@@ -14,14 +12,12 @@ async def process_query(
     tools_list: list[dict[str, Any]],
     available_tools: dict[str, Any],
     add_message_to_history: Callable[[str, str, Optional[dict]], Any],
-    message_history: list[dict[str, Any]],
+    message_history: Callable[[], Any],
     debug: bool = False,
 ) -> str:
     """Process a query using LLM and available tools"""
-
     # add user query to history
     await add_message_to_history("user", query)
-
     # prepare messages for LLM
     messages = []
 
@@ -30,9 +26,11 @@ async def process_query(
     # track assistant with tool calls and pending tool responses
     assistant_with_tool_calls = None
     pending_tool_responses = []
-
+    
+    # get message history from redis
+    short_term_memory_message_history = await message_history()
     # process message history in order
-    for _, message in enumerate(message_history):
+    for _, message in enumerate(short_term_memory_message_history):
         if message["role"] == "user":
             # First flush any pending tool responses if needed
             if assistant_with_tool_calls and pending_tool_responses:
@@ -125,8 +123,8 @@ async def process_query(
         tool_names = [tool["function"]["name"] for tool in all_available_tools]
         logger.info(f"Available tools for query: {tool_names}")
         logger.info(f"Sending {len(messages)} messages to LLM")
-
     try:
+        logger.info(f"all messages: {messages}")
         # Initial LLM API call
         response = await llm_connection.llm_call(
             messages=messages, tools=all_available_tools
@@ -154,7 +152,11 @@ async def process_query(
             logger.info(
                 f"Processing {len(assistant_message.tool_calls)} tool calls"
             )
-
+        # if the initial response is empty, set it to the tool call name to ensure the context is clear
+        if not initial_response:
+            logger.info(f"Initial response is empty, setting it to the tool call name")
+            tool_name = assistant_message.tool_calls[0].function.name
+            initial_response = f"Tool called {tool_name}"
         # Properly append assistant message with tool calls
         messages.append(
             {

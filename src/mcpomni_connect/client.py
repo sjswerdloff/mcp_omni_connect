@@ -6,28 +6,21 @@ import sys
 from contextlib import AsyncExitStack
 from pathlib import Path
 from typing import Any, Optional
-from uuid import UUID
 from dotenv import load_dotenv
 from groq import Groq
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.client.websocket import websocket_client
-from mcp.types import (
-    ListPromptsRequest,
-    ListResourcesRequest,
-    ListToolsRequest,
-    ResourceUpdatedNotification,
-    ResourceListChangedNotification,
-    ToolListChangedNotification,
-    PromptListChangedNotification,
-    ProgressNotification
-)
 from openai import OpenAI
 from dataclasses import dataclass, field
 from mcpomni_connect.refresh_server_capabilities import refresh_capabilities
+from mcpomni_connect.notifications import handle_notifications
 from mcpomni_connect.utils import logger
-import uuid
+from mcp.types import CreateMessageRequestParams, CreateMessageResult, ErrorData
+from mcp.shared.context import RequestContext
+from datetime import timedelta
+
 
 @dataclass
 class Configuration:
@@ -69,10 +62,10 @@ class MCPClient:
         self.available_resources = {}
         self.available_prompts = {}
         self.server_names = []
-        self.message_history = []
         self.debug = debug
         self.system_prompt = None
         self.exit_stack = AsyncExitStack()
+
 
     async def connect_to_servers(self):
         """Connect to an MCP server"""
@@ -86,8 +79,6 @@ class MCPClient:
         failed_connections = []
 
         logger.info(f"Attempting to connect to {len(servers)} servers")
-        # generate a unique client id for the MCP client
-        # client_id = str(uuid.uuid4())
         for server in servers:
             try:
                 await self._connect_to_single_server(server)
@@ -117,8 +108,18 @@ class MCPClient:
             raise RuntimeError(
                 "No servers could be connected. All connection attempts failed."
             )
-        # start the notifcation stream with an asyncio task
-        asyncio.create_task(self.handle_notifications(self.sessions))
+        # start the notification stream with an asyncio task
+        asyncio.create_task(
+            handle_notifications(
+                self.sessions, 
+                self.debug, 
+                self.server_names, 
+                self.available_tools, 
+                self.available_resources, 
+                self.available_prompts, 
+                refresh_capabilities
+            )
+        )
         return successful_connections
 
     def _validate_and_convert_url(self, url: str, connection_type: str) -> str:
@@ -198,8 +199,14 @@ class MCPClient:
                 )
 
             read_stream, write_stream = transport
+            
             session = await self.exit_stack.enter_async_context(
-                ClientSession(read_stream, write_stream)
+                ClientSession(
+                    read_stream, 
+                    write_stream, 
+                    # sampling_callback=self._sampling_callback,  # Use the bound metho
+                    read_timeout_seconds=timedelta(seconds=300)  # 5 minutes timeout
+                )
             )
             init_result = await session.initialize()
             server_name = init_result.serverInfo.name
@@ -322,114 +329,3 @@ class MCPClient:
             logger.info("All resources cleared")
         except Exception as e:
             logger.error(f"Error during shutdown: {e}")
-
-    async def handle_notifications(self, sessions: dict[str, dict[str, Any]]):
-        """Handle incoming notifications from the server.
-        
-        Args:
-            sessions: Dictionary of server sessions with their configurations.
-            
-        This handler processes various types of notifications:
-        - Resource updates
-        - Resource list changes
-        - Tool list changes
-        - Prompt list changes
-        - Progress updates
-        """
-        try:
-            for server_name in sessions:
-                async for message in sessions[server_name]["session"].incoming_messages:
-                    logger.debug(f"Received notification from {server_name}: {message}")
-                    
-                    # Common refresh function for capability changes
-                    async def refresh_capabilities_task():
-                        try:
-                            await refresh_capabilities(
-                                sessions=self.sessions,
-                                server_names=self.server_names,
-                                available_tools=self.available_tools,
-                                available_resources=self.available_resources,
-                                available_prompts=self.available_prompts,
-                                debug=self.debug,
-                            )
-                            logger.debug(f"Successfully refreshed capabilities after notification from {server_name}")
-                        except Exception as e:
-                            logger.error(f"Failed to refresh capabilities after notification from {server_name}: {str(e)}")
-                    
-                    try:
-                        match message.root:
-                            case ResourceUpdatedNotification(params=params):
-                                logger.info(f"Resource updated: {params.uri} from {server_name}")
-                                # Create a new task for refresh_capabilities
-                                asyncio.create_task(refresh_capabilities_task())
-                                
-                            case ResourceListChangedNotification(params=params):
-                                logger.info(f"Resource list changed from {server_name}")
-                                # Create a new task for refresh_capabilities
-                                asyncio.create_task(refresh_capabilities_task())
-                                
-                            case ToolListChangedNotification(params=params):
-                                logger.info(f"Tool list changed from {server_name}")
-                                # Create a new task for refresh_capabilities
-                                asyncio.create_task(refresh_capabilities_task())
-                                
-                            case PromptListChangedNotification(params=params):
-                                logger.info(f"Prompt list changed from {server_name}")
-                                # Create a new task for refresh_capabilities
-                                asyncio.create_task(refresh_capabilities_task())
-                                
-                            case ProgressNotification(params=params):
-                                progress_percentage = (params.progress / params.total * 100) if params.total > 0 else 0
-                                logger.info(
-                                    f"Progress from {server_name}: {params.progress}/{params.total} "
-                                    f"({progress_percentage:.1f}%)"
-                                )
-                                
-                            case _:
-                                logger.warning(
-                                    f"Unhandled notification type from {server_name}: {type(message.root).__name__}"
-                                )
-                    except Exception as e:
-                        logger.error(f"Error processing notification from {server_name}: {str(e)}")
-                        continue
-                        
-        except AttributeError as e:
-            logger.error(f"Error in notification handler: {str(e)}")
-        except Exception as e:
-            logger.error(f"Fatal error in notification handler: {str(e)}")
-    
-    # add a message to the message history
-    async def add_message_to_history(
-        self, role: str, content: str, metadata: Optional[dict] = None
-    ):
-        """Add a message to the message history"""
-        message = {
-            "role": role,
-            "content": content,
-            "timestamp": asyncio.get_running_loop().time(),
-            "metadata": metadata or {},
-        }
-        self.message_history.append(message)
-        if self.debug:
-            logger.info(f"Added message to history: {role} - {content[:100]}")
-
-    async def show_history(self):
-        """Show the message history"""
-        for i, message in enumerate(self.message_history):
-            logger.info(
-                f"Message {i}: {message['role']} - {message['content']}"
-            )
-
-    async def clear_history(self):
-        """Clear the message history"""
-        self.message_history = []
-        if self.debug:
-            logger.info("Message history cleared")
-
-    async def save_message_history_to_file(self, file_path: str):
-        """Save the message history to a file"""
-        with open(file_path, "w") as f:
-            for message in self.message_history:
-                f.write(f"{message['role']}: {message['content']}\n")
-        if self.debug:
-            logger.info(f"Message history saved to {file_path}")

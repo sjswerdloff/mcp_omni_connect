@@ -29,6 +29,7 @@ from mcpomni_connect.system_prompts import (
     generate_system_prompt,
 )
 from mcpomni_connect.tools import list_tools
+from mcpomni_connect.memory import RedisShortTermMemory, InMemoryShortTermMemory
 
 
 class CommandType(Enum):
@@ -48,6 +49,7 @@ class CommandType(Enum):
     HISTORY = "history"
     CLEAR_HISTORY = "clear_history"
     SAVE_HISTORY = "save_history"
+    MEMORY = "memory"
     QUIT = "quit"
 
 
@@ -58,6 +60,13 @@ class CommandHelp:
     def get_command_help(command_type: str) -> Dict[str, Any]:
         """Get detailed help for a specific command type"""
         help_docs = {
+            "memory": {
+                "description": "Toggle memory usage between Redis and In-Memory",
+                "usage": "/memory",
+                "examples": ["/memory  # Toggle memory usage between Redis and In-Memory"],
+                "subcommands": {},
+                "tips": ["Use to toggle memory usage between Redis and In-Memory"],
+            },
             "tools": {
                 "description": "List and manage available tools across all connected servers",
                 "usage": "/tools",
@@ -204,6 +213,10 @@ class MCPClientCLI:
     def __init__(self, client: MCPClient, llm_connection: LLMConnection):
         self.client = client
         self.llm_connection = llm_connection
+        self.MAX_CONTEXT_TOKENS = self.llm_connection.config.load_config("servers_config.json")["LLM"]["max_tokens"]
+        self.USE_MEMORY = {"redis": False, "in_memory": True}
+        self.redis_short_term_memory = RedisShortTermMemory(max_context_tokens=self.MAX_CONTEXT_TOKENS)
+        self.in_memory_short_term_memory = InMemoryShortTermMemory(max_context_tokens=self.MAX_CONTEXT_TOKENS)
         self.console = Console()
         self.command_help = CommandHelp()
 
@@ -241,6 +254,8 @@ class MCPClientCLI:
             return CommandType.CLEAR_HISTORY, ""
         elif input_text.startswith("/save_history:"):
             return CommandType.SAVE_HISTORY, input_text[14:].strip()
+        elif input_text == "/memory":
+            return CommandType.MEMORY, ""
         else:
             if input_text:
                 return CommandType.QUERY, input_text
@@ -254,7 +269,14 @@ class MCPClientCLI:
             f"[{'green' if self.client.debug else 'red'}]Debug mode "
             f"{'enabled' if self.client.debug else 'disabled'}[/]"
         )
-
+    async def handle_memory_command(self, input_text: str = ""):
+        """Handle memory command"""
+        self.USE_MEMORY["redis"] = not self.USE_MEMORY["redis"]
+        self.console.print(
+            f"[{'green' if self.USE_MEMORY["redis"] else 'red'}]Redis memory "
+            f"{'enabled' if self.USE_MEMORY["redis"] else 'disabled'}[/]"
+        )
+            
     async def handle_refresh_command(self, input_text: str = ""):
         """Handle refresh capabilities command"""
         with Progress(
@@ -421,7 +443,7 @@ class MCPClientCLI:
                 uri=uri,
                 sessions=self.client.sessions,
                 available_resources=self.client.available_resources,
-                add_message_to_history=self.client.add_message_to_history,
+                add_message_to_history=self.redis_short_term_memory.store_message if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.store_message,
                 llm_call=self.llm_connection.llm_call,
                 debug=self.client.debug,
             )
@@ -497,7 +519,7 @@ class MCPClientCLI:
                 content = await get_prompt(
                     sessions=self.client.sessions,
                     system_prompt=system_prompt,
-                    add_message_to_history=self.client.add_message_to_history,
+                    add_message_to_history=self.redis_short_term_memory.store_message if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.store_message,
                     llm_call=self.llm_connection.llm_call,
                     debug=self.client.debug,
                     available_prompts=self.client.available_prompts,
@@ -512,7 +534,7 @@ class MCPClientCLI:
                 initial_response = await get_prompt_with_react_agent(
                     sessions=self.client.sessions,
                     system_prompt=react_agent_prompt,
-                    add_message_to_history=self.client.add_message_to_history,
+                    add_message_to_history=self.redis_short_term_memory.store_message if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.store_message,
                     debug=self.client.debug,
                     available_prompts=self.client.available_prompts,
                     name=name,
@@ -525,11 +547,11 @@ class MCPClientCLI:
                         query=initial_response,
                         llm_connection=self.llm_connection,
                         available_tools=self.client.available_tools,
-                        add_message_to_history=self.client.add_message_to_history,
-                        message_history=self.client.message_history,
+                        add_message_to_history=self.redis_short_term_memory.store_message if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.store_message,
+                        message_history=self.redis_short_term_memory.get_messages if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.get_messages,
                     )
                 else:
-                    content = initial_response
+                    content = initial_response  
 
         if content.startswith("```") or content.startswith("#"):
             self.console.print(Markdown(content))
@@ -640,8 +662,8 @@ class MCPClientCLI:
                     server_names=self.client.server_names,
                     tools_list=tools,
                     available_tools=self.client.available_tools,
-                    add_message_to_history=self.client.add_message_to_history,
-                    message_history=self.client.message_history,
+                    add_message_to_history=self.redis_short_term_memory.store_message if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.store_message,
+                    message_history=self.redis_short_term_memory.get_messages if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.get_messages,
                     debug=self.client.debug,
                 )
             else:
@@ -655,8 +677,8 @@ class MCPClientCLI:
                     query=query,
                     llm_connection=self.llm_connection,
                     available_tools=self.client.available_tools,
-                    add_message_to_history=self.client.add_message_to_history,
-                    message_history=self.client.message_history,
+                    add_message_to_history=self.redis_short_term_memory.store_message if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.store_message,
+                    message_history=self.redis_short_term_memory.get_messages if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.get_messages,
                 )
 
         if "```" in response or "#" in response:
@@ -669,18 +691,28 @@ class MCPClientCLI:
         prompts_table = Table(title="Message History", box=box.ROUNDED)
         prompts_table.add_column("Role", style="cyan", no_wrap=False)
         prompts_table.add_column("Content", style="green")
-        for message in self.client.message_history:
+        if self.USE_MEMORY["redis"]:
+            messages = await self.redis_short_term_memory.get_messages()
+        else:
+            messages = await self.in_memory_short_term_memory.get_messages()
+        for message in messages:
             prompts_table.add_row(message["role"], message["content"])
         self.console.print(prompts_table)
 
     async def handle_clear_history_command(self, input_text: str = ""):
         """Handle clear history command"""
-        await self.client.clear_history()
+        if self.USE_MEMORY["redis"]:
+            await self.redis_short_term_memory.clear_memory()
+        else:
+            await self.in_memory_short_term_memory.clear_memory()
         self.console.print("[green]Message history cleared[/]")
 
     async def handle_save_history_command(self, input_text: str):
         """Handle save history command"""
-        await self.client.save_message_history_to_file(input_text)
+        if self.USE_MEMORY["redis"]:
+            await self.redis_short_term_memory.save_message_history_to_file(input_text)
+        else:
+            await self.in_memory_short_term_memory.save_message_history_to_file(input_text)
         self.console.print(f"[green]Message history saved to {input_text}[/]")
 
     async def chat_loop(self):
@@ -703,6 +735,7 @@ class MCPClientCLI:
             CommandType.SAVE_HISTORY: self.handle_save_history_command,
             CommandType.SUBSCRIBE: self.handle_subscribe,
             CommandType.UNSUBSCRIBE: self.handle_unsubscribe,
+            CommandType.MEMORY: self.handle_memory_command,
         }
 
         while True:
@@ -792,6 +825,7 @@ class MCPClientCLI:
         commands_table.add_column("[bold yellow]Example[/]", style="yellow")
 
         commands = [
+            ("/memory", "Toggle memory usage between Redis and In-Memory 💾", ""),
             ("/debug", "Toggle debug mode 🐛", ""),
             ("/refresh", "Refresh server capabilities 🔄", ""),
             ("/help", "Show help 🆘", "/help:command"),

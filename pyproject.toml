@@ -33,7 +33,9 @@ dependencies = [
     "httpx-sse>=0.4.0",
     "pydantic>=2.6.0",
     "anyio>=4.2.0",
-    "groq>=0.20.0"
+    "groq>=0.20.0",
+    "redis>=5.2.1",
+    "python-decouple>=3.8",
 ]
 
 [project.scripts]

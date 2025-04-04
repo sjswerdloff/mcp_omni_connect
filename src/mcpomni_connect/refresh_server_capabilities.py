@@ -24,24 +24,24 @@ async def refresh_capabilities(
         try:
             tools_response = await session.list_tools()
             available_tools[server_name] = tools_response.tools if tools_response else []
-        except Exception:
-            logger.info(f"{server_name} does not support tools")
+        except Exception as e:
+            logger.info(f"{server_name} does not support tools: {e}")
             available_tools[server_name] = []
 
         # List all resources
         try:
             resources_response = await session.list_resources()
             available_resources[server_name] = resources_response.resources if resources_response else []
-        except Exception:
-            logger.info(f"{server_name} does not support resources")
+        except Exception as e:
+            logger.info(f"{server_name} does not support resources: {e}")
             available_resources[server_name] = []
 
         # List all prompts
         try:
             prompts_response = await session.list_prompts()
             available_prompts[server_name] = prompts_response.prompts if prompts_response else []
-        except Exception:
-            logger.info(f"{server_name} does not support prompts")
+        except Exception as e:
+            logger.info(f"{server_name} does not support prompts: {e}")
             available_prompts[server_name] = []
 
     if debug:
