@@ -2,18 +2,22 @@ from dataclasses import dataclass
 from typing import List, Optional, Union, Dict, Any
 from enum import Enum
 
+
 class ContentType(str, Enum):
     TEXT = "text"
     IMAGE = "image"
+
 
 class ContextInclusion(str, Enum):
     NONE = "none"
     THIS_SERVER = "thisServer"
     ALL_SERVERS = "allServers"
 
+
 @dataclass
 class ModelHint:
     name: Optional[str] = None
+
 
 @dataclass
 class ModelPreferences:
@@ -22,6 +26,7 @@ class ModelPreferences:
     speed_priority: Optional[float] = None
     intelligence_priority: Optional[float] = None
 
+
 @dataclass
 class MessageContent:
     type: ContentType
@@ -29,10 +34,12 @@ class MessageContent:
     data: Optional[str] = None  # base64 encoded for images
     mime_type: Optional[str] = None
 
+
 @dataclass
 class Message:
     role: str
     content: MessageContent
+
 
 @dataclass
 class CreateMessageRequestParams:
@@ -45,6 +52,7 @@ class CreateMessageRequestParams:
     stop_sequences: Optional[List[str]] = None
     metadata: Optional[Dict[str, Any]] = None
 
+
 @dataclass
 class CreateMessageResult:
     model: str
@@ -52,7 +60,8 @@ class CreateMessageResult:
     role: str = "assistant"
     content: Optional[MessageContent] = None
 
+
 @dataclass
 class ErrorData:
     code: str
-    message: str 
+    message: str

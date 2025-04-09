@@ -6,6 +6,9 @@ import uuid
 import subprocess
 import platform
 import json
+from decouple import config
+from sentence_transformers import SentenceTransformer
+from openai import OpenAI
 # Configure logging
 logger = logging.getLogger("mcpomni_connect")
 logger.setLevel(logging.INFO)
@@ -20,7 +23,7 @@ console_handler.setLevel(logging.INFO)
 
 # Create file handler with immediate flush
 log_file = Path("mcpomni_connect.log")
-file_handler = logging.FileHandler(log_file, mode='a')
+file_handler = logging.FileHandler(log_file, mode="a")
 file_handler.setLevel(logging.INFO)
 
 # Create formatters
@@ -28,17 +31,17 @@ console_formatter = colorlog.ColoredFormatter(
     "%(log_color)s%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     log_colors={
-        'DEBUG': 'cyan',
-        'INFO': 'green',
-        'WARNING': 'yellow',
-        'ERROR': 'red',
-        'CRITICAL': 'red,bg_white',
-    }
+        "DEBUG": "cyan",
+        "INFO": "green",
+        "WARNING": "yellow",
+        "ERROR": "red",
+        "CRITICAL": "red,bg_white",
+    },
 )
 
 file_formatter = logging.Formatter(
     "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 
 # Set formatters
@@ -69,43 +72,50 @@ def clean_json_response(json_response):
                 start = json_response.find("```") + 3
                 end = json_response.rfind("```")
                 # Skip the "json" if it's present after first ```
-                if json_response[start:start+4].lower() == "json":
+                if json_response[start : start + 4].lower() == "json":
                     start += 4
                 json_response = json_response[start:end].strip()
-            
+
             # Find the first { and last }
             start = json_response.find("{")
             end = json_response.rfind("}") + 1
             if start >= 0 and end > start:
                 json_response = json_response[start:end]
-            
+
             # Validate the extracted JSON
             json.loads(json_response)
             return json_response
         except (json.JSONDecodeError, ValueError) as e:
-            raise json.JSONDecodeError(f"Could not extract valid JSON from response: {str(e)}", json_response, 0)
+            raise json.JSONDecodeError(
+                f"Could not extract valid JSON from response: {str(e)}",
+                json_response,
+                0,
+            )
+
 
 from collections import deque
 import hashlib
 from typing import Tuple, List, Set, Optional, Dict, Any, Union
 
+
 def hash_text(text: str) -> str:
     """Hash a string using SHA-256."""
     return hashlib.sha256(text.encode()).hexdigest()
 
+
 class RobustLoopDetector:
     def __init__(
-        self, 
+        self,
         maxlen: int = 20,
         min_calls: int = 3,
         same_output_threshold: int = 3,
         same_input_threshold: int = 3,
         full_dup_threshold: int = 3,
         pattern_detection: bool = True,
-        max_pattern_length: int = 3
+        max_pattern_length: int = 3,
     ):
         """Initialize a robust loop detector.
-        
+
         Args:
             maxlen: Maximum number of recent interactions to track
             min_calls: Minimum number of interactions before loop detection is active
@@ -122,182 +132,212 @@ class RobustLoopDetector:
         self.full_dup_threshold = full_dup_threshold
         self.pattern_detection = pattern_detection
         self.max_pattern_length = max_pattern_length
-        
+
         # Cache for performance optimization
         self._cache: Dict[str, Any] = {}
         self._interaction_count = 0
-    
-    def record_tool_call(self, tool_name: str, tool_input: str, tool_output: str) -> None:
+
+    def record_tool_call(
+        self, tool_name: str, tool_input: str, tool_output: str
+    ) -> None:
         """Record a new tool call interaction.
-        
+
         Args:
             tool_name: Name of the tool that was called
             tool_input: Input provided to the tool
             tool_output: Output returned by the tool
         """
-        logger.info(f"Recording tool call: {tool_name}, {tool_input}, {tool_output}")
-        signature = ("tool", tool_name, hash_text(tool_input), hash_text(tool_output))
+        logger.info(
+            f"Recording tool call: {tool_name}, {tool_input}, {tool_output}"
+        )
+        signature = (
+            "tool",
+            tool_name,
+            hash_text(tool_input),
+            hash_text(tool_output),
+        )
         self.recent_interactions.append(signature)
         logger.info(f"Recent interactions: {self.recent_interactions}")
         self._interaction_count += 1
-        
+
         # Invalidate cache
         self._cache = {}
-    
-    def record_message(self, user_message: str, assistant_message: str) -> None:
+
+    def record_message(
+        self, user_message: str, assistant_message: str
+    ) -> None:
         """Record a new message exchange interaction.
-        
+
         Args:
             user_message: Message from the user
             assistant_message: Response from the assistant
         """
-        signature = ("message", "", hash_text(user_message), hash_text(assistant_message))
+        signature = (
+            "message",
+            "",
+            hash_text(user_message),
+            hash_text(assistant_message),
+        )
         self.recent_interactions.append(signature)
         self._interaction_count += 1
-        
+
         # Invalidate cache
         self._cache = {}
-        
-    def record_interaction(self, interaction_type: str, input_data: str, output_data: str, metadata: str = "") -> None:
+
+    def record_interaction(
+        self,
+        interaction_type: str,
+        input_data: str,
+        output_data: str,
+        metadata: str = "",
+    ) -> None:
         """Generic method to record any type of interaction.
-        
+
         Args:
             interaction_type: Type of interaction (e.g., "tool", "message", "function")
             input_data: Input for the interaction
             output_data: Output from the interaction
             metadata: Additional information about the interaction (e.g., tool name)
         """
-        signature = (interaction_type, metadata, hash_text(input_data), hash_text(output_data))
+        signature = (
+            interaction_type,
+            metadata,
+            hash_text(input_data),
+            hash_text(output_data),
+        )
         self.recent_interactions.append(signature)
         self._interaction_count += 1
-        
+
         # Invalidate cache
         self._cache = {}
-    
+
     def reset(self) -> None:
         """Reset the detector, clearing all recorded interactions."""
         self.recent_interactions.clear()
         self._cache = {}
         self._interaction_count = 0
-    
+
     def _get_unique_inputs(self) -> Set[str]:
         """Get set of unique inputs (cached)."""
-        if 'unique_inputs' not in self._cache:
-            self._cache['unique_inputs'] = set(sig[2] for sig in self.recent_interactions)
-        return self._cache['unique_inputs']
-    
+        if "unique_inputs" not in self._cache:
+            self._cache["unique_inputs"] = set(
+                sig[2] for sig in self.recent_interactions
+            )
+        return self._cache["unique_inputs"]
+
     def _get_unique_outputs(self) -> Set[str]:
         """Get set of unique outputs (cached)."""
-        if 'unique_outputs' not in self._cache:
-            self._cache['unique_outputs'] = set(sig[3] for sig in self.recent_interactions)
-        return self._cache['unique_outputs']
-    
+        if "unique_outputs" not in self._cache:
+            self._cache["unique_outputs"] = set(
+                sig[3] for sig in self.recent_interactions
+            )
+        return self._cache["unique_outputs"]
+
     def _get_unique_signatures(self) -> Set[Tuple]:
         """Get set of unique full signatures (cached)."""
-        if 'unique_signatures' not in self._cache:
-            self._cache['unique_signatures'] = set(self.recent_interactions)
-        return self._cache['unique_signatures']
-    
+        if "unique_signatures" not in self._cache:
+            self._cache["unique_signatures"] = set(self.recent_interactions)
+        return self._cache["unique_signatures"]
+
     def is_ready(self) -> bool:
         """Check if we have enough data to start detecting loops."""
         return self._interaction_count >= self.min_calls
-    
+
     def is_stuck_same_output(self) -> bool:
         """Detect if we're stuck getting the same outputs repeatedly."""
         if not self.is_ready():
             return False
-            
+
         # Get the last few outputs
         recent_outputs = [sig[3] for sig in self.recent_interactions]
-        
+
         # We need at least same_output_threshold outputs to check
         if len(recent_outputs) < self.same_output_threshold:
             return False
-            
+
         # Check if the last same_output_threshold outputs are all the same
-        last_outputs = recent_outputs[-self.same_output_threshold:]
+        last_outputs = recent_outputs[-self.same_output_threshold :]
         return len(set(last_outputs)) == 1
-    
+
     def is_stuck_same_input(self) -> bool:
         """Detect if we're stuck using the same inputs repeatedly."""
         if not self.is_ready():
             return False
-            
+
         # Get the last few inputs
         recent_inputs = [sig[2] for sig in self.recent_interactions]
-        
+
         # We need at least same_input_threshold inputs to check
         if len(recent_inputs) < self.same_input_threshold:
             return False
-            
+
         # Check if the last same_input_threshold inputs are all the same
-        last_inputs = recent_inputs[-self.same_input_threshold:]
+        last_inputs = recent_inputs[-self.same_input_threshold :]
         return len(set(last_inputs)) == 1
-    
+
     def is_fully_stuck(self) -> bool:
         """Detect if we're stuck in the same input-output combinations."""
         if not self.is_ready():
             return False
-            
+
         # Get the last few interactions
         recent_interactions = list(self.recent_interactions)
-        
+
         # We need at least full_dup_threshold interactions to check
         if len(recent_interactions) < self.full_dup_threshold:
             return False
-            
+
         # Check if the last full_dup_threshold interactions are all the same
-        last_interactions = recent_interactions[-self.full_dup_threshold:]
+        last_interactions = recent_interactions[-self.full_dup_threshold :]
         return len(set(last_interactions)) == 1
-    
+
     def find_repeating_pattern(self) -> Optional[List[Tuple]]:
         """Find a repeating pattern in the interaction history.
-        
+
         Returns:
             The detected pattern as a list of signatures, or None if no pattern found
         """
         if not self.pattern_detection or not self.is_ready():
             return None
-            
+
         interactions = list(self.recent_interactions)
-        
+
         # Check patterns of different lengths
-        for pattern_len in range(1, min(self.max_pattern_length + 1, len(interactions) // 2 + 1)):
+        for pattern_len in range(
+            1, min(self.max_pattern_length + 1, len(interactions) // 2 + 1)
+        ):
             # Check if the last N elements repeat the previous N elements
             pattern = interactions[-pattern_len:]
-            prev_pattern = interactions[-2*pattern_len:-pattern_len]
-            
+            prev_pattern = interactions[-2 * pattern_len : -pattern_len]
+
             if pattern == prev_pattern:
                 # Found a repeating pattern
                 return pattern
-                
-        # For more complex patterns (like A-B-A-C-A-B-A-C)
-        # We could implement more sophisticated algorithms
-        
+
         return None
-    
+
     def has_pattern_loop(self) -> bool:
         """Check if there's a repeating pattern loop."""
         return self.find_repeating_pattern() is not None
-    
+
     def is_looping(self) -> bool:
         """Check if any loop detection method indicates a loop."""
         return (
-            self.is_stuck_same_output() or 
-            self.is_stuck_same_input() or 
-            self.is_fully_stuck() or 
-            self.has_pattern_loop()
+            self.is_stuck_same_output()
+            or self.is_stuck_same_input()
+            or self.is_fully_stuck()
+            or self.has_pattern_loop()
         )
-    
+
     def get_loop_type(self) -> List[str]:
         """Get detailed information about the type of loop detected.
-        
+
         Returns:
             List of strings describing the detected loop types
         """
         if not self.is_looping():
             return []
-            
+
         loop_types = []
         if self.is_stuck_same_output():
             loop_types.append("same_output")
@@ -305,28 +345,28 @@ class RobustLoopDetector:
             loop_types.append("same_input")
         if self.is_fully_stuck():
             loop_types.append("full_duplication")
-        
+
         pattern = self.find_repeating_pattern()
         if pattern:
             loop_types.append(f"repeating_pattern(len={len(pattern)})")
-            
+
         return loop_types
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about the current state.
-        
+
         Returns:
             Dictionary with statistics about inputs, outputs, etc.
         """
         if not self.recent_interactions:
             return {"interactions": 0}
-            
+
         # Count different types of interactions
         interaction_types = {}
         for sig in self.recent_interactions:
             itype = sig[0]
             interaction_types[itype] = interaction_types.get(itype, 0) + 1
-            
+
         return {
             "interactions": self._interaction_count,
             "queue_size": len(self.recent_interactions),
@@ -334,12 +374,12 @@ class RobustLoopDetector:
             "unique_outputs": len(self._get_unique_outputs()),
             "unique_signatures": len(self._get_unique_signatures()),
             "interaction_types": interaction_types,
-            "repeating_pattern": self.find_repeating_pattern() is not None
+            "repeating_pattern": self.find_repeating_pattern() is not None,
         }
-    
+
     def get_interaction_types(self) -> Dict[str, int]:
         """Get counts of each interaction type in the history.
-        
+
         Returns:
             Dictionary mapping interaction types to their counts
         """
@@ -349,14 +389,17 @@ class RobustLoopDetector:
             type_counts[itype] = type_counts.get(itype, 0) + 1
         return type_counts
 
-def handle_stuck_state(original_system_prompt: str, message_stuck_prompt: bool = False):
+
+def handle_stuck_state(
+    original_system_prompt: str, message_stuck_prompt: bool = False
+):
     """
     Creates a modified system prompt that includes stuck detection guidance.
-    
+
     Parameters:
     - original_system_prompt: The normal system prompt you use
     - message_stuck_prompt: If True, use a shorter version of the stuck prompt
-    
+
     Returns:
     - Modified system prompt with stuck guidance prepended
     """
@@ -385,20 +428,43 @@ def handle_stuck_state(original_system_prompt: str, message_stuck_prompt: bool =
             "   - Offer one or more alternative solutions or next steps.\n"
             "❗ Do not repeat the same failed strategy or go silent."
         )
-    
+
     # Create a temporary modified system prompt
     modified_system_prompt = (
         f"{stuck_prompt}\n\n"
         f"Your previous approaches to solve this problem have failed. You need to try something completely different.\n\n"
         f"{original_system_prompt}"
     )
-    
-    logger.warning("Agent detected stuck state. Modified system prompt with corrective guidance.")
+
+    logger.warning(
+        "Agent detected stuck state. Modified system prompt with corrective guidance."
+    )
     return modified_system_prompt
 
+
+def embed_text(text: str) -> List[float]:
+    """Embed text using OpenAI's embedding API."""
+    client = OpenAI(api_key=config("OPENAI_API_KEY"))
+    response = client.embeddings.create(
+        input=text, model="text-embedding-ada-002"
+    )
+    return response.data[0].embedding
+
+# # Initialize the model once at module level
+# EMBEDDING_MODEL = SentenceTransformer('BAAI/bge-large-en-v1.5')
+
+# def embed_text(text: str) -> List[float]:
+#     """Embed text using Sentence Transformers."""
+#     try:
+#         # Get the embedding
+#         embedding = EMBEDDING_MODEL.encode(text)
+#         return embedding.tolist()
+#     except Exception as e:
+#         logger.error(f"Error generating embedding: {e}")
+#         return []
 def get_mac_address() -> str:
     """Get the MAC address of the client machine.
-    
+
     Returns:
         str: The MAC address as a string, or a fallback UUID if MAC address cannot be determined.
     """
@@ -413,30 +479,35 @@ def get_mac_address() -> str:
                             return mac
                 except FileNotFoundError:
                     continue
-            
+
             # Fallback to using ip command
-            result = subprocess.run(['ip', 'link', 'show'], capture_output=True, text=True)
-            for line in result.stdout.split('\n'):
-                if 'link/ether' in line:
-                    return line.split('link/ether')[1].split()[0]
-                    
+            result = subprocess.run(
+                ["ip", "link", "show"], capture_output=True, text=True
+            )
+            for line in result.stdout.split("\n"):
+                if "link/ether" in line:
+                    return line.split("link/ether")[1].split()[0]
+
         elif platform.system() == "Darwin":  # macOS
-            result = subprocess.run(['ifconfig'], capture_output=True, text=True)
-            for line in result.stdout.split('\n'):
-                if 'ether' in line:
-                    return line.split('ether')[1].split()[0]
-                    
+            result = subprocess.run(
+                ["ifconfig"], capture_output=True, text=True
+            )
+            for line in result.stdout.split("\n"):
+                if "ether" in line:
+                    return line.split("ether")[1].split()[0]
+
         elif platform.system() == "Windows":
-            result = subprocess.run(['getmac'], capture_output=True, text=True)
-            for line in result.stdout.split('\n'):
-                if ':' in line and '-' in line:  # Look for MAC address format
+            result = subprocess.run(["getmac"], capture_output=True, text=True)
+            for line in result.stdout.split("\n"):
+                if ":" in line and "-" in line:  # Look for MAC address format
                     return line.split()[0]
-                    
+
     except Exception as e:
         logger.warning(f"Could not get MAC address: {e}")
-        
+
     # If all else fails, generate a UUID
     return str(uuid.uuid4())
+
 
 # Create a global instance of the MAC address
 CLIENT_MAC_ADDRESS = get_mac_address()

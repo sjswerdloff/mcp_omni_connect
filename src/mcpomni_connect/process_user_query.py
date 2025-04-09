@@ -2,6 +2,7 @@ import json
 from typing import Any, Callable, Optional
 from mcpomni_connect.utils import logger
 
+
 # process a query using LLM and available tools
 async def process_query(
     query: str,
@@ -23,11 +24,11 @@ async def process_query(
 
     # add system prompt and user query to messages
     messages.append({"role": "system", "content": system_prompt})
-    
+
     # track assistant with tool calls and pending tool responses
     assistant_with_tool_calls = None
     pending_tool_responses = []
-    
+
     # get message history from redis
     short_term_memory_message_history = await message_history()
     # process message history in order
@@ -125,7 +126,6 @@ async def process_query(
         logger.info(f"Available tools for query: {tool_names}")
         logger.info(f"Sending {len(messages)} messages to LLM")
     try:
-        logger.info(f"all messages: {messages}")
         # Initial LLM API call
         response = await llm_connection.llm_call(
             messages=messages, tools=all_available_tools
@@ -155,7 +155,9 @@ async def process_query(
             )
         # if the initial response is empty, set it to the tool call name to ensure the context is clear
         if not initial_response:
-            logger.info(f"Initial response is empty, setting it to the tool call name")
+            logger.info(
+                f"Initial response is empty, setting it to the tool call name"
+            )
             tool_name = assistant_message.tool_calls[0].function.name
             initial_response = f"Tool called {tool_name}"
         # Properly append assistant message with tool calls
@@ -197,27 +199,37 @@ async def process_query(
             try:
                 tool_content = None
                 if debug:
-                    logger.info(f"Looking for tool {tool_name} in available tools")
-                
+                    logger.info(
+                        f"Looking for tool {tool_name} in available tools"
+                    )
+
                 for server_name, tools in available_tools.items():
                     # Get tool names, handling both Mock objects and regular tools
                     tool_names = []
                     for tool in tools:
-                        if hasattr(tool, 'name'):
+                        if hasattr(tool, "name"):
                             if debug:
-                                logger.info(f"Found tool with name attribute: {tool.name}")
+                                logger.info(
+                                    f"Found tool with name attribute: {tool.name}"
+                                )
                             tool_names.append(tool.name)
                         elif isinstance(tool, str):
                             if debug:
-                                logger.info(f"Found tool with string name: {tool}")
+                                logger.info(
+                                    f"Found tool with string name: {tool}"
+                                )
                             tool_names.append(tool)
-                    
+
                     if debug:
-                        logger.info(f"Available tool names in {server_name}: {tool_names}")
-                    
+                        logger.info(
+                            f"Available tool names in {server_name}: {tool_names}"
+                        )
+
                     if tool_name in tool_names:
                         if debug:
-                            logger.info(f"Found matching tool {tool_name} in {server_name}")
+                            logger.info(
+                                f"Found matching tool {tool_name} in {server_name}"
+                            )
                         result = await sessions[server_name][
                             "session"
                         ].call_tool(tool_name, tool_args)
@@ -227,9 +239,11 @@ async def process_query(
                             else str(result)
                         )
                         break
-                
+
                 if tool_content is None:
-                    raise Exception(f"Tool {tool_name} not found in any server")
+                    raise Exception(
+                        f"Tool {tool_name} not found in any server"
+                    )
 
                 # Handle the result content appropriately
                 if (

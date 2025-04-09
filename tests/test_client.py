@@ -11,29 +11,31 @@ MOCK_SERVER_CONFIG = {
             "type": "stdio",
             "command": "mock_command",
             "args": ["arg1", "arg2"],
-            "env": {"TEST_ENV": "test"}
+            "env": {"TEST_ENV": "test"},
         },
         "server2": {
             "type": "sse",
             "url": "http://test.com",
             "headers": {"Authorization": "Bearer test"},
             "timeout": 5,
-            "sse_read_timeout": 300
+            "sse_read_timeout": 300,
         },
-        "server3": {
-            "type": "websocket",
-            "url": "ws://test.com"
-        }
+        "server3": {"type": "websocket", "url": "ws://test.com"},
     }
 }
+
 
 @pytest.fixture
 def mock_env():
     """Fixture to set up mock environment variables"""
-    with patch.dict(os.environ, {
-        "LLM_API_KEY": "test_llm_key",
-    }):
+    with patch.dict(
+        os.environ,
+        {
+            "LLM_API_KEY": "test_llm_key",
+        },
+    ):
         yield
+
 
 @pytest.fixture
 def mock_config_file(tmp_path):
@@ -41,6 +43,7 @@ def mock_config_file(tmp_path):
     config_file = tmp_path / "servers_config.json"
     config_file.write_text(json.dumps(MOCK_SERVER_CONFIG))
     return str(config_file)
+
 
 class TestConfiguration:
     def test_init(self, mock_env):
@@ -69,10 +72,15 @@ class TestConfiguration:
 
     def test_llm_api_key_missing(self):
         """Test getting LLM API key when missing"""
-        with patch.dict(os.environ, {}, clear=True), patch.object(Configuration, "load_env", return_value=None):
-            with pytest.raises(ValueError) as exc_info:  
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(Configuration, "load_env", return_value=None),
+        ):
+            with pytest.raises(ValueError) as exc_info:
                 Configuration()
-            assert "LLM_API_KEY not found in environment variables" in str(exc_info.value)
+            assert "LLM_API_KEY not found in environment variables" in str(
+                exc_info.value
+            )
 
 
 class TestMCPClient:
@@ -86,15 +94,18 @@ class TestMCPClient:
     @pytest.mark.asyncio
     async def test_connect_to_servers(self, mock_client):
         """Test connecting to servers"""
+
         # Mock the _connect_to_single_server to append server names on success
         async def connect_side_effect(server):
-            if server['name'] == 'server2':
+            if server["name"] == "server2":
                 raise Exception("Connection failed")
             else:
-                mock_client.server_names.append(server['name'])
-        
-        mock_client._connect_to_single_server = AsyncMock(side_effect=connect_side_effect)
-        
+                mock_client.server_names.append(server["name"])
+
+        mock_client._connect_to_single_server = AsyncMock(
+            side_effect=connect_side_effect
+        )
+
         successful_connections = await mock_client.connect_to_servers()
         assert successful_connections == 2
         assert len(mock_client.server_names) == 2
@@ -106,7 +117,9 @@ class TestMCPClient:
         assert url == "http://test.com"
 
         # Test WebSocket URL
-        url = mock_client._validate_and_convert_url("ws://test.com", "websocket")
+        url = mock_client._validate_and_convert_url(
+            "ws://test.com", "websocket"
+        )
         assert url == "ws://test.com"
 
         # Test invalid SSE URL
@@ -138,4 +151,6 @@ class TestMCPClient:
         await mock_client.add_message_to_history("user", "test message")
         await mock_client.add_message_to_history("assistant", "test response")
         await mock_client.show_history()  # Just call the method, don't check return value
-        assert len(mock_client.message_history) == 2  # Check the attribute directly
+        assert (
+            len(mock_client.message_history) == 2
+        )  # Check the attribute directly

@@ -1,5 +1,5 @@
 import json
-from mcpomni_connect.utils import logger, CLIENT_MAC_ADDRESS, clean_json_response
+from mcpomni_connect.utils import logger, CLIENT_MAC_ADDRESS, clean_json_response, embed_text
 import redis.asyncio as redis
 import time
 from typing import Optional, Callable, List, Dict, Any
@@ -13,14 +13,21 @@ from qdrant_client.http import models
 from qdrant_client.http.models import Distance, VectorParams
 
 class InMemoryShortTermMemory:
+    message_history = []
     """In memory short term memory."""
     def __init__(self, max_context_tokens: int = 30000, debug: bool = False) -> None:
         """Initialize."""
         self.max_context_tokens = max_context_tokens
-        self.message_history = []
         self.debug = debug
 
-    # add a message to the message history
+    async def truncate_message_history(self):
+        """Truncate the message history to the max context tokens"""
+        # get the total tokens in the message history
+        total_tokens = sum(len(msg["content"].split()) for msg in self.message_history)
+        while total_tokens > self.max_context_tokens:
+            self.message_history.pop(0)
+            total_tokens = sum(len(msg["content"].split()) for msg in self.message_history)
+
     async def store_message(
         self, role: str, content: str, metadata: Optional[dict] = None
     ):
@@ -37,6 +44,7 @@ class InMemoryShortTermMemory:
 
     async def get_messages(self):
         """Get the message history"""
+        await self.truncate_message_history()
         return self.message_history
 
     async def show_history(self):
@@ -60,7 +68,7 @@ class InMemoryShortTermMemory:
         if self.debug:
             logger.info(f"Message history saved to {file_path}")
 
-class RedisShortTermMemory:
+class RedisShortTermMemory():
     """Redis short term memory."""
     REDIS_HOST = config("REDIS_HOST", default="localhost")
     REDIS_PORT = config("REDIS_PORT", default=6379)
@@ -72,6 +80,7 @@ class RedisShortTermMemory:
         )
         self.SHORT_TERM_LIMIT = int(0.7 * max_context_tokens)
         self.client_id = CLIENT_MAC_ADDRESS
+        self.in_memory_short_term_memory = InMemoryShortTermMemory(max_context_tokens=max_context_tokens)
         logger.info(f"Initialized RedisShortTermMemory with client ID: {self.client_id}")
 
     async def store_message(self, role: str, content: str, metadata: dict = None):
@@ -92,7 +101,8 @@ class RedisShortTermMemory:
         # Store as a JSON string in Redis
         await self._redis_client.zadd(key, {json.dumps(message): timestamp})
         await self._redis_client.set(f"mcp_last_active:{self.client_id}", timestamp)
-        
+        # store to the in memory to act as current working memory which will be use for episodic memory
+        await self.in_memory_short_term_memory.store_message(role, content, metadata)
         # Enforce the short term limit
         await self.enforce_short_term_limit()
 
@@ -267,13 +277,7 @@ class RedisShortTermMemory:
 #         except Exception as e:
 #             logger.error(f"Failed to update documents in ChromaDB: {e}")
 #             raise
-from openai import OpenAI
-from decouple import config
-def embed_text(text: str) -> List[float]:
-    """Embed text using OpenAI's embedding API."""
-    client = OpenAI(api_key=config("OPENAI_API_KEY"))
-    response = client.embeddings.create(input=text, model="text-embedding-ada-002")
-    return response.data[0].embedding
+
 
 class QdrantMemory:
     def __init__(self, name: str, description: str):
@@ -283,7 +287,7 @@ class QdrantMemory:
             name: Name of the collection
             description: Description of the collection
         """
-        self.client = QdrantClient(host="localhost", port=6333)
+        self.client = QdrantClient(host=config("QDRANT_HOST", default="localhost"), port=config("QDRANT_PORT", default=6333))
         self.collection_name = name
         self.description = description
         self._ensure_collection()
@@ -433,7 +437,7 @@ class QdrantMemory:
                 metadata["text"] = doc
                 metadata["previous_conversation"] = conversation
                 metadata["timestamp"] = str(datetime.now())
-                
+                logger.info(f"embedding text: {embed_text(doc)}")
                 points.append(models.PointStruct(
                     id=doc_id,
                     vector=embed_text(doc),
@@ -472,14 +476,13 @@ class EpisodicMemory(QdrantMemory):
             Dict: The created memory
         """
         try:
-            response = await llm_connection.llm_call([
-                {"role": "system", "content": self.EPISODIC_MEMORY_PROMPT},
-                {"role": "user", "content": str(messages)}
-            ])
-            # logger.info(f"Episodic memory response: {response}")
+            llm_messages = []
+            llm_messages.append({"role": "system", "content": self.EPISODIC_MEMORY_PROMPT})
+            llm_messages.append({"role": "user", "content": str(messages)})
+            response = await llm_connection.llm_call(llm_messages)
             if response and response.choices:
+                logger.info(f"response: {response.choices[0].message.content}")
                 memory = clean_json_response(response.choices[0].message.content)
-                # logger.info(f"Episodic memory: {memory}")
                 
                 # Store the memory in Qdrant
                 self.add_to_collection(
@@ -491,7 +494,7 @@ class EpisodicMemory(QdrantMemory):
                     ids=[str(uuid.uuid4())]
                 )
                 
-                logger.info(f"Successfully created episodic memory: {memory}")
+                logger.debug(f"Successfully created episodic memory: {memory}")
                 return memory
                 
             return None
@@ -512,7 +515,6 @@ class EpisodicMemory(QdrantMemory):
         try:
             final_results = []
             results = self.query_collection(query, n_results)
-            #logger.info(f"Episodic query results: {results}")
             if results and "documents" in results:
                 documents = results.get("documents", [])
                 # Flatten nested lists defensively
@@ -529,7 +531,7 @@ class EpisodicMemory(QdrantMemory):
                         final_results.append(json.loads(doc))
                     except (TypeError, json.JSONDecodeError) as e:
                         logger.warning(f"Failed to parse document at index {i}: {doc} — Error: {e}")
-            logger.info(f"length of final results: {len(final_results)}")
+            logger.debug(f"length of final results: {len(final_results)}")
             return final_results
         except Exception as e:
             logger.error(f"Failed to retrieve episodic memories: {e}")

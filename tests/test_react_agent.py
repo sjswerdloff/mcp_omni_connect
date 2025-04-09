@@ -4,15 +4,18 @@ from unittest.mock import Mock, patch, AsyncMock
 from mcpomni_connect.react_agent import ReActAgent
 import asyncio
 
+
 # Mock data
 class MockTool:
     def __init__(self, name, description):
         self.name = name
         self.description = description
 
+
 class TestSession:
     async def call_tool(self, tool_name, tool_args):
         return {"status": "success", "data": "Tool result", "message": None}
+
 
 MOCK_TOOLS = {
     "server1": [
@@ -21,37 +24,37 @@ MOCK_TOOLS = {
     ],
     "server2": [
         MockTool("tool3", "Test tool 3"),
-    ]
+    ],
 }
+
 
 @pytest.fixture
 def mock_sessions():
     """Create mock sessions"""
-    return {
-        "server1": {
-            "session": TestSession()
-        }
-    }
+    return {"server1": {"session": TestSession()}}
+
 
 @pytest.fixture
 def mock_llm_connection():
     """Create mock LLM connection"""
     mock = Mock()
-    mock.llm_call = AsyncMock(return_value=Mock(
-        choices=[Mock(
-            message=Mock(
-                content="Test response"
-            )
-        )]
-    ))
+    mock.llm_call = AsyncMock(
+        return_value=Mock(
+            choices=[Mock(message=Mock(content="Test response"))]
+        )
+    )
     return mock
+
 
 @pytest_asyncio.fixture
 async def mock_add_message_to_history():
     """Create mock add_message_to_history function"""
+
     async def add_message_to_history(role, content, metadata=None):
         pass
+
     return add_message_to_history
+
 
 class TestReActAgent:
     def test_init(self):
@@ -128,7 +131,9 @@ class TestReActAgent:
         assert result["answer"] == "This is a normal response"
 
     @pytest.mark.asyncio
-    async def test_execute_tool(self, mock_sessions, mock_add_message_to_history):
+    async def test_execute_tool(
+        self, mock_sessions, mock_add_message_to_history
+    ):
         """Test tool execution"""
         agent = ReActAgent()
         result = await agent._execute_tool(
@@ -136,23 +141,20 @@ class TestReActAgent:
             "server1",
             "tool1",
             {"param1": "value1"},
-            mock_add_message_to_history
+            mock_add_message_to_history,
         )
         assert result == "Tool result"
 
     @pytest.mark.asyncio
     async def test_run_success(
-        self,
-        mock_sessions,
-        mock_llm_connection,
-        mock_add_message_to_history
+        self, mock_sessions, mock_llm_connection, mock_add_message_to_history
     ):
         """Test successful run"""
         agent = ReActAgent()
         system_prompt = "You are a helpful assistant"
         query = "Test query"
         message_history = []
-        
+
         result = await agent.run(
             mock_sessions,
             system_prompt,
@@ -160,41 +162,42 @@ class TestReActAgent:
             mock_llm_connection,
             MOCK_TOOLS,
             mock_add_message_to_history,
-            message_history
+            message_history,
         )
-        
+
         assert result == "Test response"
         mock_llm_connection.llm_call.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_run_with_tool_calls(
-        self,
-        mock_sessions,
-        mock_llm_connection,
-        mock_add_message_to_history
+        self, mock_sessions, mock_llm_connection, mock_add_message_to_history
     ):
         """Test run with tool calls"""
         agent = ReActAgent()
         system_prompt = "You are a helpful assistant"
         query = "Test query"
         message_history = []
-        
+
         # Mock LLM response with tool calls
         mock_llm_connection.llm_call.return_value = Mock(
-            choices=[Mock(
-                message=Mock(
-                    content="I'll use a tool",
-                    tool_calls=[Mock(
-                        id="call1",
-                        function=Mock(
-                            name="tool1",
-                            arguments='{"param1": "value1"}'
-                        )
-                    )]
+            choices=[
+                Mock(
+                    message=Mock(
+                        content="I'll use a tool",
+                        tool_calls=[
+                            Mock(
+                                id="call1",
+                                function=Mock(
+                                    name="tool1",
+                                    arguments='{"param1": "value1"}',
+                                ),
+                            )
+                        ],
+                    )
                 )
-            )]
+            ]
         )
-        
+
         result = await agent.run(
             mock_sessions,
             system_prompt,
@@ -202,8 +205,8 @@ class TestReActAgent:
             mock_llm_connection,
             MOCK_TOOLS,
             mock_add_message_to_history,
-            message_history
+            message_history,
         )
-        
+
         assert result == "I'll use a tool"
-        mock_llm_connection.llm_call.assert_called_once() 
+        mock_llm_connection.llm_call.assert_called_once()

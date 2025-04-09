@@ -17,7 +17,11 @@ from dataclasses import dataclass, field
 from mcpomni_connect.refresh_server_capabilities import refresh_capabilities
 from mcpomni_connect.notifications import handle_notifications
 from mcpomni_connect.utils import logger
-from mcp.types import CreateMessageRequestParams, CreateMessageResult, ErrorData
+from mcp.types import (
+    CreateMessageRequestParams,
+    CreateMessageResult,
+    ErrorData,
+)
 from mcp.shared.context import RequestContext
 from datetime import timedelta
 
@@ -32,7 +36,7 @@ class Configuration:
         """Initialize configuration with environment variables."""
         self.load_env()
         self.llm_api_key = os.getenv("LLM_API_KEY")
-        
+
         if not self.llm_api_key:
             raise ValueError("LLM_API_KEY not found in environment variables")
 
@@ -52,6 +56,7 @@ class Configuration:
         with open(config_path, "r", encoding="utf-8") as f:
             return json.load(f)
 
+
 class MCPClient:
     def __init__(self, config: dict[str, Any], debug: bool = False):
         # Initialize session and client objects
@@ -65,7 +70,6 @@ class MCPClient:
         self.debug = debug
         self.system_prompt = None
         self.exit_stack = AsyncExitStack()
-
 
     async def connect_to_servers(self):
         """Connect to an MCP server"""
@@ -111,13 +115,13 @@ class MCPClient:
         # start the notification stream with an asyncio task
         asyncio.create_task(
             handle_notifications(
-                self.sessions, 
-                self.debug, 
-                self.server_names, 
-                self.available_tools, 
-                self.available_resources, 
-                self.available_prompts, 
-                refresh_capabilities
+                self.sessions,
+                self.debug,
+                self.server_names,
+                self.available_tools,
+                self.available_resources,
+                self.available_prompts,
+                refresh_capabilities,
             )
         )
         return successful_connections
@@ -199,13 +203,15 @@ class MCPClient:
                 )
 
             read_stream, write_stream = transport
-            
+
             session = await self.exit_stack.enter_async_context(
                 ClientSession(
-                    read_stream, 
-                    write_stream, 
+                    read_stream,
+                    write_stream,
                     # sampling_callback=self._sampling_callback,  # Use the bound metho
-                    read_timeout_seconds=timedelta(seconds=300)  # 5 minutes timeout
+                    read_timeout_seconds=timedelta(
+                        seconds=300
+                    ),  # 5 minutes timeout
                 )
             )
             init_result = await session.initialize()

@@ -4,12 +4,17 @@ import os
 import re
 import uuid
 from typing import Any, Callable, Dict, Optional
-from mcpomni_connect.utils import logger, RobustLoopDetector, handle_stuck_state
+from mcpomni_connect.utils import (
+    logger,
+    RobustLoopDetector,
+    handle_stuck_state,
+)
 from datetime import datetime
 import asyncio
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
 from enum import Enum
+
 
 class AgentState(str, Enum):
     IDLE = "idle"
@@ -39,22 +44,24 @@ class ReActAgent:
     - Secure tool execution with parameter validation
     - Maintainable tool ecosystem through plugin-style architecture
     """
-    
+
     def __init__(
         self,
         max_steps: int = 50,
-        tool_call_timeout: int = 60,
+        tool_call_timeout: int = 30,
     ):
         self.max_steps = max_steps
         self.loop_detector = RobustLoopDetector()
         self.tool_call_timeout = tool_call_timeout
-        self.messages = []  # Initialize messages at class level
+        self.messages = []
         self.assistant_with_tool_calls = None
         self.pending_tool_responses = []
         self.state = AgentState.IDLE
-    def json_match(
+
+    def parse_action(
         self, response: str, available_tools: dict[str, Any]
     ) -> Dict[str, Any]:
+        """Parse model response to extract actions"""
         try:
             action_start = response.find("Action:")
             if action_start != -1:
@@ -117,7 +124,9 @@ class ReActAgent:
                                     server_name,
                                     tools,
                                 ) in available_tools.items():
-                                    tool_names = [tool.name.lower() for tool in tools]
+                                    tool_names = [
+                                        tool.name.lower() for tool in tools
+                                    ]
                                     if tool_name in tool_names:
                                         return {
                                             "action": True,
@@ -160,7 +169,7 @@ class ReActAgent:
                     return {"answer": answer}
 
             if "Action" in response:
-                json_match_result = self.json_match(
+                json_match_result = self.parse_action(
                     response, available_tools
                 )
                 if json_match_result and json_match_result.get("action"):
@@ -188,7 +197,6 @@ class ReActAgent:
         add_message_to_history: Callable[[str, str, Optional[dict]], Any],
     ) -> str:
         """Execute tool and return JSON-formatted observation"""
-        # logger.info("Executing %s with parameters: %s", tool_name, tool_args)
         try:
             result = await sessions[server_name]["session"].call_tool(
                 tool_name, tool_args
@@ -202,7 +210,11 @@ class ReActAgent:
             # Handle content-based response
             elif hasattr(result, "content"):
                 tool_content = result.content
-                tool_result = tool_content[0].text if isinstance(tool_content, list) else str(tool_content)
+                tool_result = (
+                    tool_content[0].text
+                    if isinstance(tool_content, list)
+                    else str(tool_content)
+                )
             else:
                 tool_result = str(result)
             # add the tool result to the message history
@@ -217,15 +229,20 @@ class ReActAgent:
             return json.dumps(
                 {"status": "error", "data": None, "message": str(e)}
             )
-    
-    async def update_llm_working_memory(self, message_history: Callable[[], Any]):
+
+    async def update_llm_working_memory(
+        self, message_history: Callable[[], Any]
+    ):
         """Update the LLM's working memory with the current message history"""
         short_term_memory_message_history = await message_history()
         # Process message history in order that will be sent to LLM
         for _, message in enumerate(short_term_memory_message_history):
             if message["role"] == "user":
                 # First flush any pending tool responses if needed
-                if self.assistant_with_tool_calls and self.pending_tool_responses:
+                if (
+                    self.assistant_with_tool_calls
+                    and self.pending_tool_responses
+                ):
                     self.messages.append(self.assistant_with_tool_calls)
                     self.messages.extend(self.pending_tool_responses)
                     self.assistant_with_tool_calls = None
@@ -290,8 +307,8 @@ class ReActAgent:
                 )
 
     async def act(
-        self, 
-        parsed_response: dict, 
+        self,
+        parsed_response: dict,
         response: str,
         add_message_to_history: Callable[[str, str, Optional[dict]], Any],
         sessions: dict,
@@ -307,17 +324,16 @@ class ReActAgent:
                     "type": "function",
                     "function": {
                         "name": parsed_response["tool_name"],
-                        "arguments": json.dumps(
-                            parsed_response["tool_args"]
-                        ),
+                        "arguments": json.dumps(parsed_response["tool_args"]),
                     },
                 }
             ],
         }
-        
+
         # Add the assistant message with tool calls to history
-        await add_message_to_history("assistant", response, tool_calls_metadata)
-        
+        await add_message_to_history(
+            "assistant", response, tool_calls_metadata
+        )
         try:
             async with asyncio.timeout(self.tool_call_timeout):
                 # Execute the tool
@@ -329,7 +345,7 @@ class ReActAgent:
                     tool_call_id,
                     add_message_to_history,
                 )
-                
+
                 # Add the observation to messages and history
                 self.messages.append(
                     {"role": "user", "content": f"Observation:\n{observation}"}
@@ -338,28 +354,30 @@ class ReActAgent:
                     "user", f"Observation:\n{observation}"
                 )
                 # set the state to observing
-                logger.info(f"Agent state changed from {self.state} to {AgentState.OBSERVING}")
+                logger.info(
+                    f"Agent state changed from {self.state} to {AgentState.OBSERVING}"
+                )
                 self.state = AgentState.OBSERVING
-                
+
                 # Check for tool call loop
                 self.loop_detector.record_tool_call(
-                    str(parsed_response["tool_name"]), 
-                    str(parsed_response["tool_args"]), 
-                    str(observation)
+                    str(parsed_response["tool_name"]),
+                    str(parsed_response["tool_args"]),
+                    str(observation),
                 )
-                
+
         except asyncio.TimeoutError:
             timeout_response = {
                 "role": "tool",
                 "content": "Tool call timed out. Please try again or use a different approach.",
-                "tool_call_id": tool_call_id
+                "tool_call_id": tool_call_id,
             }
             logger.warning(timeout_response)
             # Add timeout response to the message history
             await add_message_to_history(
-                "tool", 
+                "tool",
                 "Tool call timed out. Please try again or use a different approach.",
-                {"tool_call_id": tool_call_id}
+                {"tool_call_id": tool_call_id},
             )
             # append the timeout response as user message to the messages that will be sent to LLM
             self.messages.append(
@@ -368,19 +386,19 @@ class ReActAgent:
                     "content": "Observation:\nTool call timed out. Please try again or use a different approach.",
                 }
             )
-            
+
         except Exception as e:
             error_response = {
                 "role": "tool",
                 "content": f"Error executing tool: {str(e)}",
-                "tool_call_id": tool_call_id
+                "tool_call_id": tool_call_id,
             }
             logger.error(error_response)
             # Add error response to the message history
             await add_message_to_history(
-                "tool", 
+                "tool",
                 f"Error executing tool: {str(e)}",
-                {"tool_call_id": tool_call_id}
+                {"tool_call_id": tool_call_id},
             )
             # append the error response as user message to the messages that will be sent to LLM
             # this ensure the llm knows about the error
@@ -394,22 +412,38 @@ class ReActAgent:
             loop_type = self.loop_detector.get_loop_type()
             logger.warning(f"Tool call loop detected: {loop_type}")
             new_system_prompt = handle_stuck_state(system_prompt)
-            self.messages = await self.reset_messages(self.messages, new_system_prompt)
-            # set the state to stuck
-            logger.info(f"Agent state changed from {self.state} to {AgentState.STUCK}")
+            self.messages = await self.reset_system_prompt(
+                self.messages, new_system_prompt
+            )
+            loop_message = (
+                f"Observation:\n"
+                f"⚠️ Tool call loop detected: {loop_type}\n\n"
+                f"Current approach is not working. Please:\n"
+                f"1. Analyze why the previous attempts failed\n"
+                f"2. Try a completely different tool or approach\n"
+                f"3. If stuck, explain the issue to the user\n"
+                f"4. Consider breaking down the task into smaller steps\n"
+                f"5. Check if the tool parameters need adjustment"
+            )
+            self.messages.append(
+                {
+                    "role": "user",
+                    "content": loop_message,
+                }
+            )
+            logger.info(
+                f"Agent state changed from {self.state} to {AgentState.STUCK}"
+            )
             self.state = AgentState.STUCK
-            # logger.info(f"Updated messages after loop detection: {self.messages}")
             self.loop_detector.reset()
 
-    async def reset_messages(self, messages: list, system_prompt: str):
-        # Reset messages to original state but keep all messages
-        old_messages = messages[1:]  # Keep all messages except the first one (old system prompt)
-        messages = [
-            {"role": "system", "content": system_prompt}  # Original system prompt
-        ]
-        messages.extend(old_messages)  # Add back all other messages
+    async def reset_system_prompt(self, messages: list, system_prompt: str):
+        # Reset system prompt and keep all messages
+        old_messages = messages[1:]
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(old_messages)
         return messages
-    
+
     @asynccontextmanager
     async def agent_state_context(self, new_state: AgentState):
         """Context manager to change the agent state"""
@@ -425,6 +459,7 @@ class ReActAgent:
             raise
         finally:
             self.state = previous_state
+
     async def run(
         self,
         sessions: dict,
@@ -438,25 +473,36 @@ class ReActAgent:
         """Execute ReAct loop with JSON communication"""
         # Initialize messages with system prompt
         self.messages = [{"role": "system", "content": system_prompt}]
-        
+
         # Add initial user message to message history
         await add_message_to_history("user", query)
-        
+
         # Initialize messages with current message history (only once at start)
         await self.update_llm_working_memory(message_history)
 
         # check if the agent is in a valid state to run
-        if self.state not in [AgentState.IDLE, AgentState.STUCK, AgentState.ERROR]:
-            raise RuntimeError(f"Agent is not in a valid state to run: {self.state}")
-        
+        if self.state not in [
+            AgentState.IDLE,
+            AgentState.STUCK,
+            AgentState.ERROR,
+        ]:
+            raise RuntimeError(
+                f"Agent is not in a valid state to run: {self.state}"
+            )
+
         # set the agent state to running
         async with self.agent_state_context(AgentState.RUNNING):
             current_steps = 0
-            while self.state != AgentState.FINISHED and current_steps < self.max_steps:
+            while (
+                self.state != AgentState.FINISHED
+                and current_steps < self.max_steps
+            ):
                 current_steps += 1
                 try:
-                    logger.info(f"Sending messages to LLM: {len(self.messages)}")
-                    #logger.info(f"Messages: {self.messages}")
+                    logger.info(
+                        f"Sending messages to LLM: {len(self.messages)}"
+                    )
+                    # logger.info(f"Messages: {self.messages}")
                     response = await llm_connection.llm_call(self.messages)
                     if response:
                         response = response.choices[0].message.content.strip()
@@ -464,24 +510,31 @@ class ReActAgent:
                     logger.error("API error: %s", str(e))
                     return None
 
-                parsed_response = self.parse_response(response, available_tools)
-                # add the assistant message to the messages that will be sent to LLM
-                self.messages.append({"role": "assistant", "content": response})
-                # add the assistant message to the message history which will be sent to LLM later
-                await add_message_to_history("assistant", response)
+                parsed_response = self.parse_response(
+                    response, available_tools
+                )
                 # check for final answer
+                logger.info(f"current steps: {current_steps}")
                 if "answer" in parsed_response:
-                    # add the final answer to the message history which will be sent to LLM later
+                    # add the final answer to the message history and the messages that will be sent to LLM
+                    self.messages.append(
+                        {
+                            "role": "assistant",
+                            "content": parsed_response["answer"],
+                        }
+                    )
                     await add_message_to_history(
                         "assistant", parsed_response["answer"]
                     )
                     # check if the system prompt has changed
                     if system_prompt != self.messages[0]["content"]:
-                        # Reset messages to original old system prompt and keep all messages
-                        self.messages = await self.reset_messages(self.messages, system_prompt)
-                    # logger.info(f"Reset messages with original system prompt: {self.messages}")
-                    # set the state to finished
-                    logger.info(f"Agent state changed from {self.state} to {AgentState.FINISHED}")
+                        # Reset system prompt and keep all messages
+                        self.messages = await self.reset_system_prompt(
+                            self.messages, system_prompt
+                        )
+                    logger.info(
+                        f"Agent state changed from {self.state} to {AgentState.FINISHED}"
+                    )
                     self.state = AgentState.FINISHED
                     # reset the steps
                     current_steps = 0
@@ -489,11 +542,13 @@ class ReActAgent:
 
                 elif "action" in parsed_response and parsed_response["action"]:
                     # set the state to tool calling
-                    logger.info(f"Agent state changed from {self.state} to {AgentState.TOOL_CALLING}")
+                    logger.info(
+                        f"Agent state changed from {self.state} to {AgentState.TOOL_CALLING}"
+                    )
                     self.state = AgentState.TOOL_CALLING
-                    
+
                     await self.act(
-                        parsed_response, 
+                        parsed_response,
                         response,
                         add_message_to_history,
                         sessions,
@@ -508,20 +563,32 @@ class ReActAgent:
                         "content": error_message,
                     }
                 )
-                await add_message_to_history(
-                    "user", error_message
-                )
-                # record the invalid response and the llm response to the loop detector
+                await add_message_to_history("user", error_message)
                 self.loop_detector.record_message(error_message, response)
                 if self.loop_detector.is_looping():
                     logger.warning("Loop detected")
-                    # update the system prompt with the stuck state
-                    new_system_prompt = handle_stuck_state(system_prompt, message_stuck_prompt=True)
-                    # reset the messages with the new system prompt
-                    self.messages = await self.reset_messages(self.messages, new_system_prompt)
-                    logger.info(f"messages: {self.messages}")
-                    # reset the loop detector
+                    new_system_prompt = handle_stuck_state(
+                        system_prompt, message_stuck_prompt=True
+                    )
+                    self.messages = await self.reset_system_prompt(
+                        self.messages, new_system_prompt
+                    )
+                    loop_message = (
+                        f"Observation:\n"
+                        f"⚠️ Message loop detected: {self.loop_detector.get_loop_type()}\n"
+                        f"The message stuck is: {error_message}\n"
+                        f"Current approach is not working. Please:\n"
+                        f"1. Analyze why the previous attempts failed\n"
+                        f"2. Try a completely different tool or approach\n"
+                    )
+                    self.messages.append(
+                        {
+                            "role": "user",
+                            "content": loop_message,
+                        }
+                    )
                     self.loop_detector.reset()
-                    # set the state to stuck
-                    logger.info(f"Agent state changed from {self.state} to {AgentState.STUCK}")
+                    logger.info(
+                        f"Agent state changed from {self.state} to {AgentState.STUCK}"
+                    )
                     self.state = AgentState.STUCK

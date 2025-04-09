@@ -5,7 +5,10 @@ from mcpomni_connect.utils import logger
 
 # handle subscribe to resource change
 async def subscribe_resource(
-    sessions: dict[str, dict[str, Any]], uri: str, available_resources: dict[str, list[str]]):
+    sessions: dict[str, dict[str, Any]],
+    uri: str,
+    available_resources: dict[str, list[str]],
+):
     server_name, found = await find_resource_server(uri, available_resources)
     try:
         logger.info(f"Subscribing to {uri} resource on {server_name}")
@@ -19,11 +22,15 @@ async def subscribe_resource(
     except Exception as e:
         logger.info(f"exception to subscribe to resource: {e}")
         return None
-    
+
     return f"Subscribed to {uri} resource on {server_name}"
 
+
 async def unsubscribe_resource(
-    sessions: dict[str, dict[str, Any]], uri: str, available_resources: dict[str, list[str]]):
+    sessions: dict[str, dict[str, Any]],
+    uri: str,
+    available_resources: dict[str, list[str]],
+):
     server_name, found = await find_resource_server(uri, available_resources)
     if found and sessions[server_name]["connected"]:
         try:

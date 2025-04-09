@@ -23,16 +23,25 @@ from mcpomni_connect.prompts import (
 )
 from mcpomni_connect.react_agent import ReActAgent
 from mcpomni_connect.refresh_server_capabilities import refresh_capabilities
-from mcpomni_connect.resources import list_resources, read_resource, subscribe_resource, unsubscribe_resource
+from mcpomni_connect.resources import (
+    list_resources,
+    read_resource,
+    subscribe_resource,
+    unsubscribe_resource,
+)
 from mcpomni_connect.system_prompts import (
     generate_react_agent_prompt,
     generate_system_prompt,
 )
 from mcpomni_connect.tools import list_tools
 from mcpomni_connect.utils import logger
-from mcpomni_connect.memory import RedisShortTermMemory, InMemoryShortTermMemory
+from mcpomni_connect.memory import (
+    RedisShortTermMemory,
+    InMemoryShortTermMemory,
+)
 from mcpomni_connect.memory import EpisodicMemory
-episodic_memory = EpisodicMemory("episodic_memory", "Stores conversation patterns and insights")
+
+
 class CommandType(Enum):
     """Command types for the MCP client"""
 
@@ -51,6 +60,7 @@ class CommandType(Enum):
     CLEAR_HISTORY = "clear_history"
     SAVE_HISTORY = "save_history"
     MEMORY = "memory"
+    MODE = "mode"
     QUIT = "quit"
 
 
@@ -64,9 +74,13 @@ class CommandHelp:
             "memory": {
                 "description": "Toggle memory usage between Redis and In-Memory",
                 "usage": "/memory",
-                "examples": ["/memory  # Toggle memory usage between Redis and In-Memory"],
+                "examples": [
+                    "/memory  # Toggle memory usage between Redis and In-Memory"
+                ],
                 "subcommands": {},
-                "tips": ["Use to toggle memory usage between Redis and In-Memory"],
+                "tips": [
+                    "Use to toggle memory usage between Redis and In-Memory"
+                ],
             },
             "tools": {
                 "description": "List and manage available tools across all connected servers",
@@ -195,14 +209,18 @@ class CommandHelp:
             "subscribe": {
                 "description": "Subscribe to a resource",
                 "usage": "/subscribe:/resource:<uri>",
-                "examples": ["/subscribe:/resource:http://api.example.com/data  # Subscribe to a resource"],
+                "examples": [
+                    "/subscribe:/resource:http://api.example.com/data  # Subscribe to a resource"
+                ],
                 "subcommands": {},
                 "tips": ["Use to subscribe to a resource"],
             },
             "unsubscribe": {
                 "description": "Unsubscribe from a resource",
                 "usage": "/unsubscribe:/resource:<uri>",
-                "examples": ["/unsubscribe:/resource:http://api.example.com/data  # Unsubscribe from a resource"],
+                "examples": [
+                    "/unsubscribe:/resource:http://api.example.com/data  # Unsubscribe from a resource"
+                ],
                 "subcommands": {},
                 "tips": ["Use to unsubscribe from a resource"],
             },
@@ -214,10 +232,20 @@ class MCPClientCLI:
     def __init__(self, client: MCPClient, llm_connection: LLMConnection):
         self.client = client
         self.llm_connection = llm_connection
-        self.MAX_CONTEXT_TOKENS = self.llm_connection.config.load_config("servers_config.json")["LLM"]["max_tokens"]
+        self.MAX_CONTEXT_TOKENS = self.llm_connection.config.load_config(
+            "servers_config.json"
+        )["LLM"]["max_tokens"]
         self.USE_MEMORY = {"redis": False, "in_memory": True}
-        self.redis_short_term_memory = RedisShortTermMemory(max_context_tokens=self.MAX_CONTEXT_TOKENS)
-        self.in_memory_short_term_memory = InMemoryShortTermMemory(max_context_tokens=self.MAX_CONTEXT_TOKENS)
+        self.MODE = {"auto": False, "chat": True}
+        self.redis_short_term_memory = RedisShortTermMemory(
+            max_context_tokens=self.MAX_CONTEXT_TOKENS
+        )
+        self.in_memory_short_term_memory = InMemoryShortTermMemory(
+            max_context_tokens=self.MAX_CONTEXT_TOKENS
+        )
+        self.episodic_memory = EpisodicMemory(
+            "episodic_memory", "Stores conversation patterns and insights"
+        )
         self.console = Console()
         self.command_help = CommandHelp()
 
@@ -257,6 +285,8 @@ class MCPClientCLI:
             return CommandType.SAVE_HISTORY, input_text[14:].strip()
         elif input_text == "/memory":
             return CommandType.MEMORY, ""
+        elif input_text.startswith("/mode:"):
+            return CommandType.MODE, input_text[6:].strip()
         else:
             if input_text:
                 return CommandType.QUERY, input_text
@@ -270,6 +300,7 @@ class MCPClientCLI:
             f"[{'green' if self.client.debug else 'red'}]Debug mode "
             f"{'enabled' if self.client.debug else 'disabled'}[/]"
         )
+
     async def handle_memory_command(self, input_text: str = ""):
         """Handle memory command"""
         self.USE_MEMORY["redis"] = not self.USE_MEMORY["redis"]
@@ -277,7 +308,19 @@ class MCPClientCLI:
             f"[{'green' if self.USE_MEMORY["redis"] else 'red'}]Redis memory "
             f"{'enabled' if self.USE_MEMORY["redis"] else 'disabled'}[/]"
         )
-            
+
+    async def handle_mode_command(self, input_text: str = ""):
+        """Handle mode command like /mode:auto or /mode:chat"""
+        if input_text == "auto":
+            self.MODE["auto"] = True
+            self.MODE["chat"] = False
+        elif input_text == "chat":
+            self.MODE["auto"] = False
+            self.MODE["chat"] = True
+        self.console.print(
+            f"[{'green' if self.MODE["auto"] else 'red'}]Mode "
+            f"{'auto' if self.MODE["auto"] else 'chat'}[/]"
+        )
     async def handle_refresh_command(self, input_text: str = ""):
         """Handle refresh capabilities command"""
         with Progress(
@@ -444,7 +487,11 @@ class MCPClientCLI:
                 uri=uri,
                 sessions=self.client.sessions,
                 available_resources=self.client.available_resources,
-                add_message_to_history=self.redis_short_term_memory.store_message if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.store_message,
+                add_message_to_history=(
+                    self.redis_short_term_memory.store_message
+                    if self.USE_MEMORY["redis"]
+                    else self.in_memory_short_term_memory.store_message
+                ),
                 llm_call=self.llm_connection.llm_call,
                 debug=self.client.debug,
             )
@@ -453,7 +500,7 @@ class MCPClientCLI:
             self.console.print(Markdown(content))
         else:
             self.console.print(Panel(content, title=uri, border_style="blue"))
-    
+
     async def handle_subscribe(self, input_text: str):
         """Handle subscribe command"""
         with Progress(
@@ -467,14 +514,14 @@ class MCPClientCLI:
                 content = await subscribe_resource(
                     sessions=self.client.sessions,
                     uri=uri,
-                    available_resources=self.client.available_resources
+                    available_resources=self.client.available_resources,
                 )
 
         if content.startswith("```") or content.startswith("#"):
             self.console.print(Markdown(content))
         else:
             self.console.print(Panel(content, title=uri, border_style="blue"))
-    
+
     async def handle_unsubscribe(self, input_text: str):
         """Handle unsubscribe command"""
         with Progress(
@@ -488,7 +535,7 @@ class MCPClientCLI:
                 content = await unsubscribe_resource(
                     sessions=self.client.sessions,
                     uri=uri,
-                    available_resources=self.client.available_resources
+                    available_resources=self.client.available_resources,
                 )
 
         if content.startswith("```") or content.startswith("#"):
@@ -520,7 +567,11 @@ class MCPClientCLI:
                 content = await get_prompt(
                     sessions=self.client.sessions,
                     system_prompt=system_prompt,
-                    add_message_to_history=self.redis_short_term_memory.store_message if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.store_message,
+                    add_message_to_history=(
+                        self.redis_short_term_memory.store_message
+                        if self.USE_MEMORY["redis"]
+                        else self.in_memory_short_term_memory.store_message
+                    ),
                     llm_call=self.llm_connection.llm_call,
                     debug=self.client.debug,
                     available_prompts=self.client.available_prompts,
@@ -535,7 +586,11 @@ class MCPClientCLI:
                 initial_response = await get_prompt_with_react_agent(
                     sessions=self.client.sessions,
                     system_prompt=react_agent_prompt,
-                    add_message_to_history=self.redis_short_term_memory.store_message if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.store_message,
+                    add_message_to_history=(
+                        self.redis_short_term_memory.store_message
+                        if self.USE_MEMORY["redis"]
+                        else self.in_memory_short_term_memory.store_message
+                    ),
                     debug=self.client.debug,
                     available_prompts=self.client.available_prompts,
                     name=name,
@@ -548,11 +603,19 @@ class MCPClientCLI:
                         query=initial_response,
                         llm_connection=self.llm_connection,
                         available_tools=self.client.available_tools,
-                        add_message_to_history=self.redis_short_term_memory.store_message if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.store_message,
-                        message_history=self.redis_short_term_memory.get_messages if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.get_messages,
+                        add_message_to_history=(
+                            self.redis_short_term_memory.store_message
+                            if self.USE_MEMORY["redis"]
+                            else self.in_memory_short_term_memory.store_message
+                        ),
+                        message_history=(
+                            self.redis_short_term_memory.get_messages
+                            if self.USE_MEMORY["redis"]
+                            else self.in_memory_short_term_memory.get_messages
+                        ),
                     )
                 else:
-                    content = initial_response  
+                    content = initial_response
 
         if content.startswith("```") or content.startswith("#"):
             self.console.print(Markdown(content))
@@ -623,75 +686,116 @@ class MCPClientCLI:
 
     async def handle_query(self, query: str):
         """Handle general query processing"""
-        if not query or query.isspace():
-            return
+        try:
+            if not query or query.isspace():
+                return
 
-        # Parse the command first
-        cmd_type, payload = self.parse_command(query)
-        if not cmd_type:
-            return
+            # Parse the command first
+            cmd_type, payload = self.parse_command(query)
+            if not cmd_type:
+                return
 
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            transient=True,
-        ) as progress:
-            progress.add_task("Processing query...", total=None)
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True,
+            ) as progress:
+                progress.add_task("Processing query...", total=None)
 
-            # Get latest tools
-            tools = await list_tools(
-                server_names=self.client.server_names,
-                sessions=self.client.sessions,
-            )
-
-            # Check if current LLM supports tools
-            supported_tools = LLMToolSupport.check_tool_support(
-                self.llm_connection.llm_config
-            )
-            episodic_query = await episodic_memory.retrieve_relevant_memories(
-                    query=query,
-                    n_results=3
-                )
-            if supported_tools:
-                # Generate system prompt for tool-supporting LLMs
-                system_prompt = generate_system_prompt(
-                    available_tools=self.client.available_tools,
-                    llm_connection=self.llm_connection,
-                    episodic_memory=episodic_query
-                )
-                
-                response = await process_query(
-                    query=query,
-                    system_prompt=system_prompt,
-                    llm_connection=self.llm_connection,
-                    sessions=self.client.sessions,
+                # Get latest tools
+                tools = await list_tools(
                     server_names=self.client.server_names,
-                    tools_list=tools,
-                    available_tools=self.client.available_tools,
-                    add_message_to_history=self.redis_short_term_memory.store_message if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.store_message,
-                    message_history=self.redis_short_term_memory.get_messages if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.get_messages,
-                    debug=self.client.debug,
-                )
-            else:
-                # Use ReAct agent for LLMs without tool support
-                react_agent_prompt = generate_react_agent_prompt(
-                    available_tools=self.client.available_tools,
-                    episodic_memory=episodic_query
-                )
-                response = await ReActAgent().run(
                     sessions=self.client.sessions,
-                    system_prompt=react_agent_prompt,
-                    query=query,
-                    llm_connection=self.llm_connection,
-                    available_tools=self.client.available_tools,
-                    add_message_to_history=self.redis_short_term_memory.store_message if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.store_message,
-                    message_history=self.redis_short_term_memory.get_messages if self.USE_MEMORY["redis"] else self.in_memory_short_term_memory.get_messages,
                 )
 
-        if "```" in response or "#" in response:
-            self.console.print(Markdown(response))
-        else:
-            self.console.print(Panel(response, border_style="green"))
+                # Check if current LLM supports tools
+                supported_tools = LLMToolSupport.check_tool_support(
+                    self.llm_connection.llm_config
+                )
+                episodic_query = (
+                    await self.episodic_memory.retrieve_relevant_memories(
+                        query=query, n_results=3
+                    )
+                )
+                # if the LLM supports tools and the mode is chat, use the tool-supporting mode
+                if supported_tools and self.MODE["chat"]:
+                    # Generate system prompt for tool-supporting LLMs
+                    system_prompt = generate_system_prompt(
+                        available_tools=self.client.available_tools,
+                        llm_connection=self.llm_connection,
+                        episodic_memory=episodic_query,
+                    )
+
+                    response = await process_query(
+                        query=query,
+                        system_prompt=system_prompt,
+                        llm_connection=self.llm_connection,
+                        sessions=self.client.sessions,
+                        server_names=self.client.server_names,
+                        tools_list=tools,
+                        available_tools=self.client.available_tools,
+                        add_message_to_history=(
+                            self.redis_short_term_memory.store_message
+                            if self.USE_MEMORY["redis"]
+                            else self.in_memory_short_term_memory.store_message
+                        ),
+                        message_history=(
+                            self.redis_short_term_memory.get_messages
+                            if self.USE_MEMORY["redis"]
+                            else self.in_memory_short_term_memory.get_messages
+                        ),
+                        debug=self.client.debug,
+                    )
+                elif self.MODE["auto"]:
+                    # using the autonomous agent mode
+                    react_agent_prompt = generate_react_agent_prompt(
+                        available_tools=self.client.available_tools,
+                        episodic_memory=episodic_query,
+                    )
+                    response = await ReActAgent().run(
+                        sessions=self.client.sessions,
+                        system_prompt=react_agent_prompt,
+                        query=query,
+                        llm_connection=self.llm_connection,
+                        available_tools=self.client.available_tools,
+                        add_message_to_history=(
+                            self.redis_short_term_memory.store_message
+                            if self.USE_MEMORY["redis"]
+                            else self.in_memory_short_term_memory.store_message
+                        ),
+                        message_history=(
+                            self.redis_short_term_memory.get_messages
+                            if self.USE_MEMORY["redis"]
+                            else self.in_memory_short_term_memory.get_messages
+                        ),
+                    )
+
+            if response:  # Only try to print if we have a response
+                if "```" in response or "#" in response:
+                    self.console.print(Markdown(response))
+                else:
+                    self.console.print(Panel(response, border_style="green"))
+            else:
+                logger.warning("Received empty response from query processing")
+                self.console.print(
+                    Panel(
+                        "[yellow]⚠️  The model didn't generate a response. This could be due to:[/]\n\n"
+                        "1. The Maximum number of steps was reached\n"
+                        "2. The context might be too long\n"
+                        "3. The model might need more specific instructions\n\n"
+                        "[bold green]Try these solutions:[/]\n"
+                        "• Break down your query into smaller parts\n"
+                        "• Be more specific in your request\n"
+                        "• Use /clear_history to reset the conversation\n"
+                        "• Try rephrasing your question\n\n"
+                        "[dim]You can continue with your next query or use /help for more assistance[/]",
+                        title="[bold red]No Response Generated[/]",
+                        border_style="yellow",
+                    )
+                )
+        except Exception as e:
+            logger.error(f"Error processing query: {e}")
+            self.console.print(f"[red]Error:[/] {str(e)}", style="bold red")
 
     async def handle_history_command(self, input_text: str = ""):
         """Handle history command"""
@@ -717,21 +821,28 @@ class MCPClientCLI:
     async def handle_save_history_command(self, input_text: str):
         """Handle save history command"""
         if self.USE_MEMORY["redis"]:
-            await self.redis_short_term_memory.save_message_history_to_file(input_text)
+            await self.redis_short_term_memory.save_message_history_to_file(
+                input_text
+            )
         else:
-            await self.in_memory_short_term_memory.save_message_history_to_file(input_text)
+            await self.in_memory_short_term_memory.save_message_history_to_file(
+                input_text
+            )
         self.console.print(f"[green]Message history saved to {input_text}[/]")
+
     async def handle_episodic_memory_command(self):
         """Handle episodic memory command"""
-        if self.USE_MEMORY["redis"]:
-            messages = await self.redis_short_term_memory.get_messages()
+        messages = await self.in_memory_short_term_memory.get_messages()
+        if messages:
+            created_episodic_memory = await self.episodic_memory.create_episodic_memory(
+                messages=messages, llm_connection=self.llm_connection
+            )
+            self.console.print(
+                f"[green]Episodic memory created: {created_episodic_memory}[/]"
+            )
         else:
-            messages = await self.in_memory_short_term_memory.get_messages()
-        created_episodic_memory = await episodic_memory.create_episodic_memory(
-            messages=messages,
-            llm_connection=self.llm_connection
-        )
-        self.console.print(f"[green]Episodic memory created: {created_episodic_memory}[/]")
+            self.console.print("[yellow]No messages to create episodic memory[/]")
+
     async def chat_loop(self):
         """Run an interactive chat loop with rich UI"""
         self.print_welcome_header()
@@ -753,6 +864,7 @@ class MCPClientCLI:
             CommandType.SUBSCRIBE: self.handle_subscribe,
             CommandType.UNSUBSCRIBE: self.handle_unsubscribe,
             CommandType.MEMORY: self.handle_memory_command,
+            CommandType.MODE: self.handle_mode_command,
         }
 
         while True:
@@ -844,7 +956,12 @@ class MCPClientCLI:
         commands_table.add_column("[bold yellow]Example[/]", style="yellow")
 
         commands = [
-            ("/memory", "Toggle memory usage between Redis and In-Memory 💾", ""),
+            (
+                "/memory",
+                "Toggle memory usage between Redis and In-Memory 💾",
+                "",
+            ),
+            ("/mode:auto", "Toggle mode between autonomous agent and chat mode 🤖", ""),
             ("/debug", "Toggle debug mode 🐛", ""),
             ("/refresh", "Refresh server capabilities 🔄", ""),
             ("/help", "Show help 🆘", "/help:command"),
@@ -862,8 +979,16 @@ class MCPClientCLI:
                 "Read a specific resource 🔍",
                 "/resource:file:///path/to/file",
             ),
-            ("/subscribe:/<type>:<uri>", "Subscribe to a resource 📚", "/subscribe:/resource:file:///path/to/file"),
-            ("/unsubscribe:/<type>:<uri>", "Unsubscribe from a resource 📚", "/unsubscribe:/resource:file:///path/to/file"),
+            (
+                "/subscribe:/<type>:<uri>",
+                "Subscribe to a resource 📚",
+                "/subscribe:/resource:file:///path/to/file",
+            ),
+            (
+                "/unsubscribe:/<type>:<uri>",
+                "Unsubscribe from a resource 📚",
+                "/unsubscribe:/resource:file:///path/to/file",
+            ),
             ("/prompts", "List available prompts 💬", ""),
             (
                 "/prompt:<name>/<args>",

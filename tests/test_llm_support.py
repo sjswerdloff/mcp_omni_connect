@@ -1,6 +1,7 @@
 import pytest
 from mcpomni_connect.llm_support import LLMToolSupport
 
+
 class TestLLMToolSupport:
     def test_check_tool_support_openai(self):
         """Test tool support checking for OpenAI"""
@@ -28,7 +29,7 @@ class TestLLMToolSupport:
             "anthropic/claude-3-opus",
             "groq/mixtral-8x7b",
             "mistralai/mistral-7b",
-            "gemini/gemini-pro"
+            "gemini/gemini-pro",
         ]
         for model in supported_models:
             config = {"provider": "openrouter", "model": model}
@@ -55,9 +56,10 @@ class TestLLMToolSupport:
         supported_models = LLMToolSupport.get_supported_models("openrouter")
         assert supported_models is not None
         assert len(supported_models) == 5
-        assert all(model in supported_models for model in [
-            "openai", "anthropic", "groq", "mistralai", "gemini"
-        ])
+        assert all(
+            model in supported_models
+            for model in ["openai", "anthropic", "groq", "mistralai", "gemini"]
+        )
 
         # Test unsupported provider
-        assert LLMToolSupport.get_supported_models("unsupported") is None 
+        assert LLMToolSupport.get_supported_models("unsupported") is None

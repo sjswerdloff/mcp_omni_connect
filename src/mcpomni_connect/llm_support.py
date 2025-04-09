@@ -8,10 +8,10 @@ class LLMToolSupport:
 
     # Define model tool support mapping
     MODEL_TOOL_SUPPORT = {
-        # "openai": {
-        #     "provider": "openai",
-        #     "models": None,  # None means all models support tools
-        # },
+        "openai": {
+            "provider": "openai",
+            "models": None,  # None means all models support tools
+        },
         "groq": {
             "provider": "groq",
             "models": None,  # None means all models support tools
@@ -20,10 +20,10 @@ class LLMToolSupport:
             "provider": "openrouter",
             "models": ["openai", "anthropic", "groq", "mistralai", "gemini"],
         },
-        # "gemini": {
-        #     "provider": "gemini",
-        #     "models": None,  # None means all models support tools
-        # },
+        "gemini": {
+            "provider": "gemini",
+            "models": None,  # None means all models support tools
+        },
     }
 
     @classmethod

@@ -31,12 +31,12 @@ async def find_prompt_server(
     logger.info(f"Finding prompt: {name} in {available_prompts}")
     for server_name, prompts in available_prompts.items():
         prompt_names = [
-            prompt.name if hasattr(prompt, "name") else prompt["name"] for prompt in prompts
+            prompt.name if hasattr(prompt, "name") else prompt["name"]
+            for prompt in prompts
         ]
         if name in prompt_names:
             return server_name, True
     return "", False
-
 
 
 async def get_prompt(

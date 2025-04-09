@@ -24,7 +24,6 @@ classifiers = [
 ]
 dependencies = [
     "colorlog>=6.9.0",
-    "mcp[cli]>=1.4.1",
     "openai>=1.67.0",
     "python-dotenv>=1.0.1",
     "rich>=13.9.4",
@@ -37,6 +36,8 @@ dependencies = [
     "redis>=5.2.1",
     "python-decouple>=3.8",
     "qdrant-client>=1.13.3",
+    "mcp[cli]>=1.6.0",
+    "sentence-transformers>=4.0.2",
 ]
 
 [project.scripts]

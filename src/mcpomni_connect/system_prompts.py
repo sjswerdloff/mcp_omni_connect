@@ -3,6 +3,7 @@ from typing import Any, Callable, List, Dict
 from mcpomni_connect.constants import TOOL_ACCEPTING_PROVIDERS
 from mcpomni_connect.utils import logger
 
+
 def generate_concise_prompt(
     available_tools: dict[str, list[dict[str, Any]]],
     episodic_memory: List[Dict[str, Any]],
@@ -64,7 +65,11 @@ You have access to the following tools grouped by server. Use them only when nec
         prompt += f"\n[{server_name}]"
         for tool in tools:
             tool_name = str(tool.name)
-            tool_description = str(tool.description) if tool.description else "No description available"
+            tool_description = (
+                str(tool.description)
+                if tool.description
+                else "No description available"
+            )
             prompt += f"\n• {tool_name}: {tool_description}"
 
     prompt += """
@@ -101,7 +106,7 @@ If a task involves using a tool or accessing sensitive data, describe the tool's
 #     episodic_memory: List[Dict[str, Any]],
 # ) -> str:
 #     """Generate a concise prompt for LLMs that accept tools in input"""
-#     prompt = """You are a helpful AI assistant with access to various tools to help users with their tasks. Your responses should be clear, concise, and focused on the user's needs. 
+#     prompt = """You are a helpful AI assistant with access to various tools to help users with their tasks. Your responses should be clear, concise, and focused on the user's needs.
 
 # Before performing any action or using any tool, you must:
 # 1. Explicitly ask the user for permission.
@@ -163,7 +168,7 @@ If a task involves using a tool or accessing sensitive data, describe the tool's
 #             tool_description = str(tool.description).split("\n")[0] if tool.description else "No description available"
 #             prompt += f"\n• {tool_name}: {tool_description}"
 
-#     prompt += """ 
+#     prompt += """
 
 # When using tools:
 # 1. Use them only when necessary to answer the user's question
@@ -181,7 +186,6 @@ If a task involves using a tool or accessing sensitive data, describe the tool's
 # If a task involves using a tool or accessing sensitive data, describe the tool's purpose and behavior, and confirm with the user before proceeding. Always prioritize user consent, data privacy, and safety.
 # """
 #     return prompt
-
 
 
 def generate_detailed_prompt(
@@ -235,7 +239,9 @@ Available Tools by Server:
                 if params:
                     tool_desc += "\n  Parameters:"
                     for param_name, param_info in params.items():
-                        param_desc = param_info.get("description", "No description")
+                        param_desc = param_info.get(
+                            "description", "No description"
+                        )
                         param_type = param_info.get("type", "any")
                         tool_desc += f"\n    - {param_name} ({param_type}): {param_desc}"
             tools_section.append(tool_desc)
@@ -274,8 +280,10 @@ def generate_system_prompt(
     """Generate a dynamic system prompt based on available tools and capabilities"""
 
     # Get current provider from LLM config
-    if hasattr(llm_connection, 'llm_config'):
-        current_provider = llm_connection.llm_config.get("provider", "").lower()
+    if hasattr(llm_connection, "llm_config"):
+        current_provider = llm_connection.llm_config.get(
+            "provider", ""
+        ).lower()
     else:
         current_provider = ""
 
@@ -284,8 +292,6 @@ def generate_system_prompt(
         return generate_concise_prompt(available_tools, episodic_memory)
     else:
         return generate_detailed_prompt(available_tools, episodic_memory)
-
-
 
 
 # def generate_react_agent_prompt(
@@ -432,7 +438,6 @@ def generate_system_prompt(
 #     return prompt + "".join(tools_section) + example + interaction_guidelines
 
 
-
 def generate_react_agent_prompt(
     available_tools: dict[str, list[dict[str, Any]]],
     episodic_memory: List[Dict[str, Any]],
@@ -527,7 +532,9 @@ You recall the following relevant past experiences with the user:
                 if params:
                     tool_desc += "\n  Parameters:"
                     for param_name, param_info in params.items():
-                        param_desc = param_info.get("description", "No description")
+                        param_desc = param_info.get(
+                            "description", "No description"
+                        )
                         param_type = param_info.get("type", "any")
                         tool_desc += f"\n    - {param_name} ({param_type}): {param_desc}"
             tools_section.append(tool_desc)

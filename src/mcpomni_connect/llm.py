@@ -186,7 +186,9 @@ class LLMConnection:
 
             # Ensure messages are added even if total budget is exceeded
             if total_tokens + msg_length > TOTAL_LIMIT:
-                msg["content"] = msg["content"][: max(0, TOTAL_LIMIT - total_tokens)]
+                msg["content"] = msg["content"][
+                    : max(0, TOTAL_LIMIT - total_tokens)
+                ]
                 if msg["content"]:  # Only add if there's remaining content
                     truncated_messages.append(msg)
                     total_tokens += len(msg["content"])
@@ -195,6 +197,8 @@ class LLMConnection:
                 truncated_messages.append(msg)
                 total_tokens += msg_length
 
-        logger.info(f"Final message count: {len(truncated_messages)}, Total tokens: {total_tokens}")
+        logger.info(
+            f"Final message count: {len(truncated_messages)}, Total tokens: {total_tokens}"
+        )
         logger.info(f"Truncated messages: {truncated_messages}")
         return truncated_messages

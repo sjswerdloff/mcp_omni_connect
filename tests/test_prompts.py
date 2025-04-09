@@ -18,30 +18,35 @@ MOCK_AVAILABLE_PROMPTS = {
                 {
                     "name": "arg1",
                     "description": "First argument",
-                    "required": True
+                    "required": True,
                 }
-            ]
+            ],
         }
     ],
     "server2": [
         {
             "name": "another-prompt",
             "description": "Another test prompt",
-            "arguments": []
+            "arguments": [],
         }
-    ]
+    ],
 }
+
 
 @pytest.mark.asyncio
 async def test_find_prompt_server():
     """Test finding a prompt server"""
     # Test existing prompt
-    server_name, found = await find_prompt_server("test-prompt", MOCK_AVAILABLE_PROMPTS)
+    server_name, found = await find_prompt_server(
+        "test-prompt", MOCK_AVAILABLE_PROMPTS
+    )
     assert found is True
     assert server_name == "server1"
 
     # Test non-existing prompt
-    server_name, found = await find_prompt_server("non-existent", MOCK_AVAILABLE_PROMPTS)
+    server_name, found = await find_prompt_server(
+        "non-existent", MOCK_AVAILABLE_PROMPTS
+    )
     assert found is False
     assert server_name == ""
 
@@ -52,14 +57,28 @@ async def test_list_prompts():
 
     # Separate mock session objects for each server
     mock_session_1 = AsyncMock()
-    mock_session_1.list_prompts = AsyncMock(return_value=AsyncMock(prompts=[
-        {"name": "test-prompt", "description": "Test prompt description"},
-    ]))
+    mock_session_1.list_prompts = AsyncMock(
+        return_value=AsyncMock(
+            prompts=[
+                {
+                    "name": "test-prompt",
+                    "description": "Test prompt description",
+                },
+            ]
+        )
+    )
 
     mock_session_2 = AsyncMock()
-    mock_session_2.list_prompts = AsyncMock(return_value=AsyncMock(prompts=[
-        {"name": "another-prompt", "description": "Another test prompt"},
-    ]))
+    mock_session_2.list_prompts = AsyncMock(
+        return_value=AsyncMock(
+            prompts=[
+                {
+                    "name": "another-prompt",
+                    "description": "Another test prompt",
+                },
+            ]
+        )
+    )
 
     # Mock sessions dictionary with distinct mock sessions
     mock_sessions = {
@@ -68,13 +87,22 @@ async def test_list_prompts():
     }
 
     # Call list_prompts with the mock sessions
-    prompts = await list_prompts(server_names=["server1", "server2"], sessions=mock_sessions)
+    prompts = await list_prompts(
+        server_names=["server1", "server2"], sessions=mock_sessions
+    )
 
     print("Retrieved prompts:", prompts)  # Debugging
 
     assert len(prompts) == 2  # Now matches expected output
-    assert {"name": "test-prompt", "description": "Test prompt description"} in prompts
-    assert {"name": "another-prompt", "description": "Another test prompt"} in prompts
+    assert {
+        "name": "test-prompt",
+        "description": "Test prompt description",
+    } in prompts
+    assert {
+        "name": "another-prompt",
+        "description": "Another test prompt",
+    } in prompts
+
 
 @pytest.mark.asyncio
 async def test_get_prompt():
@@ -82,7 +110,7 @@ async def test_get_prompt():
     # Mock sessions
     mock_sessions = {
         "server1": {"session": None, "connected": True},
-        "server2": {"session": None, "connected": True}
+        "server2": {"session": None, "connected": True},
     }
 
     async def mock_add_message_to_history(*args):
@@ -97,7 +125,7 @@ async def test_get_prompt():
         debug=False,
         available_prompts=MOCK_AVAILABLE_PROMPTS,
         name="test-prompt",
-        arguments={"arg1": "test_value"}
+        arguments={"arg1": "test_value"},
     )
     assert content is not None
 
@@ -110,9 +138,10 @@ async def test_get_prompt():
         debug=False,
         available_prompts=MOCK_AVAILABLE_PROMPTS,
         name="non-existent",
-        arguments={}
+        arguments={},
     )
     assert "Prompt not found" in content
+
 
 @pytest.mark.asyncio
 async def test_get_prompt_with_react_agent():
@@ -120,7 +149,7 @@ async def test_get_prompt_with_react_agent():
     # Mock sessions
     mock_sessions = {
         "server1": {"session": None, "connected": True},
-        "server2": {"session": None, "connected": True}
+        "server2": {"session": None, "connected": True},
     }
 
     async def mock_add_message_to_history(*args):
@@ -134,7 +163,7 @@ async def test_get_prompt_with_react_agent():
         debug=False,
         available_prompts=MOCK_AVAILABLE_PROMPTS,
         name="test-prompt",
-        arguments={"arg1": "test_value"}
+        arguments={"arg1": "test_value"},
     )
     assert content is not None
 
@@ -146,6 +175,6 @@ async def test_get_prompt_with_react_agent():
         debug=False,
         available_prompts=MOCK_AVAILABLE_PROMPTS,
         name="non-existent",
-        arguments={}
+        arguments={},
     )
     assert "Prompt not found" in content
