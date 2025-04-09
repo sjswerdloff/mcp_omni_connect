@@ -10,3 +10,6 @@ wheels/
 .venv
 .env
 servers_config.json
+*.log
+*.log.*
+qdrant_data/
