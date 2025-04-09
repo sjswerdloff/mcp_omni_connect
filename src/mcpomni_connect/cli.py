@@ -29,9 +29,10 @@ from mcpomni_connect.system_prompts import (
     generate_system_prompt,
 )
 from mcpomni_connect.tools import list_tools
+from mcpomni_connect.utils import logger
 from mcpomni_connect.memory import RedisShortTermMemory, InMemoryShortTermMemory
-
-
+from mcpomni_connect.memory import EpisodicMemory
+episodic_memory = EpisodicMemory("episodic_memory", "Stores conversation patterns and insights")
 class CommandType(Enum):
     """Command types for the MCP client"""
 
@@ -647,13 +648,18 @@ class MCPClientCLI:
             supported_tools = LLMToolSupport.check_tool_support(
                 self.llm_connection.llm_config
             )
-
+            episodic_query = await episodic_memory.retrieve_relevant_memories(
+                    query=query,
+                    n_results=3
+                )
             if supported_tools:
                 # Generate system prompt for tool-supporting LLMs
                 system_prompt = generate_system_prompt(
                     available_tools=self.client.available_tools,
                     llm_connection=self.llm_connection,
+                    episodic_memory=episodic_query
                 )
+                
                 response = await process_query(
                     query=query,
                     system_prompt=system_prompt,
@@ -670,6 +676,7 @@ class MCPClientCLI:
                 # Use ReAct agent for LLMs without tool support
                 react_agent_prompt = generate_react_agent_prompt(
                     available_tools=self.client.available_tools,
+                    episodic_memory=episodic_query
                 )
                 response = await ReActAgent().run(
                     sessions=self.client.sessions,
@@ -714,7 +721,17 @@ class MCPClientCLI:
         else:
             await self.in_memory_short_term_memory.save_message_history_to_file(input_text)
         self.console.print(f"[green]Message history saved to {input_text}[/]")
-
+    async def handle_episodic_memory_command(self):
+        """Handle episodic memory command"""
+        if self.USE_MEMORY["redis"]:
+            messages = await self.redis_short_term_memory.get_messages()
+        else:
+            messages = await self.in_memory_short_term_memory.get_messages()
+        created_episodic_memory = await episodic_memory.create_episodic_memory(
+            messages=messages,
+            llm_connection=self.llm_connection
+        )
+        self.console.print(f"[green]Episodic memory created: {created_episodic_memory}[/]")
     async def chat_loop(self):
         """Run an interactive chat loop with rich UI"""
         self.print_welcome_header()
@@ -745,6 +762,8 @@ class MCPClientCLI:
                 command_type, payload = self.parse_command(query)
 
                 if command_type == CommandType.QUIT:
+                    # handle the episodic memory command
+                    await self.handle_episodic_memory_command()
                     break
 
                 # get the handler for the command type from the handlers mapping

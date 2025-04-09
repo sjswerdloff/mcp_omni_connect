@@ -1,11 +1,16 @@
 import json
-from mcpomni_connect.utils import logger, CLIENT_MAC_ADDRESS
+from mcpomni_connect.utils import logger, CLIENT_MAC_ADDRESS, clean_json_response
 import redis.asyncio as redis
 import time
-from typing import Optional
+from typing import Optional, Callable, List, Dict, Any
 from decouple import config
 import asyncio
-
+from datetime import datetime
+import uuid
+from mcpomni_connect.episodic_memory import EPISODIC_MEMORY_PROMPT
+from qdrant_client import QdrantClient
+from qdrant_client.http import models
+from qdrant_client.http.models import Distance, VectorParams
 
 class InMemoryShortTermMemory:
     """In memory short term memory."""
@@ -153,3 +158,379 @@ class RedisShortTermMemory:
             for message in messages:
                 f.write(f"{message['role']}: {message['content']}\n")
         logger.info(f"Saved message history to {file_path}")
+
+# class ChromaDBMemory:
+#     def __init__(self, name: str, description: str):
+#         self.chroma_client = chromadb.HttpClient(host="localhost", port=8000)
+#         self.collection = self._get_or_create_collection(name, description)
+
+#     def _get_or_create_collection(self, name: str, description: str):
+#         """Get or create a collection with default embedding model."""
+#         try:
+
+#             logger.info(f"Getting or creating collection: {name}")
+#             collection = self.chroma_client.get_or_create_collection(
+#                 name=name,
+#                 metadata={
+#                     "hnsw:space": "cosine",
+#                     "description": description
+                    
+#                 }
+#             )
+#             logger.info("Successfully initialized ChromaDB collection")
+#             return collection
+#         except Exception as e:
+#             logger.error(f"Failed to initialize ChromaDB collection: {e}")
+#             raise
+
+#     def add_to_collection(self, documents: list[str], metadatas: list[dict] = None, ids: list[str] = None):
+#         """Add documents to the collection using ChromaDB's internal embedding model.
+        
+#         Args:
+#             collection: The ChromaDB collection
+#             documents: List of text documents to store
+#             metadatas: Optional list of metadata dictionaries
+#             ids: Optional list of document IDs
+#         """
+#         try:
+#             # Add documents to ChromaDB
+#             self.collection.add(
+#                 documents=documents,
+#                 metadatas=metadatas if metadatas else None,
+#                 ids=ids if ids else None
+#             )
+#             logger.info(f"Successfully added {len(documents)} documents to ChromaDB")
+#         except Exception as e:
+#             logger.error(f"Failed to add documents to ChromaDB: {e}")
+#             raise
+
+#     def query_collection(self, query: str, n_results: int = 5):
+#         """Query the collection using ChromaDB's internal embedding model.
+        
+#         Args:
+#             collection: The ChromaDB collection
+#             query: The query text
+#             n_results: Number of results to return
+            
+#         Returns:
+#             dict: Query results containing documents, distances, and metadata
+#         """
+#         try:
+#             results = self.collection.query(
+#                 query_texts=[query],
+#                 n_results=n_results
+#             )
+#             logger.debug(f"Retrieved {len(results['documents'][0])} results from ChromaDB")
+#             return results
+#         except Exception as e:
+#             logger.error(f"Failed to query ChromaDB: {e}")
+#             raise
+
+#     def delete_from_collection(self, ids: list[str] = None, where: dict = None):
+#         """Delete documents from the collection.
+        
+#         Args:
+#             collection: The ChromaDB collection
+#             ids: Optional list of document IDs to delete
+#             where: Optional metadata filter for deletion
+#         """
+#         try:
+#             self.collection.delete(
+#                 ids=ids if ids else None,
+#                 where=where if where else None
+#             )
+#             logger.info(f"Successfully deleted documents from ChromaDB")
+#         except Exception as e:
+#             logger.error(f"Failed to delete documents from ChromaDB: {e}")
+#             raise
+
+#     def update_collection(self, documents: list[str], metadatas: list[dict] = None, ids: list[str] = None):
+#         """Update documents in the collection using ChromaDB's internal embedding model.
+        
+#         Args:
+#             collection: The ChromaDB collection
+#             documents: List of text documents to update
+#             metadatas: Optional list of metadata dictionaries
+#             ids: List of document IDs to update (required)
+#         """
+#         if not ids:
+#             raise ValueError("IDs are required for updating documents")
+            
+#         try:
+#             # Update documents in ChromaDB
+#             self.collection.update(
+#                 documents=documents,
+#                 metadatas=metadatas if metadatas else None,
+#                 ids=ids
+#             )
+#             logger.info(f"Successfully updated {len(documents)} documents in ChromaDB")
+#         except Exception as e:
+#             logger.error(f"Failed to update documents in ChromaDB: {e}")
+#             raise
+from openai import OpenAI
+from decouple import config
+def embed_text(text: str) -> List[float]:
+    """Embed text using OpenAI's embedding API."""
+    client = OpenAI(api_key=config("OPENAI_API_KEY"))
+    response = client.embeddings.create(input=text, model="text-embedding-ada-002")
+    return response.data[0].embedding
+
+class QdrantMemory:
+    def __init__(self, name: str, description: str):
+        """Initialize Qdrant memory storage.
+        
+        Args:
+            name: Name of the collection
+            description: Description of the collection
+        """
+        self.client = QdrantClient(host="localhost", port=6333)
+        self.collection_name = name
+        self.description = description
+        self._ensure_collection()
+
+    def _ensure_collection(self):
+        """Ensure the collection exists, create if it doesn't."""
+        try:
+            collections = self.client.get_collections().collections
+            collection_names = [collection.name for collection in collections]
+            
+            if self.collection_name not in collection_names:
+                self.client.create_collection(
+                    collection_name=self.collection_name,
+                    vectors_config=VectorParams(size=1536, distance=Distance.COSINE),
+                )
+                logger.info(f"Created new Qdrant collection: {self.collection_name}")
+            else:
+                logger.info(f"Using existing Qdrant collection: {self.collection_name}")
+        except Exception as e:
+            logger.error(f"Failed to initialize Qdrant collection: {e}")
+            raise
+
+    def add_to_collection(self, documents: List[str], conversation: str, metadatas: List[Dict] = None, ids: List[str] = None):
+        """Add documents to the collection.
+        
+        Args:
+            documents: List of text documents to store
+            metadatas: Optional list of metadata dictionaries
+            ids: Optional list of document IDs
+        """
+        try:
+            if not ids:
+                ids = [str(uuid.uuid4()) for _ in documents]
+            
+            # Convert documents to points
+            points = []
+            for i, (doc, doc_id) in enumerate(zip(documents, ids)):
+                metadata = metadatas[i] if metadatas else {}
+                metadata["text"] = doc
+                metadata["previous_conversation"] = conversation
+                metadata["timestamp"] = str(datetime.now())
+                
+                points.append(models.PointStruct(
+                    id=doc_id,
+                    vector=embed_text(doc),
+                    payload=metadata
+                ))
+            
+            # Upsert points to collection
+            self.client.upsert(
+                collection_name=self.collection_name,
+                points=points
+            )
+            logger.info(f"Successfully added {len(documents)} documents to Qdrant")
+        except Exception as e:
+            logger.error(f"Failed to add documents to Qdrant: {e}")
+            raise
+
+    def query_collection(self, query: str, n_results: int = 5, distance_threshold: float = 0.70) -> Dict[str, Any]:
+        """Query the collection.
+        
+        Args:
+            query: The query text
+            n_results: Number of results to return
+            
+        Returns:
+            Dict containing query results
+        """
+        try:
+            # Search for similar documents
+            search_result = self.client.query_points(
+                collection_name=self.collection_name,
+                query=embed_text(query),
+                limit=n_results,
+                with_payload=True
+            ).points
+            if hasattr(search_result[0], "payload"):
+                #logger.info(f"Search result: {search_result}")
+                # format the results and filter by distance threshold if its greater than or equal to the threshold
+                results = {
+                    "documents": [[hit.payload["text"] for hit in search_result if hit.score >= distance_threshold]],
+                    "previous_conversation": [[hit.payload["previous_conversation"] for hit in search_result if hit.score >= distance_threshold]],
+                    "distances": [[hit.score for hit in search_result if hit.score >= distance_threshold]],
+                    "metadatas": [[hit.payload for hit in search_result if hit.score >= distance_threshold]]
+                }
+                #logger.info(f" results distances: {results['distances']}")
+                logger.info(f"Retrieved {len(results['documents'])} results from Qdrant")
+                return results
+            else:
+                logger.error(f"Failed to retrieve results from Qdrant: {search_result}")
+                raise Exception(f"Failed to retrieve results from Qdrant: {search_result}")
+        except Exception as e:
+            logger.error(f"Failed to query Qdrant: {e}")
+            raise
+
+    def delete_from_collection(self, ids: List[str] = None, where: Dict = None):
+        """Delete documents from the collection.
+        
+        Args:
+            ids: Optional list of document IDs to delete
+            where: Optional filter for deletion
+        """
+        try:
+            if ids:
+                self.client.delete(
+                    collection_name=self.collection_name,
+                    points_selector=models.PointIdsList(
+                        points=ids
+                    )
+                )
+            elif where:
+                self.client.delete(
+                    collection_name=self.collection_name,
+                    points_selector=models.FilterSelector(
+                        filter=models.Filter(
+                            must=[
+                                models.FieldCondition(
+                                    key=key,
+                                    match=models.MatchValue(value=value)
+                                )
+                                for key, value in where.items()
+                            ]
+                        )
+                    )
+                )
+            logger.info("Successfully deleted documents from Qdrant")
+        except Exception as e:
+            logger.error(f"Failed to delete documents from Qdrant: {e}")
+            raise
+
+    def update_collection(self, documents: List[str], conversation: str, metadatas: List[Dict] = None, ids: List[str] = None):
+        """Update documents in the collection.
+        
+        Args:
+            documents: List of text documents to update
+            metadatas: Optional list of metadata dictionaries
+            ids: List of document IDs to update (required)
+        """
+        if not ids:
+            raise ValueError("IDs are required for updating documents")
+            
+        try:
+            # Convert documents to points
+            points = []
+            for i, (doc, doc_id) in enumerate(zip(documents, ids)):
+                metadata = metadatas[i] if metadatas else {}
+                metadata["text"] = doc
+                metadata["previous_conversation"] = conversation
+                metadata["timestamp"] = str(datetime.now())
+                
+                points.append(models.PointStruct(
+                    id=doc_id,
+                    vector=embed_text(doc),
+                    payload=metadata
+                ))
+            
+            # Upsert points to collection
+            self.client.upsert(
+                collection_name=self.collection_name,
+                points=points
+            )
+            logger.info(f"Successfully updated {len(documents)} documents in Qdrant")
+        except Exception as e:
+            logger.error(f"Failed to update documents in Qdrant: {e}")
+            raise
+
+class EpisodicMemory(QdrantMemory):
+    def __init__(self, name: str, description: str):
+        """Initialize episodic memory using Qdrant storage.
+        
+        Args:
+            name: Name of the collection
+            description: Description of the collection
+        """
+        super().__init__(name, description)
+        self.EPISODIC_MEMORY_PROMPT = EPISODIC_MEMORY_PROMPT
+
+    async def create_episodic_memory(self, messages: List[Dict], llm_connection: Callable) -> Dict:
+        """Create an episodic memory from a conversation.
+        
+        Args:
+            messages: The conversation messages to analyze
+            llm_connection: The LLM connection to use for memory creation
+            
+        Returns:
+            Dict: The created memory
+        """
+        try:
+            response = await llm_connection.llm_call([
+                {"role": "system", "content": self.EPISODIC_MEMORY_PROMPT},
+                {"role": "user", "content": str(messages)}
+            ])
+            # logger.info(f"Episodic memory response: {response}")
+            if response and response.choices:
+                memory = clean_json_response(response.choices[0].message.content)
+                # logger.info(f"Episodic memory: {memory}")
+                
+                # Store the memory in Qdrant
+                self.add_to_collection(
+                    documents=[memory],
+                    metadatas=[{
+                        "type": "episodic_memory",
+                    }],
+                    conversation=str(messages),
+                    ids=[str(uuid.uuid4())]
+                )
+                
+                logger.info(f"Successfully created episodic memory: {memory}")
+                return memory
+                
+            return None
+        except Exception as e:
+            logger.error(f"Failed to create episodic memory: {e}")
+            return None
+
+    async def retrieve_relevant_memories(self, query: str, n_results: int = 5) -> List[Dict]:
+        """Retrieve relevant episodic memories based on a query.
+        
+        Args:
+            query: The query to search for relevant memories
+            n_results: Number of memories to retrieve
+            
+        Returns:
+            List[Dict]: List of relevant memories
+        """
+        try:
+            final_results = []
+            results = self.query_collection(query, n_results)
+            #logger.info(f"Episodic query results: {results}")
+            if results and "documents" in results:
+                documents = results.get("documents", [])
+                # Flatten nested lists defensively
+                flat_docs = []
+                for item in documents:
+                    if isinstance(item, list):
+                        flat_docs.extend(item)
+                    else:
+                        flat_docs.append(item)
+
+                # Parse each document safely
+                for i, doc in enumerate(flat_docs):
+                    try:
+                        final_results.append(json.loads(doc))
+                    except (TypeError, json.JSONDecodeError) as e:
+                        logger.warning(f"Failed to parse document at index {i}: {doc} — Error: {e}")
+            logger.info(f"length of final results: {len(final_results)}")
+            return final_results
+        except Exception as e:
+            logger.error(f"Failed to retrieve episodic memories: {e}")
+            return []

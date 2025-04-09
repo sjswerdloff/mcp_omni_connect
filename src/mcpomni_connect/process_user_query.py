@@ -1,7 +1,7 @@
 import json
 from typing import Any, Callable, Optional
-
 from mcpomni_connect.utils import logger
+
 # process a query using LLM and available tools
 async def process_query(
     query: str,
@@ -23,6 +23,7 @@ async def process_query(
 
     # add system prompt and user query to messages
     messages.append({"role": "system", "content": system_prompt})
+    
     # track assistant with tool calls and pending tool responses
     assistant_with_tool_calls = None
     pending_tool_responses = []

@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  chroma_db:
+      image: chromadb/chroma
+      container_name: chroma_vector_db
+      ports:
+        - "8000:8000"
+      volumes:
+        - ./chroma_db:/chroma/chroma
+      restart: unless-stopped
+
+volumes:
+  chroma_db:

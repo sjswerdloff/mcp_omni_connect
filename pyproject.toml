@@ -36,6 +36,7 @@ dependencies = [
     "groq>=0.20.0",
     "redis>=5.2.1",
     "python-decouple>=3.8",
+    "qdrant-client>=1.13.3",
 ]
 
 [project.scripts]

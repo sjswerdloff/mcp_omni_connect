@@ -5,7 +5,7 @@ from pathlib import Path
 import uuid
 import subprocess
 import platform
-
+import json
 # Configure logging
 logger = logging.getLogger("mcpomni_connect")
 logger.setLevel(logging.INFO)
@@ -52,6 +52,349 @@ logger.addHandler(file_handler)
 # Configure handlers to flush immediately
 console_handler.flush = sys.stdout.flush
 file_handler.flush = lambda: file_handler.stream.flush()
+
+
+def clean_json_response(json_response):
+    """Clean and extract JSON from the response."""
+    try:
+        # First try to parse as is
+        json.loads(json_response)
+        return json_response
+    except json.JSONDecodeError:
+        # If that fails, try to extract JSON
+        try:
+            # Remove any markdown code blocks
+            if "```" in json_response:
+                # Extract content between first ``` and last ```
+                start = json_response.find("```") + 3
+                end = json_response.rfind("```")
+                # Skip the "json" if it's present after first ```
+                if json_response[start:start+4].lower() == "json":
+                    start += 4
+                json_response = json_response[start:end].strip()
+            
+            # Find the first { and last }
+            start = json_response.find("{")
+            end = json_response.rfind("}") + 1
+            if start >= 0 and end > start:
+                json_response = json_response[start:end]
+            
+            # Validate the extracted JSON
+            json.loads(json_response)
+            return json_response
+        except (json.JSONDecodeError, ValueError) as e:
+            raise json.JSONDecodeError(f"Could not extract valid JSON from response: {str(e)}", json_response, 0)
+
+from collections import deque
+import hashlib
+from typing import Tuple, List, Set, Optional, Dict, Any, Union
+
+def hash_text(text: str) -> str:
+    """Hash a string using SHA-256."""
+    return hashlib.sha256(text.encode()).hexdigest()
+
+class RobustLoopDetector:
+    def __init__(
+        self, 
+        maxlen: int = 20,
+        min_calls: int = 3,
+        same_output_threshold: int = 3,
+        same_input_threshold: int = 3,
+        full_dup_threshold: int = 3,
+        pattern_detection: bool = True,
+        max_pattern_length: int = 3
+    ):
+        """Initialize a robust loop detector.
+        
+        Args:
+            maxlen: Maximum number of recent interactions to track
+            min_calls: Minimum number of interactions before loop detection is active
+            same_output_threshold: Maximum unique outputs before it's considered a loop
+            same_input_threshold: Maximum unique inputs before it's considered a loop
+            full_dup_threshold: Maximum unique interaction signatures before it's considered a loop
+            pattern_detection: Whether to detect repeating patterns
+            max_pattern_length: Maximum pattern length to detect
+        """
+        self.recent_interactions = deque(maxlen=maxlen)
+        self.min_calls = min_calls
+        self.same_output_threshold = same_output_threshold
+        self.same_input_threshold = same_input_threshold
+        self.full_dup_threshold = full_dup_threshold
+        self.pattern_detection = pattern_detection
+        self.max_pattern_length = max_pattern_length
+        
+        # Cache for performance optimization
+        self._cache: Dict[str, Any] = {}
+        self._interaction_count = 0
+    
+    def record_tool_call(self, tool_name: str, tool_input: str, tool_output: str) -> None:
+        """Record a new tool call interaction.
+        
+        Args:
+            tool_name: Name of the tool that was called
+            tool_input: Input provided to the tool
+            tool_output: Output returned by the tool
+        """
+        logger.info(f"Recording tool call: {tool_name}, {tool_input}, {tool_output}")
+        signature = ("tool", tool_name, hash_text(tool_input), hash_text(tool_output))
+        self.recent_interactions.append(signature)
+        logger.info(f"Recent interactions: {self.recent_interactions}")
+        self._interaction_count += 1
+        
+        # Invalidate cache
+        self._cache = {}
+    
+    def record_message(self, user_message: str, assistant_message: str) -> None:
+        """Record a new message exchange interaction.
+        
+        Args:
+            user_message: Message from the user
+            assistant_message: Response from the assistant
+        """
+        signature = ("message", "", hash_text(user_message), hash_text(assistant_message))
+        self.recent_interactions.append(signature)
+        self._interaction_count += 1
+        
+        # Invalidate cache
+        self._cache = {}
+        
+    def record_interaction(self, interaction_type: str, input_data: str, output_data: str, metadata: str = "") -> None:
+        """Generic method to record any type of interaction.
+        
+        Args:
+            interaction_type: Type of interaction (e.g., "tool", "message", "function")
+            input_data: Input for the interaction
+            output_data: Output from the interaction
+            metadata: Additional information about the interaction (e.g., tool name)
+        """
+        signature = (interaction_type, metadata, hash_text(input_data), hash_text(output_data))
+        self.recent_interactions.append(signature)
+        self._interaction_count += 1
+        
+        # Invalidate cache
+        self._cache = {}
+    
+    def reset(self) -> None:
+        """Reset the detector, clearing all recorded interactions."""
+        self.recent_interactions.clear()
+        self._cache = {}
+        self._interaction_count = 0
+    
+    def _get_unique_inputs(self) -> Set[str]:
+        """Get set of unique inputs (cached)."""
+        if 'unique_inputs' not in self._cache:
+            self._cache['unique_inputs'] = set(sig[2] for sig in self.recent_interactions)
+        return self._cache['unique_inputs']
+    
+    def _get_unique_outputs(self) -> Set[str]:
+        """Get set of unique outputs (cached)."""
+        if 'unique_outputs' not in self._cache:
+            self._cache['unique_outputs'] = set(sig[3] for sig in self.recent_interactions)
+        return self._cache['unique_outputs']
+    
+    def _get_unique_signatures(self) -> Set[Tuple]:
+        """Get set of unique full signatures (cached)."""
+        if 'unique_signatures' not in self._cache:
+            self._cache['unique_signatures'] = set(self.recent_interactions)
+        return self._cache['unique_signatures']
+    
+    def is_ready(self) -> bool:
+        """Check if we have enough data to start detecting loops."""
+        return self._interaction_count >= self.min_calls
+    
+    def is_stuck_same_output(self) -> bool:
+        """Detect if we're stuck getting the same outputs repeatedly."""
+        if not self.is_ready():
+            return False
+            
+        # Get the last few outputs
+        recent_outputs = [sig[3] for sig in self.recent_interactions]
+        
+        # We need at least same_output_threshold outputs to check
+        if len(recent_outputs) < self.same_output_threshold:
+            return False
+            
+        # Check if the last same_output_threshold outputs are all the same
+        last_outputs = recent_outputs[-self.same_output_threshold:]
+        return len(set(last_outputs)) == 1
+    
+    def is_stuck_same_input(self) -> bool:
+        """Detect if we're stuck using the same inputs repeatedly."""
+        if not self.is_ready():
+            return False
+            
+        # Get the last few inputs
+        recent_inputs = [sig[2] for sig in self.recent_interactions]
+        
+        # We need at least same_input_threshold inputs to check
+        if len(recent_inputs) < self.same_input_threshold:
+            return False
+            
+        # Check if the last same_input_threshold inputs are all the same
+        last_inputs = recent_inputs[-self.same_input_threshold:]
+        return len(set(last_inputs)) == 1
+    
+    def is_fully_stuck(self) -> bool:
+        """Detect if we're stuck in the same input-output combinations."""
+        if not self.is_ready():
+            return False
+            
+        # Get the last few interactions
+        recent_interactions = list(self.recent_interactions)
+        
+        # We need at least full_dup_threshold interactions to check
+        if len(recent_interactions) < self.full_dup_threshold:
+            return False
+            
+        # Check if the last full_dup_threshold interactions are all the same
+        last_interactions = recent_interactions[-self.full_dup_threshold:]
+        return len(set(last_interactions)) == 1
+    
+    def find_repeating_pattern(self) -> Optional[List[Tuple]]:
+        """Find a repeating pattern in the interaction history.
+        
+        Returns:
+            The detected pattern as a list of signatures, or None if no pattern found
+        """
+        if not self.pattern_detection or not self.is_ready():
+            return None
+            
+        interactions = list(self.recent_interactions)
+        
+        # Check patterns of different lengths
+        for pattern_len in range(1, min(self.max_pattern_length + 1, len(interactions) // 2 + 1)):
+            # Check if the last N elements repeat the previous N elements
+            pattern = interactions[-pattern_len:]
+            prev_pattern = interactions[-2*pattern_len:-pattern_len]
+            
+            if pattern == prev_pattern:
+                # Found a repeating pattern
+                return pattern
+                
+        # For more complex patterns (like A-B-A-C-A-B-A-C)
+        # We could implement more sophisticated algorithms
+        
+        return None
+    
+    def has_pattern_loop(self) -> bool:
+        """Check if there's a repeating pattern loop."""
+        return self.find_repeating_pattern() is not None
+    
+    def is_looping(self) -> bool:
+        """Check if any loop detection method indicates a loop."""
+        return (
+            self.is_stuck_same_output() or 
+            self.is_stuck_same_input() or 
+            self.is_fully_stuck() or 
+            self.has_pattern_loop()
+        )
+    
+    def get_loop_type(self) -> List[str]:
+        """Get detailed information about the type of loop detected.
+        
+        Returns:
+            List of strings describing the detected loop types
+        """
+        if not self.is_looping():
+            return []
+            
+        loop_types = []
+        if self.is_stuck_same_output():
+            loop_types.append("same_output")
+        if self.is_stuck_same_input():
+            loop_types.append("same_input")
+        if self.is_fully_stuck():
+            loop_types.append("full_duplication")
+        
+        pattern = self.find_repeating_pattern()
+        if pattern:
+            loop_types.append(f"repeating_pattern(len={len(pattern)})")
+            
+        return loop_types
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get statistics about the current state.
+        
+        Returns:
+            Dictionary with statistics about inputs, outputs, etc.
+        """
+        if not self.recent_interactions:
+            return {"interactions": 0}
+            
+        # Count different types of interactions
+        interaction_types = {}
+        for sig in self.recent_interactions:
+            itype = sig[0]
+            interaction_types[itype] = interaction_types.get(itype, 0) + 1
+            
+        return {
+            "interactions": self._interaction_count,
+            "queue_size": len(self.recent_interactions),
+            "unique_inputs": len(self._get_unique_inputs()),
+            "unique_outputs": len(self._get_unique_outputs()),
+            "unique_signatures": len(self._get_unique_signatures()),
+            "interaction_types": interaction_types,
+            "repeating_pattern": self.find_repeating_pattern() is not None
+        }
+    
+    def get_interaction_types(self) -> Dict[str, int]:
+        """Get counts of each interaction type in the history.
+        
+        Returns:
+            Dictionary mapping interaction types to their counts
+        """
+        type_counts = {}
+        for sig in self.recent_interactions:
+            itype = sig[0]
+            type_counts[itype] = type_counts.get(itype, 0) + 1
+        return type_counts
+
+def handle_stuck_state(original_system_prompt: str, message_stuck_prompt: bool = False):
+    """
+    Creates a modified system prompt that includes stuck detection guidance.
+    
+    Parameters:
+    - original_system_prompt: The normal system prompt you use
+    - message_stuck_prompt: If True, use a shorter version of the stuck prompt
+    
+    Returns:
+    - Modified system prompt with stuck guidance prepended
+    """
+    if message_stuck_prompt:
+        stuck_prompt = (
+            "⚠️ You are stuck in a loop. This must be addressed immediately.\n\n"
+            "REQUIRED ACTIONS:\n"
+            "1. **STOP** the current approach\n"
+            "2. **ANALYZE** why the previous attempts failed\n"
+            "3. **TRY** a completely different method\n"
+            "4. **IF** the issue cannot be resolved:\n"
+            "   - Explain clearly why not\n"
+            "   - Provide alternative solutions\n"
+            "   - DO NOT repeat the same failed action\n\n"
+            "❗ CONTINUING THE SAME APPROACH WILL RESULT IN FURTHER FAILURES"
+        )
+    else:
+        stuck_prompt = (
+            "⚠️ It looks like you're stuck or repeating an ineffective approach.\n"
+            "Take a moment to do the following:\n"
+            "1. **Reflect**: Analyze why the previous step didn't work (e.g., tool call failure, irrelevant observation).\n"
+            "2. **Try Again Differently**: Use a different tool, change the inputs, or attempt a new strategy.\n"
+            "3. **If Still Unsolvable**:\n"
+            "   - **Clearly explain** to the user *why* the issue cannot be solved.\n"
+            "   - Provide any relevant reasoning or constraints.\n"
+            "   - Offer one or more alternative solutions or next steps.\n"
+            "❗ Do not repeat the same failed strategy or go silent."
+        )
+    
+    # Create a temporary modified system prompt
+    modified_system_prompt = (
+        f"{stuck_prompt}\n\n"
+        f"Your previous approaches to solve this problem have failed. You need to try something completely different.\n\n"
+        f"{original_system_prompt}"
+    )
+    
+    logger.warning("Agent detected stuck state. Modified system prompt with corrective guidance.")
+    return modified_system_prompt
 
 def get_mac_address() -> str:
     """Get the MAC address of the client machine.
