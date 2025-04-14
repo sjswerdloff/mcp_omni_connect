@@ -26,10 +26,11 @@ def test_check_config_exists_new(mock_config_path):
             config = json.load(f)
             assert "LLM" in config
             assert "mcpServers" in config
-            assert config["LLM"]["model"] == "gpt-4o-mini"
+            assert config["LLM"]["model"] == "qwen/qwq-32b:free"
             assert config["LLM"]["temperature"] == 0.5
             assert config["LLM"]["max_tokens"] == 5000
             assert config["LLM"]["top_p"] == 0
+            assert config["LLM"]["max_input_tokens"] == 30000
             assert "server_name" in config["mcpServers"]
 
 
@@ -38,10 +39,12 @@ def test_check_config_exists_existing(mock_config_path):
     # Create existing config with custom values
     existing_config = {
         "LLM": {
-            "model": "custom-model",
+            "model": "qwen/qwq-32b:free",
             "temperature": 0.8,
             "max_tokens": 1000,
             "top_p": 0.1,
+            "max_input_tokens": 1000,
+            "provider": "openrouter",
         },
         "mcpServers": {
             "custom_server": {

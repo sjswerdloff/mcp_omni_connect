@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.13] - 2025-04-14
+
+### Added
+- Gemini model integration with full support for tool execution
+- Redis-powered memory persistence:
+  - Conversation history tracking
+  - State management across sessions
+  - Configurable memory retention
+  - Efficient data serialization and retrieval
+  - Multi-server memory synchronization
+- Agentic Mode capabilities:
+  - Autonomous task execution without human intervention
+  - Advanced reasoning and decision-making
+  - Complex task decomposition and handling
+  - Self-guided tool selection and execution
+- Advanced prompt features:
+  - Dynamic prompt discovery across servers
+  - JSON and key-value format support
+  - Nested argument structures
+  - Automatic type conversion and validation
+- Comprehensive troubleshooting guide with:
+  - Common issues and solutions
+  - Debug mode instructions
+  - Support workflow
+- Detailed architecture documentation with component breakdown
+- Advanced server configuration examples for:
+  - Multiple transport protocols
+  - Various LLM providers
+  - Docker integration
+
+### Changed
+- Enhanced installation process with UV package manager
+- Improved development quick start guide
+- Updated server configuration format to support multiple LLM providers
+- Expanded model support documentation for all providers
+- Enhanced security documentation with explicit user control details
+- Restructured README with clearer sections and examples
+
+### Fixed
+- Standardized command formatting in documentation
+- Improved code block consistency
+- Enhanced example clarity and completeness
+
 ## [0.1.1] - 2025-03-27
 
 ### Added

@@ -14,6 +14,7 @@ MOCK_CONFIG = {
                 "model": "gpt-4",
                 "temperature": 0.7,
                 "max_tokens": 1000,
+                "max_input_tokens": 1000,
                 "top_p": 0.9,
             }
         }
@@ -131,6 +132,93 @@ class TestLLMConnection:
             tools=tools,
             tool_choice="auto",
         )
+
+    @pytest.mark.asyncio
+    async def test_llm_call_gemini(self, mock_llm_connection):
+        """Test LLM call with Gemini"""
+        # Update config to use Gemini
+        mock_llm_connection.llm_config["provider"] = "gemini"
+        messages = [{"role": "user", "content": "Hello"}]
+        tools = [{"name": "test_tool", "description": "Test tool"}]
+
+        mock_response = Mock()
+        mock_llm_connection.gemini.chat.completions.create.return_value = mock_response
+
+        response = await mock_llm_connection.llm_call(messages, tools)
+
+        assert response == mock_response
+        mock_llm_connection.gemini.chat.completions.create.assert_called_once_with(
+            model="gpt-4",
+            max_tokens=1000,
+            temperature=0.7,
+            top_p=0.9,
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+        )
+
+    @pytest.mark.asyncio
+    async def test_llm_call_without_tools(self, mock_llm_connection):
+        """Test LLM call without tools for different providers"""
+        messages = [{"role": "user", "content": "Hello"}]
+
+        # Test OpenAI without tools
+        mock_response_openai = Mock()
+        mock_llm_connection.openai.chat.completions.create.return_value = mock_response_openai
+        mock_llm_connection.llm_config["provider"] = "openai"
+        
+        response = await mock_llm_connection.llm_call(messages)
+        assert response == mock_response_openai
+        mock_llm_connection.openai.chat.completions.create.assert_called_with(
+            model="gpt-4",
+            max_tokens=1000,
+            temperature=0.7,
+            top_p=0.9,
+            messages=messages,
+        )
+
+        # Test OpenRouter without tools
+        mock_response_openrouter = Mock()
+        mock_llm_connection.openrouter.chat.completions.create.return_value = mock_response_openrouter
+        mock_llm_connection.llm_config["provider"] = "openrouter"
+        
+        response = await mock_llm_connection.llm_call(messages)
+        assert response == mock_response_openrouter
+        mock_llm_connection.openrouter.chat.completions.create.assert_called_with(
+            extra_body={
+                "order": ["Mistral", "Openai", "Groq", "Gemini"],
+                "allow_fallback": True,
+                "require_provider": True,
+            },
+            model="gpt-4",
+            max_tokens=1000,
+            temperature=0.7,
+            top_p=0.9,
+            messages=messages,
+            stop=["\n\nObservation:"],
+        )
+
+    @pytest.mark.asyncio
+    async def test_llm_call_error_handling(self, mock_llm_connection):
+        """Test error handling during LLM calls"""
+        messages = [{"role": "user", "content": "Hello"}]
+
+        # Test invalid provider
+        mock_llm_connection.llm_config["provider"] = "invalid_provider"
+        response = await mock_llm_connection.llm_call(messages)
+        assert response is None
+
+        # Test API error with OpenAI
+        mock_llm_connection.llm_config["provider"] = "openai"
+        mock_llm_connection.openai.chat.completions.create.side_effect = Exception("API Error")
+        response = await mock_llm_connection.llm_call(messages)
+        assert response is None
+
+        # Test API error with Groq
+        mock_llm_connection.llm_config["provider"] = "groq"
+        mock_llm_connection.groq.chat.completions.create.side_effect = Exception("API Error")
+        response = await mock_llm_connection.llm_call(messages)
+        assert response is None
 
     def test_truncate_messages_for_groq(self, mock_llm_connection):
         """Test message truncation for Groq"""

@@ -33,10 +33,16 @@ MCPOmni Connect is a powerful, universal command-line interface (CLI) that serve
     - Handles models without native function calling
     - Dynamic function execution based on user requests
     - Intelligent tool orchestration
+- **Agentic Mode**
+  - Autonomous task execution without human intervention
+  - Advanced reasoning and decision-making capabilities
+  - Seamless switching between chat and agentic modes
+  - Self-guided tool selection and execution
+  - Complex task decomposition and handling
 
 ### 🔒 Security & Privacy
 - **Explicit User Control**
-  - All tool executions require explicit user approval
+  - All tool executions require explicit user approval in chat mode
   - Clear explanation of tool actions before execution
   - Transparent disclosure of data access and usage
 - **Data Protection**
@@ -51,6 +57,18 @@ MCPOmni Connect is a powerful, universal command-line interface (CLI) that serve
   - Encrypted transport protocols
   - Secure API key management
   - Environment variable protection
+
+### 💾 Memory Management
+- **Redis-Powered Persistence**
+  - Long-term conversation memory storage
+  - Session persistence across restarts
+  - Configurable memory retention
+  - Easy memory toggle with commands
+- **Intelligent Context Management**
+  - Automatic context pruning
+  - Relevant information retrieval
+  - Memory-aware responses
+  - Cross-session context maintenance
 
 ### 💬 Prompt Management
 - **Advanced Prompt Handling**
@@ -112,6 +130,7 @@ MCPOmni Connect
 - Python 3.10+
 - LLM API key
 - UV package manager (recommended)
+- Redis server (optional, for persistent memory)
 
 ### Install using package manager
 ```bash
@@ -120,6 +139,18 @@ uv add mcpomni-connect
 # using pip
 pip install mcpomni-connect
 ```
+
+### Configuration
+```bash
+# Set up environment variables
+echo "LLM_API_KEY=your_key_here" > .env
+# Optional: Configure Redis connection
+echo "REDIS_HOST=localhost" >> .env
+echo "REDIS_PORT=6379" >> .env
+echo "REDIS_DB=0" >> .env"
+# Configure your servers in servers_config.json
+```
+
 ### Start CLI
 ```bash
 # start the cli running the command ensure your api key is export or create .env
@@ -184,6 +215,7 @@ tests/
         "model": "gpt-4",      // Any model from supported providers
         "temperature": 0.5,
         "max_tokens": 5000,
+        "max_context_length": 30000, // Maximu of the model context length
         "top_p": 0
     },
     "mcpServers": {
@@ -215,17 +247,58 @@ tests/
 - `/tools` - List all available tools across servers
 - `/prompts` - View available prompts
 - `/prompt:<name>/<args>` - Execute a prompt with arguments
-  ```
-  # Example: Weather prompt
-  /prompt:weather/location=tokyo/units=metric
-  
-  # Alternative JSON format
-  /prompt:weather/{"location":"tokyo","units":"metric"}
-  ```
 - `/resources` - List available resources
 - `/resource:<uri>` - Access and analyze a resource
 - `/debug` - Toggle debug mode
 - `/refresh` - Update server capabilities
+- `/memory` - Toggle Redis memory persistence (on/off)
+- `/mode:auto` - Switch to autonomous agentic mode
+- `/mode:chat` - Switch back to interactive chat mode
+
+### Memory Management
+```bash
+# Enable Redis memory persistence
+/memory
+
+# Check memory status
+Memory persistence is now ENABLED using Redis
+
+# Disable memory persistence
+/memory
+
+# Check memory status
+Memory persistence is now DISABLED
+```
+
+### Operation Modes
+```bash
+# Switch to autonomous mode
+/mode:auto
+
+# System confirms mode change
+Now operating in AUTONOMOUS mode. I will execute tasks independently.
+
+# Switch back to chat mode
+/mode:chat
+
+# System confirms mode change
+Now operating in CHAT mode. I will ask for approval before executing tasks.
+```
+
+### Mode Differences
+- **Chat Mode (Default)**
+  - Requires explicit approval for tool execution
+  - Interactive conversation style
+  - Step-by-step task execution
+  - Detailed explanations of actions
+
+- **Autonomous Mode**
+  - Independent task execution
+  - Self-guided decision making
+  - Automatic tool selection and chaining
+  - Progress updates and final results
+  - Complex task decomposition
+  - Error handling and recovery
 
 ### Prompt Management
 ```bash
@@ -318,7 +391,54 @@ User: "Analyze the contents of /path/to/document.pdf"
 ### Demo
 ![mcp_client_new1-MadewithClipchamp-ezgif com-optimize](https://github.com/user-attachments/assets/9c4eb3df-d0d5-464c-8815-8f7415a47fce)
 
+## 🔍 Troubleshooting
 
+### Common Issues and Solutions
+
+1. **Connection Issues**
+   ```bash
+   Error: Could not connect to MCP server
+   ```
+   - Check if the server is running
+   - Verify server configuration in `servers_config.json`
+   - Ensure network connectivity
+   - Check server logs for errors
+
+2. **API Key Issues**
+   ```bash
+   Error: Invalid API key
+   ```
+   - Verify API key is correctly set in `.env`
+   - Check if API key has required permissions
+   - Ensure API key is for correct environment (production/development)
+
+3. **Redis Connection**
+   ```bash
+   Error: Could not connect to Redis
+   ```
+   - Verify Redis server is running
+   - Check Redis connection settings in `.env`
+   - Ensure Redis password is correct (if configured)
+
+4. **Tool Execution Failures**
+   ```bash
+   Error: Tool execution failed
+   ```
+   - Check tool availability on connected servers
+   - Verify tool permissions
+   - Review tool arguments for correctness
+
+### Debug Mode
+
+Enable debug mode for detailed logging:
+```bash
+/debug
+```
+
+For additional support, please:
+1. Check the [Issues](https://github.com/Abiorh001/mcp_omni_connect/issues) page
+2. Review closed issues for similar problems
+3. Open a new issue with detailed information if needed
 
 ## 🤝 Contributing
 

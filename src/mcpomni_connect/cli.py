@@ -30,8 +30,10 @@ from mcpomni_connect.resources import (
     unsubscribe_resource,
 )
 from mcpomni_connect.system_prompts import (
-    generate_react_agent_prompt,
+    generate_react_agent_prompt_template,
     generate_system_prompt,
+    generate_orchestrator_prompt_template,
+    generate_react_agent_prompt,
 )
 from mcpomni_connect.tools import list_tools
 from mcpomni_connect.utils import logger
@@ -39,7 +41,11 @@ from mcpomni_connect.memory import (
     RedisShortTermMemory,
     InMemoryShortTermMemory,
 )
-from mcpomni_connect.memory import EpisodicMemory
+
+# TODO: add episodic memory
+# from mcpomni_connect.memory import EpisodicMemory
+from mcpomni_connect.mcp_omni_agents import OrchestratorAgent
+from mcpomni_connect.constants import AGENTS_REGISTRY
 
 
 class CommandType(Enum):
@@ -71,6 +77,16 @@ class CommandHelp:
     def get_command_help(command_type: str) -> Dict[str, Any]:
         """Get detailed help for a specific command type"""
         help_docs = {
+            "mode": {
+                "description": "Toggle between auto and chat mode",
+                "usage": "/mode:<auto|chat>",
+                "examples": [
+                    "/mode:auto  # Toggle between auto and chat mode",
+                    "/mode:chat  # Toggle between auto and chat mode",
+                ],
+                "subcommands": {},
+                "tips": ["Use to toggle between auto and chat mode"],
+            },
             "memory": {
                 "description": "Toggle memory usage between Redis and In-Memory",
                 "usage": "/memory",
@@ -234,7 +250,7 @@ class MCPClientCLI:
         self.llm_connection = llm_connection
         self.MAX_CONTEXT_TOKENS = self.llm_connection.config.load_config(
             "servers_config.json"
-        )["LLM"]["max_tokens"]
+        )["LLM"]["max_context_length"]
         self.USE_MEMORY = {"redis": False, "in_memory": True}
         self.MODE = {"auto": False, "chat": True}
         self.redis_short_term_memory = RedisShortTermMemory(
@@ -243,9 +259,11 @@ class MCPClientCLI:
         self.in_memory_short_term_memory = InMemoryShortTermMemory(
             max_context_tokens=self.MAX_CONTEXT_TOKENS
         )
-        self.episodic_memory = EpisodicMemory(
-            "episodic_memory", "Stores conversation patterns and insights"
-        )
+
+        # TODO: add episodic memory
+        # self.episodic_memory = EpisodicMemory(
+        #     "episodic_memory", "Stores conversation patterns and insights"
+        # )
         self.console = Console()
         self.command_help = CommandHelp()
 
@@ -321,6 +339,7 @@ class MCPClientCLI:
             f"[{'green' if self.MODE["auto"] else 'red'}]Mode "
             f"{'auto' if self.MODE["auto"] else 'chat'}[/]"
         )
+
     async def handle_refresh_command(self, input_text: str = ""):
         """Handle refresh capabilities command"""
         with Progress(
@@ -581,7 +600,6 @@ class MCPClientCLI:
             else:
                 # Use ReAct agent for LLMs without tool support
                 react_agent_prompt = generate_react_agent_prompt(
-                    available_tools=self.client.available_tools,
                 )
                 initial_response = await get_prompt_with_react_agent(
                     sessions=self.client.sessions,
@@ -613,6 +631,7 @@ class MCPClientCLI:
                             if self.USE_MEMORY["redis"]
                             else self.in_memory_short_term_memory.get_messages
                         ),
+                        debug=self.client.debug,
                     )
                 else:
                     content = initial_response
@@ -712,18 +731,19 @@ class MCPClientCLI:
                 supported_tools = LLMToolSupport.check_tool_support(
                     self.llm_connection.llm_config
                 )
-                episodic_query = (
-                    await self.episodic_memory.retrieve_relevant_memories(
-                        query=query, n_results=3
-                    )
-                )
+                # TODO: add episodic memory
+                # episodic_query = (
+                #     await self.episodic_memory.retrieve_relevant_memories(
+                #         query=query, n_results=3
+                #     )
+                # )
                 # if the LLM supports tools and the mode is chat, use the tool-supporting mode
                 if supported_tools and self.MODE["chat"]:
                     # Generate system prompt for tool-supporting LLMs
                     system_prompt = generate_system_prompt(
                         available_tools=self.client.available_tools,
                         llm_connection=self.llm_connection,
-                        episodic_memory=episodic_query,
+                        # episodic_memory=episodic_query,
                     )
 
                     response = await process_query(
@@ -747,10 +767,35 @@ class MCPClientCLI:
                         debug=self.client.debug,
                     )
                 elif self.MODE["auto"]:
-                    # using the autonomous agent mode
+                    # orchestrator_agent_prompt = generate_orchestrator_prompt_template(
+                    #     agent_registry=AGENTS_REGISTRY,
+                    #     episodic_memory=episodic_query,
+                    #     available_tools=self.client.available_tools,
+                    # )
+                    # orchestrator_agent = OrchestratorAgent(
+                    #     agent_registry=AGENTS_REGISTRY,
+                    # )
+                    # response = await orchestrator_agent.run(
+                    #     query=query,
+                    #     sessions=self.client.sessions,
+                    #     add_message_to_history=(
+                    #         self.redis_short_term_memory.store_message
+                    #         if self.USE_MEMORY["redis"]
+                    #         else self.in_memory_short_term_memory.store_message
+                    #     ),
+                    #     llm_connection=self.llm_connection,
+                    #     available_tools=self.client.available_tools,
+                    #     message_history=(
+                    #         self.redis_short_term_memory.get_messages
+                    #         if self.USE_MEMORY["redis"]
+                    #         else self.in_memory_short_term_memory.get_messages
+                    #     ),
+                    #     episodic_memory=episodic_query,
+                    #     orchestrator_system_prompt=orchestrator_agent_prompt,
+                    #     debug=self.client.debug,
+                    # )
+
                     react_agent_prompt = generate_react_agent_prompt(
-                        available_tools=self.client.available_tools,
-                        episodic_memory=episodic_query,
                     )
                     response = await ReActAgent().run(
                         sessions=self.client.sessions,
@@ -768,8 +813,10 @@ class MCPClientCLI:
                             if self.USE_MEMORY["redis"]
                             else self.in_memory_short_term_memory.get_messages
                         ),
+                        debug=self.client.debug,
                     )
-
+                else:
+                    response = "Your current model doesn't support function calling. You must use '/mode:auto' to switch to Agent Mode - it works with both function-calling and non-function-calling models, providing seamless tool execution through our Omni-Connect Agent."
             if response:  # Only try to print if we have a response
                 if "```" in response or "#" in response:
                     self.console.print(Markdown(response))
@@ -834,14 +881,18 @@ class MCPClientCLI:
         """Handle episodic memory command"""
         messages = await self.in_memory_short_term_memory.get_messages()
         if messages:
-            created_episodic_memory = await self.episodic_memory.create_episodic_memory(
-                messages=messages, llm_connection=self.llm_connection
-            )
+            # created_episodic_memory = await self.episodic_memory.create_episodic_memory(
+            #     messages=messages, llm_connection=self.llm_connection
+            # )
+            # TODO: add episodic memory
+            created_episodic_memory = None
             self.console.print(
                 f"[green]Episodic memory created: {created_episodic_memory}[/]"
             )
         else:
-            self.console.print("[yellow]No messages to create episodic memory[/]")
+            self.console.print(
+                "[yellow]No messages to create episodic memory[/]"
+            )
 
     async def chat_loop(self):
         """Run an interactive chat loop with rich UI"""
@@ -874,8 +925,8 @@ class MCPClientCLI:
                 command_type, payload = self.parse_command(query)
 
                 if command_type == CommandType.QUIT:
-                    # handle the episodic memory command
-                    await self.handle_episodic_memory_command()
+                    # TODO: handle the episodic memory command
+                    # await self.handle_episodic_memory_command()
                     break
 
                 # get the handler for the command type from the handlers mapping
@@ -939,7 +990,7 @@ class MCPClientCLI:
             Panel(
                 content,
                 title="[bold blue]⚡ MCPOmni Connect ⚡[/]",
-                subtitle="[bold cyan]v0.1.12[/]",
+                subtitle="[bold cyan]v0.1.13[/]",
                 border_style="blue",
                 box=box.DOUBLE_EDGE,
             )
@@ -961,7 +1012,11 @@ class MCPClientCLI:
                 "Toggle memory usage between Redis and In-Memory 💾",
                 "",
             ),
-            ("/mode:auto", "Toggle mode between autonomous agent and chat mode 🤖", ""),
+            (
+                "/mode:auto",
+                "Toggle mode between autonomous agent and chat mode 🤖",
+                "",
+            ),
             ("/debug", "Toggle debug mode 🐛", ""),
             ("/refresh", "Refresh server capabilities 🔄", ""),
             ("/help", "Show help 🆘", "/help:command"),

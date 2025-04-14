@@ -12,18 +12,7 @@ from mcpomni_connect.utils import (
 from datetime import datetime
 import asyncio
 from contextlib import asynccontextmanager
-from pydantic import BaseModel
-from enum import Enum
-
-
-class AgentState(str, Enum):
-    IDLE = "idle"
-    RUNNING = "running"
-    TOOL_CALLING = "tool_calling"
-    OBSERVING = "observing"
-    FINISHED = "finished"
-    ERROR = "error"
-    STUCK = "stuck"
+from mcpomni_connect.schemas import AgentState
 
 
 class ReActAgent:
@@ -47,7 +36,7 @@ class ReActAgent:
 
     def __init__(
         self,
-        max_steps: int = 50,
+        max_steps: int = 20,
         tool_call_timeout: int = 30,
     ):
         self.max_steps = max_steps
@@ -153,12 +142,14 @@ class ReActAgent:
             return {"error": str(e), "action": False}
 
     def parse_response(
-        self, response: str, available_tools: dict[str, Any]
+        self, response: str, available_tools: dict[str, Any], debug: bool = False
     ) -> Dict[str, Any]:
         """Parse model response to extract actions or final answers"""
         try:
             # First, check for a final answer
             if "Final Answer:" in response or "Answer:" in response:
+                if debug:
+                    logger.info("Final Answer found in response: %s", response)
                 # Split the response at "Final Answer:" or "Answer:"
                 parts = re.split(
                     r"(?:Final Answer:|Answer:)", response, flags=re.IGNORECASE
@@ -169,14 +160,21 @@ class ReActAgent:
                     return {"answer": answer}
 
             if "Action" in response:
+                if debug:
+                    logger.info("Action found in response: %s", response)
                 json_match_result = self.parse_action(
                     response, available_tools
                 )
                 if json_match_result and json_match_result.get("action"):
                     return json_match_result
-                return {"error": "No valid action or answer found in response"}
+                elif "error" in json_match_result:
+                    return json_match_result["error"]
+                else:
+                    return {"error": "No valid action or answer found in response"}
             else:
                 # its a normal response
+                if debug:
+                    logger.info("Normal response found in response: %s", response)
                 return {"answer": response}
         except Exception as e:
             logger.error("Error parsing response: %s", str(e), exc_info=True)
@@ -313,6 +311,7 @@ class ReActAgent:
         add_message_to_history: Callable[[str, str, Optional[dict]], Any],
         sessions: dict,
         system_prompt: str,
+        debug: bool = False,
     ):
         """Act on the parsed response from the LLM and the observation from the tool call"""
         tool_call_id = str(uuid.uuid4())
@@ -353,10 +352,11 @@ class ReActAgent:
                 await add_message_to_history(
                     "user", f"Observation:\n{observation}"
                 )
+                if debug:
+                    logger.info(
+                        f"Agent state changed from {self.state} to {AgentState.OBSERVING}"
+                    )
                 # set the state to observing
-                logger.info(
-                    f"Agent state changed from {self.state} to {AgentState.OBSERVING}"
-                )
                 self.state = AgentState.OBSERVING
 
                 # Check for tool call loop
@@ -431,9 +431,10 @@ class ReActAgent:
                     "content": loop_message,
                 }
             )
-            logger.info(
-                f"Agent state changed from {self.state} to {AgentState.STUCK}"
-            )
+            if debug:
+                logger.info(
+                    f"Agent state changed from {self.state} to {AgentState.STUCK}"
+                )
             self.state = AgentState.STUCK
             self.loop_detector.reset()
 
@@ -459,6 +460,32 @@ class ReActAgent:
             raise
         finally:
             self.state = previous_state
+    async def get_tools_registry(self, available_tools: dict):
+        """Get the tools registry for the available tools"""
+        tools_section = []
+        for server_name, tools in available_tools.items():
+            tools_section.append(f"\n## `{server_name}`\n")
+            for tool in tools:
+                # Explicitly convert name and description to strings
+                tool_name = str(tool.name)
+                tool_description = str(tool.description)
+
+                tool_desc = f"### `{tool_name}`\n{tool_description}\n"
+
+                # Add parameters if they exist
+                if hasattr(tool, "inputSchema") and tool.inputSchema:
+                    params = tool.inputSchema.get("properties", {})
+                    if params:
+                        tool_desc += "\n**Parameters:**\n"
+                        tool_desc += "| Name | Type | Description |\n"
+                        tool_desc += "|------|------|-------------|\n"
+                        for param_name, param_info in params.items():
+                            param_desc = param_info.get("description", "No description")
+                            param_type = param_info.get("type", "any")
+                            tool_desc += f"| `{param_name}` | `{param_type}` | {param_desc} |\n"
+                tools_section.append(tool_desc)
+
+        return tools_section
 
     async def run(
         self,
@@ -469,6 +496,7 @@ class ReActAgent:
         available_tools: dict[str, Any],
         add_message_to_history: Callable[[str, str, Optional[dict]], Any],
         message_history: Callable[[], Any],
+        debug: bool = False,
     ) -> Optional[str]:
         """Execute ReAct loop with JSON communication"""
         # Initialize messages with system prompt
@@ -476,10 +504,11 @@ class ReActAgent:
 
         # Add initial user message to message history
         await add_message_to_history("user", query)
-
         # Initialize messages with current message history (only once at start)
         await self.update_llm_working_memory(message_history)
-
+        # inject the tools registry into the assistant message
+        tools_section = await self.get_tools_registry(available_tools)
+        self.messages.append({"role": "assistant", "content": f"### Tools Registry Observation\n\n{tools_section}"})
         # check if the agent is in a valid state to run
         if self.state not in [
             AgentState.IDLE,
@@ -496,13 +525,11 @@ class ReActAgent:
             while (
                 self.state != AgentState.FINISHED
                 and current_steps < self.max_steps
-            ):
+            ):  
+                if debug:
+                    logger.info(f"Sending {len(self.messages)} messages to LLM")
                 current_steps += 1
                 try:
-                    logger.info(
-                        f"Sending messages to LLM: {len(self.messages)}"
-                    )
-                    # logger.info(f"Messages: {self.messages}")
                     response = await llm_connection.llm_call(self.messages)
                     if response:
                         response = response.choices[0].message.content.strip()
@@ -511,10 +538,11 @@ class ReActAgent:
                     return None
 
                 parsed_response = self.parse_response(
-                    response, available_tools
+                    response, available_tools, debug
                 )
+                if debug:
+                    logger.info(f"current steps: {current_steps}")
                 # check for final answer
-                logger.info(f"current steps: {current_steps}")
                 if "answer" in parsed_response:
                     # add the final answer to the message history and the messages that will be sent to LLM
                     self.messages.append(
@@ -532,9 +560,10 @@ class ReActAgent:
                         self.messages = await self.reset_system_prompt(
                             self.messages, system_prompt
                         )
-                    logger.info(
-                        f"Agent state changed from {self.state} to {AgentState.FINISHED}"
-                    )
+                    if debug:
+                        logger.info(
+                            f"Agent state changed from {self.state} to {AgentState.FINISHED}"
+                        )
                     self.state = AgentState.FINISHED
                     # reset the steps
                     current_steps = 0
@@ -542,9 +571,10 @@ class ReActAgent:
 
                 elif "action" in parsed_response and parsed_response["action"]:
                     # set the state to tool calling
-                    logger.info(
-                        f"Agent state changed from {self.state} to {AgentState.TOOL_CALLING}"
-                    )
+                    if debug:
+                        logger.info(
+                            f"Agent state changed from {self.state} to {AgentState.TOOL_CALLING}"
+                        )
                     self.state = AgentState.TOOL_CALLING
 
                     await self.act(
@@ -553,10 +583,14 @@ class ReActAgent:
                         add_message_to_history,
                         sessions,
                         system_prompt,
+                        debug,
                     )
                     continue
                 # append the invalid response to the messages and the message history
-                error_message = "Invalid response format. Please use the correct required format"
+                elif "error" in parsed_response:
+                    error_message = parsed_response["error"]
+                else:
+                    error_message = "Invalid response format. Please use the correct required format"
                 self.messages.append(
                     {
                         "role": "user",
@@ -588,7 +622,8 @@ class ReActAgent:
                         }
                     )
                     self.loop_detector.reset()
-                    logger.info(
-                        f"Agent state changed from {self.state} to {AgentState.STUCK}"
-                    )
+                    if debug:
+                        logger.info(
+                            f"Agent state changed from {self.state} to {AgentState.STUCK}"
+                        )
                     self.state = AgentState.STUCK

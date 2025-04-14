@@ -7,8 +7,8 @@ import subprocess
 import platform
 import json
 from decouple import config
-from sentence_transformers import SentenceTransformer
 from openai import OpenAI
+
 # Configure logging
 logger = logging.getLogger("mcpomni_connect")
 logger.setLevel(logging.INFO)
@@ -147,9 +147,6 @@ class RobustLoopDetector:
             tool_input: Input provided to the tool
             tool_output: Output returned by the tool
         """
-        logger.info(
-            f"Recording tool call: {tool_name}, {tool_input}, {tool_output}"
-        )
         signature = (
             "tool",
             tool_name,
@@ -157,7 +154,6 @@ class RobustLoopDetector:
             hash_text(tool_output),
         )
         self.recent_interactions.append(signature)
-        logger.info(f"Recent interactions: {self.recent_interactions}")
         self._interaction_count += 1
 
         # Invalidate cache
@@ -450,8 +446,10 @@ def embed_text(text: str) -> List[float]:
     )
     return response.data[0].embedding
 
+
 # # Initialize the model once at module level
 # EMBEDDING_MODEL = SentenceTransformer('BAAI/bge-large-en-v1.5')
+
 
 # def embed_text(text: str) -> List[float]:
 #     """Embed text using Sentence Transformers."""

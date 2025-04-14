@@ -1,6 +1,29 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Callable
 
 from mcpomni_connect.utils import logger
+from mcpomni_connect.constants import AGENTS_REGISTRY
+
+
+async def generate_react_agent_role_prompt_func(
+    available_tools: Dict[str, Any],
+    server_name: str,
+    llm_connection: Callable,
+    generate_react_agent_role_prompt: Callable,
+) -> str:
+    """Generate the react agent role prompt"""
+    react_agent_role_prompt = generate_react_agent_role_prompt(
+        available_tools=available_tools,
+        server_name=server_name,
+    )
+    messages = [
+        {"role": "system", "content": react_agent_role_prompt},
+        {"role": "user", "content": "Generate the agent role prompt"},
+    ]
+    response = await llm_connection.llm_call(messages)
+    if response:
+        return response.choices[0].message.content
+    else:
+        return ""
 
 
 async def refresh_capabilities(
@@ -10,6 +33,9 @@ async def refresh_capabilities(
     available_resources: Dict[str, Any],
     available_prompts: Dict[str, Any],
     debug: bool,
+    server_name: str,
+    llm_connection: Callable,
+    generate_react_agent_role_prompt: Callable,
 ) -> None:
     """Refresh the capabilities of the server and update system prompt"""
     for server_name in server_names:
@@ -50,7 +76,16 @@ async def refresh_capabilities(
         except Exception as e:
             logger.info(f"{server_name} does not support prompts: {e}")
             available_prompts[server_name] = []
-
+    # Generate the react agent role prompt
+    # react_agent_role_prompt = await generate_react_agent_role_prompt_func(
+    #     available_tools=available_tools,
+    #     server_name=server_name,
+    #     llm_connection=llm_connection,
+    #     generate_react_agent_role_prompt=generate_react_agent_role_prompt,
+    # )
+    # AGENTS_REGISTRY[server_name] = react_agent_role_prompt
+    # if debug:
+    #     logger.info(f"React agent role prompt: {react_agent_role_prompt}")
     if debug:
         logger.info(f"Refreshed capabilities for {server_names}")
 

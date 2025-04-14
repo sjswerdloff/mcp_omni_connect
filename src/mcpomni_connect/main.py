@@ -28,6 +28,7 @@ def check_config_exists():
                 "model": "qwen/qwq-32b:free",
                 "temperature": 0.5,
                 "max_tokens": 5000,
+                "max_context_length": 30000,
                 "top_p": 0,
             },
             "mcpServers": {

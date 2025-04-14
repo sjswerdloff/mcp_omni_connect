@@ -52,98 +52,102 @@ class LLMConnection:
         tools: list[dict[str, Any]] = None,
     ):
         """Call the LLM"""
-        if self.llm_config["provider"].lower() == "openai":
-            if tools:
-                response = self.openai.chat.completions.create(
-                    model=self.llm_config["model"],
-                    max_tokens=self.llm_config["max_tokens"],
-                    temperature=self.llm_config["temperature"],
-                    top_p=self.llm_config["top_p"],
-                    messages=messages,
-                    tools=tools,
-                    tool_choice="auto",
-                )
-            else:
-                response = self.openai.chat.completions.create(
-                    model=self.llm_config["model"],
-                    max_tokens=self.llm_config["max_tokens"],
-                    temperature=self.llm_config["temperature"],
-                    top_p=self.llm_config["top_p"],
-                    messages=messages,
-                )
-            return response
-        elif self.llm_config["provider"].lower() == "groq":
-            # messages = self.truncate_messages_for_groq(messages)
-            if tools:
-                response = self.groq.chat.completions.create(
-                    model=self.llm_config["model"],
-                    max_tokens=self.llm_config["max_tokens"],
-                    temperature=self.llm_config["temperature"],
-                    top_p=self.llm_config["top_p"],
-                    messages=messages,
-                    tools=tools,
-                    tool_choice="auto",
-                )
-            else:
-                response = self.groq.chat.completions.create(
-                    model=self.llm_config["model"],
-                    max_tokens=self.llm_config["max_tokens"],
-                    temperature=self.llm_config["temperature"],
-                    top_p=self.llm_config["top_p"],
-                    messages=messages,
-                )
-            return response
-        elif self.llm_config["provider"].lower() == "openrouter":
-            if tools:
-                response = self.openrouter.chat.completions.create(
-                    extra_body={
-                        "order": ["openai", "anthropic", "groq"],
-                        "allow_fallback": True,
-                        "require_provider": True,
-                    },
-                    model=self.llm_config["model"],
-                    max_tokens=self.llm_config["max_tokens"],
-                    temperature=self.llm_config["temperature"],
-                    top_p=self.llm_config["top_p"],
-                    messages=messages,
-                    tools=tools,
-                    tool_choice="auto",
-                )
-            else:
-                response = self.openrouter.chat.completions.create(
-                    extra_body={
-                        "order": ["Mistral", "Openai", "Groq", "Gemini"],
-                        "allow_fallback": True,
-                        "require_provider": True,
-                    },
-                    model=self.llm_config["model"],
-                    max_tokens=self.llm_config["max_tokens"],
-                    temperature=self.llm_config["temperature"],
-                    top_p=self.llm_config["top_p"],
-                    messages=messages,
-                    stop=["\n\nObservation:"],
-                )
-            return response
-        elif self.llm_config["provider"].lower() == "gemini":
-            if tools:
-                response = self.gemini.chat.completions.create(
-                    model=self.llm_config["model"],
-                    max_tokens=self.llm_config["max_tokens"],
-                    temperature=self.llm_config["temperature"],
-                    top_p=self.llm_config["top_p"],
-                    messages=messages,
-                    tools=tools,
-                    tool_choice="auto",
-                )
-            else:
-                response = self.gemini.chat.completions.create(
-                    model=self.llm_config["model"],
-                    max_tokens=self.llm_config["max_tokens"],
-                    temperature=self.llm_config["temperature"],
-                    top_p=self.llm_config["top_p"],
-                    messages=messages,
-                )
-            return response
+        try:
+            if self.llm_config["provider"].lower() == "openai":
+                if tools:
+                    response = self.openai.chat.completions.create(
+                        model=self.llm_config["model"],
+                        max_tokens=self.llm_config["max_tokens"],
+                        temperature=self.llm_config["temperature"],
+                        top_p=self.llm_config["top_p"],
+                        messages=messages,
+                        tools=tools,
+                        tool_choice="auto",
+                    )
+                else:
+                    response = self.openai.chat.completions.create(
+                        model=self.llm_config["model"],
+                        max_tokens=self.llm_config["max_tokens"],
+                        temperature=self.llm_config["temperature"],
+                        top_p=self.llm_config["top_p"],
+                        messages=messages,
+                    )
+                return response
+            elif self.llm_config["provider"].lower() == "groq":
+                # messages = self.truncate_messages_for_groq(messages)
+                if tools:
+                    response = self.groq.chat.completions.create(
+                        model=self.llm_config["model"],
+                        max_tokens=self.llm_config["max_tokens"],
+                        temperature=self.llm_config["temperature"],
+                        top_p=self.llm_config["top_p"],
+                        messages=messages,
+                        tools=tools,
+                        tool_choice="auto",
+                    )
+                else:
+                    response = self.groq.chat.completions.create(
+                        model=self.llm_config["model"],
+                        max_tokens=self.llm_config["max_tokens"],
+                        temperature=self.llm_config["temperature"],
+                        top_p=self.llm_config["top_p"],
+                        messages=messages,
+                    )
+                return response
+            elif self.llm_config["provider"].lower() == "openrouter":
+                if tools:
+                    response = self.openrouter.chat.completions.create(
+                        extra_body={
+                            "order": ["openai", "anthropic", "groq"],
+                            "allow_fallback": True,
+                            "require_provider": True,
+                        },
+                        model=self.llm_config["model"],
+                        max_tokens=self.llm_config["max_tokens"],
+                        temperature=self.llm_config["temperature"],
+                        top_p=self.llm_config["top_p"],
+                        messages=messages,
+                        tools=tools,
+                        tool_choice="auto",
+                    )
+                else:
+                    response = self.openrouter.chat.completions.create(
+                        extra_body={
+                            "order": ["Mistral", "Openai", "Groq", "Gemini"],
+                            "allow_fallback": True,
+                            "require_provider": True,
+                        },
+                        model=self.llm_config["model"],
+                        max_tokens=self.llm_config["max_tokens"],
+                        temperature=self.llm_config["temperature"],
+                        top_p=self.llm_config["top_p"],
+                        messages=messages,
+                        stop=["\n\nObservation:"],
+                    )
+                return response
+            elif self.llm_config["provider"].lower() == "gemini":
+                if tools:
+                    response = self.gemini.chat.completions.create(
+                        model=self.llm_config["model"],
+                        max_tokens=self.llm_config["max_tokens"],
+                        temperature=self.llm_config["temperature"],
+                        top_p=self.llm_config["top_p"],
+                        messages=messages,
+                        tools=tools,
+                        tool_choice="auto",
+                    )
+                else:
+                    response = self.gemini.chat.completions.create(
+                        model=self.llm_config["model"],
+                        max_tokens=self.llm_config["max_tokens"],
+                        temperature=self.llm_config["temperature"],
+                        top_p=self.llm_config["top_p"],
+                        messages=messages,
+                    )
+                return response
+        except Exception as e:
+            logger.error(f"Error calling LLM: {e}")
+            return None
 
     def truncate_messages_for_groq(self, messages):
         """Truncate messages to stay within Groq's token limits (5000 total)."""

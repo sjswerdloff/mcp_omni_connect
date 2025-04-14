@@ -1,5 +1,10 @@
 import json
-from mcpomni_connect.utils import logger, CLIENT_MAC_ADDRESS, clean_json_response, embed_text
+from mcpomni_connect.utils import (
+    logger,
+    CLIENT_MAC_ADDRESS,
+    clean_json_response,
+    embed_text,
+)
 import redis.asyncio as redis
 import time
 from typing import Optional, Callable, List, Dict, Any
@@ -7,83 +12,245 @@ from decouple import config
 import asyncio
 from datetime import datetime
 import uuid
-from mcpomni_connect.episodic_memory import EPISODIC_MEMORY_PROMPT
-from qdrant_client import QdrantClient
-from qdrant_client.http import models
-from qdrant_client.http.models import Distance, VectorParams
+from mcpomni_connect.system_prompts import EPISODIC_MEMORY_PROMPT
+
+# TODO: Add QDRANT DB episodic memory
+# from qdrant_client import QdrantClient
+# from qdrant_client.http import models
+# from qdrant_client.http.models import Distance, VectorParams
+
+
+# class InMemoryShortTermMemory:
+#     message_history = {}
+#     """In memory short term memory."""
+
+#     def __init__(
+#         self, max_context_tokens: int = 30000, debug: bool = False
+#     ) -> None:
+#         """Initialize."""
+#         self.max_context_tokens = max_context_tokens
+#         self.debug = debug
+
+#     async def truncate_message_history(self, agent_name: str):
+#         """Truncate the message history to the max context tokens"""
+#         try:
+#             if agent_name not in self.message_history:
+#                 self.message_history[agent_name] = []
+#                 return
+
+#             # get the total tokens in the message history
+#             total_tokens = sum(
+#                 len(msg["content"].split())
+#                 for msg in self.message_history[agent_name]
+#             )
+#             while total_tokens > self.max_context_tokens:
+#                 self.message_history[agent_name].pop(0)
+#                 total_tokens = sum(
+#                     len(msg["content"].split())
+#                     for msg in self.message_history[agent_name]
+#                 )
+#         except Exception as e:
+#             logger.error(
+#                 f"Failed to truncate message history for agent {agent_name}: {e}"
+#             )
+#             self.message_history[agent_name] = []
+
+#     async def store_message(
+#         self,
+#         agent_name: str,
+#         role: str,
+#         content: str,
+#         metadata: Optional[dict] = None,
+#     ):
+#         try:
+#             # Initialize message history for new agents
+#             if agent_name not in self.message_history:
+#                 self.message_history[agent_name] = []
+
+#             """Add a message to the message history"""
+#             message = {
+#                 "role": role,
+#                 "content": content,
+#                 "timestamp": asyncio.get_running_loop().time(),
+#                 "metadata": metadata or {},
+#             }
+#             self.message_history[agent_name].append(message)
+#             if self.debug:
+#                 logger.info(
+#                     f"Added message to history: {role} - {content[:100]}"
+#                 )
+#         except Exception as e:
+#             logger.error(f"Failed to store message: {e}")
+
+#     async def get_all_messages_history(self):
+#         """Get the message history for all agents and reconstruct the message history for each agent"""
+#         all_messages = []
+#         for agent_name, messages in self.message_history.items():
+#             for message in messages:
+#                 all_messages.append(message)
+#         return all_messages
+
+#     async def get_messages(self, agent_name: str = None):
+#         """Get the message history"""
+#         try:
+#             # Initialize message history for new agents if it doesn't exist
+#             if agent_name not in self.message_history:
+#                 self.message_history[agent_name] = []
+#             await self.truncate_message_history(agent_name)
+#             return self.message_history[agent_name]
+#         except Exception as e:
+#             logger.error(f"Failed to get messages for agent {agent_name}: {e}")
+#             return []
+
+#     async def show_history(self, agent_name: str):
+#         """Show the message history"""
+#         try:
+#             if agent_name not in self.message_history:
+#                 logger.info(
+#                     f"No message history found for agent: {agent_name}"
+#                 )
+#                 return
+
+#             for i, message in enumerate(self.message_history[agent_name]):
+#                 logger.info(
+#                     f"Message {i}: {message['role']} - {message['content']}"
+#                 )
+#         except Exception as e:
+#             logger.error(f"Failed to show history for agent {agent_name}: {e}")
+
+#     async def clear_memory(self, agent_name: str):
+#         """Clear the message history"""
+#         agent_messages = self.message_history[agent_name]
+#         del self.message_history[agent_name]
+#         return agent_messages
+
+#     async def save_message_history_to_file(self, file_path: str):
+#         """Save the message history to a file"""
+#         with open(file_path, "w") as f:
+#             for agent_name, messages in self.message_history.items():
+#                 f.write(f"Agent: {agent_name}\n")
+#                 for message in messages:
+#                     f.write(f"{message['role']}: {message['content']}\n")
+#                 f.write("\n")
+#         if self.debug:
+#             logger.info(f"Message history saved to {file_path}")
 
 class InMemoryShortTermMemory:
     message_history = []
     """In memory short term memory."""
-    def __init__(self, max_context_tokens: int = 30000, debug: bool = False) -> None:
+
+    def __init__(
+        self, max_context_tokens: int = 30000, debug: bool = False
+    ) -> None:
         """Initialize."""
         self.max_context_tokens = max_context_tokens
         self.debug = debug
 
     async def truncate_message_history(self):
         """Truncate the message history to the max context tokens"""
-        # get the total tokens in the message history
-        total_tokens = sum(len(msg["content"].split()) for msg in self.message_history)
-        while total_tokens > self.max_context_tokens:
-            self.message_history.pop(0)
-            total_tokens = sum(len(msg["content"].split()) for msg in self.message_history)
+        try:
+            # get the total tokens in the message history
+            total_tokens = sum(
+                len(msg["content"].split())
+                for msg in self.message_history
+            )
+            while total_tokens > self.max_context_tokens:
+                self.message_history.pop(0)
+                total_tokens = sum(
+                    len(msg["content"].split())
+                    for msg in self.message_history
+                )
+        except Exception as e:
+            logger.error(
+                f"Failed to truncate message history: {e}"
+            )
+            self.message_history = []
 
     async def store_message(
-        self, role: str, content: str, metadata: Optional[dict] = None
+        self,
+        role: str,
+        content: str,
+        metadata: Optional[dict] = None,
     ):
-        """Add a message to the message history"""
-        message = {
-            "role": role,
-            "content": content,
-            "timestamp": asyncio.get_running_loop().time(),
-            "metadata": metadata or {},
-        }
-        self.message_history.append(message)
-        if self.debug:
-            logger.info(f"Added message to history: {role} - {content[:100]}")
+        try:
+            """Add a message to the message history"""
+            message = {
+                "role": role,
+                "content": content,
+                "timestamp": asyncio.get_running_loop().time(),
+                "metadata": metadata or {},
+            }
+            self.message_history.append(message)
+            if self.debug:
+                logger.info(
+                    f"Added message to history: {role} - {content[:100]}"
+                )
+        except Exception as e:
+            logger.error(f"Failed to store message: {e}")
 
     async def get_messages(self):
         """Get the message history"""
-        await self.truncate_message_history()
-        return self.message_history
+        try:
+            await self.truncate_message_history()
+            return self.message_history
+        except Exception as e:
+            logger.error(f"Failed to get messages: {e}")
+            return []
 
     async def show_history(self):
         """Show the message history"""
-        for i, message in enumerate(self.message_history):
-            logger.info(
-                f"Message {i}: {message['role']} - {message['content']}"
-            )
+        try:
+            return self.message_history
+        except Exception as e:
+            logger.error(f"Failed to show history: {e}")
 
     async def clear_memory(self):
         """Clear the message history"""
+        agent_messages = self.message_history
         self.message_history = []
-        if self.debug:
-            logger.info("Message history cleared")
+        return agent_messages
 
     async def save_message_history_to_file(self, file_path: str):
         """Save the message history to a file"""
         with open(file_path, "w") as f:
             for message in self.message_history:
                 f.write(f"{message['role']}: {message['content']}\n")
+                f.write("\n")
         if self.debug:
             logger.info(f"Message history saved to {file_path}")
 
-class RedisShortTermMemory():
+
+class RedisShortTermMemory:
     """Redis short term memory."""
+
     REDIS_HOST = config("REDIS_HOST", default="localhost")
     REDIS_PORT = config("REDIS_PORT", default=6379)
     REDIS_DB = config("REDIS_DB", default=0)
-    def __init__(self, redis_client: Optional[redis.Redis] = None, max_context_tokens: int = 30000) -> None:
+
+    def __init__(
+        self,
+        redis_client: Optional[redis.Redis] = None,
+        max_context_tokens: int = 30000,
+    ) -> None:
         """Initialize."""
         self._redis_client = redis_client or redis.Redis(
-            host=self.REDIS_HOST, port=self.REDIS_PORT, db=self.REDIS_DB, decode_responses=True
+            host=self.REDIS_HOST,
+            port=self.REDIS_PORT,
+            db=self.REDIS_DB,
+            decode_responses=True,
         )
         self.SHORT_TERM_LIMIT = int(0.7 * max_context_tokens)
         self.client_id = CLIENT_MAC_ADDRESS
-        self.in_memory_short_term_memory = InMemoryShortTermMemory(max_context_tokens=max_context_tokens)
-        logger.info(f"Initialized RedisShortTermMemory with client ID: {self.client_id}")
+        self.in_memory_short_term_memory = InMemoryShortTermMemory(
+            max_context_tokens=max_context_tokens
+        )
+        logger.info(
+            f"Initialized RedisShortTermMemory with client ID: {self.client_id}"
+        )
 
-    async def store_message(self, role: str, content: str, metadata: dict = None):
+    async def store_message(
+        self, role: str, content: str, metadata: dict = None
+    ):
         """Store a message in Redis with a timestamp using the client's MAC address as ID."""
         metadata = metadata or {}
         logger.info(f"Storing message for client {self.client_id}: {content}")
@@ -100,9 +267,13 @@ class RedisShortTermMemory():
 
         # Store as a JSON string in Redis
         await self._redis_client.zadd(key, {json.dumps(message): timestamp})
-        await self._redis_client.set(f"mcp_last_active:{self.client_id}", timestamp)
+        await self._redis_client.set(
+            f"mcp_last_active:{self.client_id}", timestamp
+        )
         # store to the in memory to act as current working memory which will be use for episodic memory
-        await self.in_memory_short_term_memory.store_message(role, content, metadata)
+        await self.in_memory_short_term_memory.store_message(
+            role, content, metadata
+        )
         # Enforce the short term limit
         await self.enforce_short_term_limit()
 
@@ -150,8 +321,10 @@ class RedisShortTermMemory():
             oldest_msg = messages.pop(0)
             await self._redis_client.zrem(key, oldest_msg[0])
             total_tokens = sum(len(msg[0].split()) for msg in messages)
-            
-        logger.debug(f"Enforced short term limit: {total_tokens}/{self.SHORT_TERM_LIMIT} tokens")
+
+        logger.debug(
+            f"Enforced short term limit: {total_tokens}/{self.SHORT_TERM_LIMIT} tokens"
+        )
 
     async def clear_memory(self):
         """Clear the memory."""
@@ -169,6 +342,7 @@ class RedisShortTermMemory():
                 f.write(f"{message['role']}: {message['content']}\n")
         logger.info(f"Saved message history to {file_path}")
 
+
 # class ChromaDBMemory:
 #     def __init__(self, name: str, description: str):
 #         self.chroma_client = chromadb.HttpClient(host="localhost", port=8000)
@@ -184,7 +358,7 @@ class RedisShortTermMemory():
 #                 metadata={
 #                     "hnsw:space": "cosine",
 #                     "description": description
-                    
+
 #                 }
 #             )
 #             logger.info("Successfully initialized ChromaDB collection")
@@ -195,7 +369,7 @@ class RedisShortTermMemory():
 
 #     def add_to_collection(self, documents: list[str], metadatas: list[dict] = None, ids: list[str] = None):
 #         """Add documents to the collection using ChromaDB's internal embedding model.
-        
+
 #         Args:
 #             collection: The ChromaDB collection
 #             documents: List of text documents to store
@@ -216,12 +390,12 @@ class RedisShortTermMemory():
 
 #     def query_collection(self, query: str, n_results: int = 5):
 #         """Query the collection using ChromaDB's internal embedding model.
-        
+
 #         Args:
 #             collection: The ChromaDB collection
 #             query: The query text
 #             n_results: Number of results to return
-            
+
 #         Returns:
 #             dict: Query results containing documents, distances, and metadata
 #         """
@@ -238,7 +412,7 @@ class RedisShortTermMemory():
 
 #     def delete_from_collection(self, ids: list[str] = None, where: dict = None):
 #         """Delete documents from the collection.
-        
+
 #         Args:
 #             collection: The ChromaDB collection
 #             ids: Optional list of document IDs to delete
@@ -256,7 +430,7 @@ class RedisShortTermMemory():
 
 #     def update_collection(self, documents: list[str], metadatas: list[dict] = None, ids: list[str] = None):
 #         """Update documents in the collection using ChromaDB's internal embedding model.
-        
+
 #         Args:
 #             collection: The ChromaDB collection
 #             documents: List of text documents to update
@@ -265,7 +439,7 @@ class RedisShortTermMemory():
 #         """
 #         if not ids:
 #             raise ValueError("IDs are required for updating documents")
-            
+
 #         try:
 #             # Update documents in ChromaDB
 #             self.collection.update(
@@ -279,260 +453,260 @@ class RedisShortTermMemory():
 #             raise
 
 
-class QdrantMemory:
-    def __init__(self, name: str, description: str):
-        """Initialize Qdrant memory storage.
-        
-        Args:
-            name: Name of the collection
-            description: Description of the collection
-        """
-        self.client = QdrantClient(host=config("QDRANT_HOST", default="localhost"), port=config("QDRANT_PORT", default=6333))
-        self.collection_name = name
-        self.description = description
-        self._ensure_collection()
+# class QdrantMemory:
+#     def __init__(self, name: str, description: str):
+#         """Initialize Qdrant memory storage.
 
-    def _ensure_collection(self):
-        """Ensure the collection exists, create if it doesn't."""
-        try:
-            collections = self.client.get_collections().collections
-            collection_names = [collection.name for collection in collections]
-            
-            if self.collection_name not in collection_names:
-                self.client.create_collection(
-                    collection_name=self.collection_name,
-                    vectors_config=VectorParams(size=1536, distance=Distance.COSINE),
-                )
-                logger.info(f"Created new Qdrant collection: {self.collection_name}")
-            else:
-                logger.info(f"Using existing Qdrant collection: {self.collection_name}")
-        except Exception as e:
-            logger.error(f"Failed to initialize Qdrant collection: {e}")
-            raise
+#         Args:
+#             name: Name of the collection
+#             description: Description of the collection
+#         """
+#         self.client = QdrantClient(host=config("QDRANT_HOST", default="localhost"), port=config("QDRANT_PORT", default=6333))
+#         self.collection_name = name
+#         self.description = description
+#         self._ensure_collection()
 
-    def add_to_collection(self, documents: List[str], conversation: str, metadatas: List[Dict] = None, ids: List[str] = None):
-        """Add documents to the collection.
-        
-        Args:
-            documents: List of text documents to store
-            metadatas: Optional list of metadata dictionaries
-            ids: Optional list of document IDs
-        """
-        try:
-            if not ids:
-                ids = [str(uuid.uuid4()) for _ in documents]
-            
-            # Convert documents to points
-            points = []
-            for i, (doc, doc_id) in enumerate(zip(documents, ids)):
-                metadata = metadatas[i] if metadatas else {}
-                metadata["text"] = doc
-                metadata["previous_conversation"] = conversation
-                metadata["timestamp"] = str(datetime.now())
-                
-                points.append(models.PointStruct(
-                    id=doc_id,
-                    vector=embed_text(doc),
-                    payload=metadata
-                ))
-            
-            # Upsert points to collection
-            self.client.upsert(
-                collection_name=self.collection_name,
-                points=points
-            )
-            logger.info(f"Successfully added {len(documents)} documents to Qdrant")
-        except Exception as e:
-            logger.error(f"Failed to add documents to Qdrant: {e}")
-            raise
+#     def _ensure_collection(self):
+#         """Ensure the collection exists, create if it doesn't."""
+#         try:
+#             collections = self.client.get_collections().collections
+#             collection_names = [collection.name for collection in collections]
 
-    def query_collection(self, query: str, n_results: int = 5, distance_threshold: float = 0.70) -> Dict[str, Any]:
-        """Query the collection.
-        
-        Args:
-            query: The query text
-            n_results: Number of results to return
-            
-        Returns:
-            Dict containing query results
-        """
-        try:
-            # Search for similar documents
-            search_result = self.client.query_points(
-                collection_name=self.collection_name,
-                query=embed_text(query),
-                limit=n_results,
-                with_payload=True
-            ).points
-            if hasattr(search_result[0], "payload"):
-                #logger.info(f"Search result: {search_result}")
-                # format the results and filter by distance threshold if its greater than or equal to the threshold
-                results = {
-                    "documents": [[hit.payload["text"] for hit in search_result if hit.score >= distance_threshold]],
-                    "previous_conversation": [[hit.payload["previous_conversation"] for hit in search_result if hit.score >= distance_threshold]],
-                    "distances": [[hit.score for hit in search_result if hit.score >= distance_threshold]],
-                    "metadatas": [[hit.payload for hit in search_result if hit.score >= distance_threshold]]
-                }
-                #logger.info(f" results distances: {results['distances']}")
-                logger.info(f"Retrieved {len(results['documents'])} results from Qdrant")
-                return results
-            else:
-                logger.error(f"Failed to retrieve results from Qdrant: {search_result}")
-                raise Exception(f"Failed to retrieve results from Qdrant: {search_result}")
-        except Exception as e:
-            logger.error(f"Failed to query Qdrant: {e}")
-            raise
+#             if self.collection_name not in collection_names:
+#                 self.client.create_collection(
+#                     collection_name=self.collection_name,
+#                     vectors_config=VectorParams(size=1536, distance=Distance.COSINE),
+#                 )
+#                 logger.info(f"Created new Qdrant collection: {self.collection_name}")
+#             else:
+#                 logger.info(f"Using existing Qdrant collection: {self.collection_name}")
+#         except Exception as e:
+#             logger.error(f"Failed to initialize Qdrant collection: {e}")
+#             raise
 
-    def delete_from_collection(self, ids: List[str] = None, where: Dict = None):
-        """Delete documents from the collection.
-        
-        Args:
-            ids: Optional list of document IDs to delete
-            where: Optional filter for deletion
-        """
-        try:
-            if ids:
-                self.client.delete(
-                    collection_name=self.collection_name,
-                    points_selector=models.PointIdsList(
-                        points=ids
-                    )
-                )
-            elif where:
-                self.client.delete(
-                    collection_name=self.collection_name,
-                    points_selector=models.FilterSelector(
-                        filter=models.Filter(
-                            must=[
-                                models.FieldCondition(
-                                    key=key,
-                                    match=models.MatchValue(value=value)
-                                )
-                                for key, value in where.items()
-                            ]
-                        )
-                    )
-                )
-            logger.info("Successfully deleted documents from Qdrant")
-        except Exception as e:
-            logger.error(f"Failed to delete documents from Qdrant: {e}")
-            raise
+#     def add_to_collection(self, documents: List[str], conversation: str, metadatas: List[Dict] = None, ids: List[str] = None):
+#         """Add documents to the collection.
 
-    def update_collection(self, documents: List[str], conversation: str, metadatas: List[Dict] = None, ids: List[str] = None):
-        """Update documents in the collection.
-        
-        Args:
-            documents: List of text documents to update
-            metadatas: Optional list of metadata dictionaries
-            ids: List of document IDs to update (required)
-        """
-        if not ids:
-            raise ValueError("IDs are required for updating documents")
-            
-        try:
-            # Convert documents to points
-            points = []
-            for i, (doc, doc_id) in enumerate(zip(documents, ids)):
-                metadata = metadatas[i] if metadatas else {}
-                metadata["text"] = doc
-                metadata["previous_conversation"] = conversation
-                metadata["timestamp"] = str(datetime.now())
-                logger.info(f"embedding text: {embed_text(doc)}")
-                points.append(models.PointStruct(
-                    id=doc_id,
-                    vector=embed_text(doc),
-                    payload=metadata
-                ))
-            
-            # Upsert points to collection
-            self.client.upsert(
-                collection_name=self.collection_name,
-                points=points
-            )
-            logger.info(f"Successfully updated {len(documents)} documents in Qdrant")
-        except Exception as e:
-            logger.error(f"Failed to update documents in Qdrant: {e}")
-            raise
+#         Args:
+#             documents: List of text documents to store
+#             metadatas: Optional list of metadata dictionaries
+#             ids: Optional list of document IDs
+#         """
+#         try:
+#             if not ids:
+#                 ids = [str(uuid.uuid4()) for _ in documents]
 
-class EpisodicMemory(QdrantMemory):
-    def __init__(self, name: str, description: str):
-        """Initialize episodic memory using Qdrant storage.
-        
-        Args:
-            name: Name of the collection
-            description: Description of the collection
-        """
-        super().__init__(name, description)
-        self.EPISODIC_MEMORY_PROMPT = EPISODIC_MEMORY_PROMPT
+#             # Convert documents to points
+#             points = []
+#             for i, (doc, doc_id) in enumerate(zip(documents, ids)):
+#                 metadata = metadatas[i] if metadatas else {}
+#                 metadata["text"] = doc
+#                 metadata["previous_conversation"] = conversation
+#                 metadata["timestamp"] = str(datetime.now())
 
-    async def create_episodic_memory(self, messages: List[Dict], llm_connection: Callable) -> Dict:
-        """Create an episodic memory from a conversation.
-        
-        Args:
-            messages: The conversation messages to analyze
-            llm_connection: The LLM connection to use for memory creation
-            
-        Returns:
-            Dict: The created memory
-        """
-        try:
-            llm_messages = []
-            llm_messages.append({"role": "system", "content": self.EPISODIC_MEMORY_PROMPT})
-            llm_messages.append({"role": "user", "content": str(messages)})
-            response = await llm_connection.llm_call(llm_messages)
-            if response and response.choices:
-                logger.info(f"response: {response.choices[0].message.content}")
-                memory = clean_json_response(response.choices[0].message.content)
-                
-                # Store the memory in Qdrant
-                self.add_to_collection(
-                    documents=[memory],
-                    metadatas=[{
-                        "type": "episodic_memory",
-                    }],
-                    conversation=str(messages),
-                    ids=[str(uuid.uuid4())]
-                )
-                
-                logger.debug(f"Successfully created episodic memory: {memory}")
-                return memory
-                
-            return None
-        except Exception as e:
-            logger.error(f"Failed to create episodic memory: {e}")
-            return None
+#                 points.append(models.PointStruct(
+#                     id=doc_id,
+#                     vector=embed_text(doc),
+#                     payload=metadata
+#                 ))
 
-    async def retrieve_relevant_memories(self, query: str, n_results: int = 5) -> List[Dict]:
-        """Retrieve relevant episodic memories based on a query.
-        
-        Args:
-            query: The query to search for relevant memories
-            n_results: Number of memories to retrieve
-            
-        Returns:
-            List[Dict]: List of relevant memories
-        """
-        try:
-            final_results = []
-            results = self.query_collection(query, n_results)
-            if results and "documents" in results:
-                documents = results.get("documents", [])
-                # Flatten nested lists defensively
-                flat_docs = []
-                for item in documents:
-                    if isinstance(item, list):
-                        flat_docs.extend(item)
-                    else:
-                        flat_docs.append(item)
+#             # Upsert points to collection
+#             self.client.upsert(
+#                 collection_name=self.collection_name,
+#                 points=points
+#             )
+#             logger.info(f"Successfully added {len(documents)} documents to Qdrant")
+#         except Exception as e:
+#             logger.error(f"Failed to add documents to Qdrant: {e}")
+#             raise
 
-                # Parse each document safely
-                for i, doc in enumerate(flat_docs):
-                    try:
-                        final_results.append(json.loads(doc))
-                    except (TypeError, json.JSONDecodeError) as e:
-                        logger.warning(f"Failed to parse document at index {i}: {doc} — Error: {e}")
-            logger.debug(f"length of final results: {len(final_results)}")
-            return final_results
-        except Exception as e:
-            logger.error(f"Failed to retrieve episodic memories: {e}")
-            return []
+#     def query_collection(self, query: str, n_results: int = 5, distance_threshold: float = 0.70) -> Dict[str, Any]:
+#         """Query the collection.
+
+#         Args:
+#             query: The query text
+#             n_results: Number of results to return
+
+#         Returns:
+#             Dict containing query results
+#         """
+#         try:
+#             # Search for similar documents
+#             search_result = self.client.query_points(
+#                 collection_name=self.collection_name,
+#                 query=embed_text(query),
+#                 limit=n_results,
+#                 with_payload=True
+#             ).points
+#             if hasattr(search_result[0], "payload"):
+#                 #logger.info(f"Search result: {search_result}")
+#                 # format the results and filter by distance threshold if its greater than or equal to the threshold
+#                 results = {
+#                     "documents": [[hit.payload["text"] for hit in search_result if hit.score >= distance_threshold]],
+#                     "previous_conversation": [[hit.payload["previous_conversation"] for hit in search_result if hit.score >= distance_threshold]],
+#                     "distances": [[hit.score for hit in search_result if hit.score >= distance_threshold]],
+#                     "metadatas": [[hit.payload for hit in search_result if hit.score >= distance_threshold]]
+#                 }
+#                 #logger.info(f" results distances: {results['distances']}")
+#                 logger.info(f"Retrieved {len(results['documents'])} results from Qdrant")
+#                 return results
+#             else:
+#                 logger.error(f"Failed to retrieve results from Qdrant: {search_result}")
+#                 raise Exception(f"Failed to retrieve results from Qdrant: {search_result}")
+#         except Exception as e:
+#             logger.error(f"Failed to query Qdrant: {e}")
+#             raise
+
+#     def delete_from_collection(self, ids: List[str] = None, where: Dict = None):
+#         """Delete documents from the collection.
+
+#         Args:
+#             ids: Optional list of document IDs to delete
+#             where: Optional filter for deletion
+#         """
+#         try:
+#             if ids:
+#                 self.client.delete(
+#                     collection_name=self.collection_name,
+#                     points_selector=models.PointIdsList(
+#                         points=ids
+#                     )
+#                 )
+#             elif where:
+#                 self.client.delete(
+#                     collection_name=self.collection_name,
+#                     points_selector=models.FilterSelector(
+#                         filter=models.Filter(
+#                             must=[
+#                                 models.FieldCondition(
+#                                     key=key,
+#                                     match=models.MatchValue(value=value)
+#                                 )
+#                                 for key, value in where.items()
+#                             ]
+#                         )
+#                     )
+#                 )
+#             logger.info("Successfully deleted documents from Qdrant")
+#         except Exception as e:
+#             logger.error(f"Failed to delete documents from Qdrant: {e}")
+#             raise
+
+#     def update_collection(self, documents: List[str], conversation: str, metadatas: List[Dict] = None, ids: List[str] = None):
+#         """Update documents in the collection.
+
+#         Args:
+#             documents: List of text documents to update
+#             metadatas: Optional list of metadata dictionaries
+#             ids: List of document IDs to update (required)
+#         """
+#         if not ids:
+#             raise ValueError("IDs are required for updating documents")
+
+#         try:
+#             # Convert documents to points
+#             points = []
+#             for i, (doc, doc_id) in enumerate(zip(documents, ids)):
+#                 metadata = metadatas[i] if metadatas else {}
+#                 metadata["text"] = doc
+#                 metadata["previous_conversation"] = conversation
+#                 metadata["timestamp"] = str(datetime.now())
+#                 logger.info(f"embedding text: {embed_text(doc)}")
+#                 points.append(models.PointStruct(
+#                     id=doc_id,
+#                     vector=embed_text(doc),
+#                     payload=metadata
+#                 ))
+
+#             # Upsert points to collection
+#             self.client.upsert(
+#                 collection_name=self.collection_name,
+#                 points=points
+#             )
+#             logger.info(f"Successfully updated {len(documents)} documents in Qdrant")
+#         except Exception as e:
+#             logger.error(f"Failed to update documents in Qdrant: {e}")
+#             raise
+
+# class EpisodicMemory(QdrantMemory):
+#     def __init__(self, name: str, description: str):
+#         """Initialize episodic memory using Qdrant storage.
+
+#         Args:
+#             name: Name of the collection
+#             description: Description of the collection
+#         """
+#         super().__init__(name, description)
+#         self.EPISODIC_MEMORY_PROMPT = EPISODIC_MEMORY_PROMPT
+
+#     async def create_episodic_memory(self, messages: List[Dict], llm_connection: Callable) -> Dict:
+#         """Create an episodic memory from a conversation.
+
+#         Args:
+#             messages: The conversation messages to analyze
+#             llm_connection: The LLM connection to use for memory creation
+
+#         Returns:
+#             Dict: The created memory
+#         """
+#         try:
+#             llm_messages = []
+#             llm_messages.append({"role": "system", "content": self.EPISODIC_MEMORY_PROMPT})
+#             llm_messages.append({"role": "user", "content": str(messages)})
+#             response = await llm_connection.llm_call(llm_messages)
+#             if response and response.choices:
+#                 logger.info(f"response: {response.choices[0].message.content}")
+#                 memory = clean_json_response(response.choices[0].message.content)
+
+#                 # Store the memory in Qdrant
+#                 self.add_to_collection(
+#                     documents=[memory],
+#                     metadatas=[{
+#                         "type": "episodic_memory",
+#                     }],
+#                     conversation=str(messages),
+#                     ids=[str(uuid.uuid4())]
+#                 )
+
+#                 logger.debug(f"Successfully created episodic memory: {memory}")
+#                 return memory
+
+#             return None
+#         except Exception as e:
+#             logger.error(f"Failed to create episodic memory: {e}")
+#             return None
+
+#     async def retrieve_relevant_memories(self, query: str, n_results: int = 5) -> List[Dict]:
+#         """Retrieve relevant episodic memories based on a query.
+
+#         Args:
+#             query: The query to search for relevant memories
+#             n_results: Number of memories to retrieve
+
+#         Returns:
+#             List[Dict]: List of relevant memories
+#         """
+#         try:
+#             final_results = []
+#             results = self.query_collection(query, n_results)
+#             if results and "documents" in results:
+#                 documents = results.get("documents", [])
+#                 # Flatten nested lists defensively
+#                 flat_docs = []
+#                 for item in documents:
+#                     if isinstance(item, list):
+#                         flat_docs.extend(item)
+#                     else:
+#                         flat_docs.append(item)
+
+#                 # Parse each document safely
+#                 for i, doc in enumerate(flat_docs):
+#                     try:
+#                         final_results.append(json.loads(doc))
+#                     except (TypeError, json.JSONDecodeError) as e:
+#                         logger.warning(f"Failed to parse document at index {i}: {doc} — Error: {e}")
+#             logger.debug(f"length of final results: {len(final_results)}")
+#             return final_results
+#         except Exception as e:
+#             logger.error(f"Failed to retrieve episodic memories: {e}")
+#             return []

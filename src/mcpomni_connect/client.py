@@ -16,6 +16,8 @@ from openai import OpenAI
 from dataclasses import dataclass, field
 from mcpomni_connect.refresh_server_capabilities import refresh_capabilities
 from mcpomni_connect.notifications import handle_notifications
+from mcpomni_connect.llm import LLMConnection
+from mcpomni_connect.system_prompts import generate_react_agent_role_prompt
 from mcpomni_connect.utils import logger
 from mcp.types import (
     CreateMessageRequestParams,
@@ -70,6 +72,7 @@ class MCPClient:
         self.debug = debug
         self.system_prompt = None
         self.exit_stack = AsyncExitStack()
+        self.llm_connection = LLMConnection(self.config)
 
     async def connect_to_servers(self):
         """Connect to an MCP server"""
@@ -115,13 +118,15 @@ class MCPClient:
         # start the notification stream with an asyncio task
         asyncio.create_task(
             handle_notifications(
-                self.sessions,
-                self.debug,
-                self.server_names,
-                self.available_tools,
-                self.available_resources,
-                self.available_prompts,
-                refresh_capabilities,
+                sessions=self.sessions,
+                debug=self.debug,
+                server_names=self.server_names,
+                available_tools=self.available_tools,
+                available_resources=self.available_resources,
+                available_prompts=self.available_prompts,
+                refresh_capabilities=refresh_capabilities,
+                llm_connection=self.llm_connection,
+                generate_react_agent_role_prompt=generate_react_agent_role_prompt,
             )
         )
         return successful_connections
@@ -240,6 +245,9 @@ class MCPClient:
                 available_resources=self.available_resources,
                 available_prompts=self.available_prompts,
                 debug=self.debug,
+                server_name=server_name,
+                llm_connection=self.llm_connection,
+                generate_react_agent_role_prompt=generate_react_agent_role_prompt,
             )
         except Exception as e:
             if self.debug:
@@ -255,6 +263,8 @@ class MCPClient:
                     and self.sessions[server_name]["connected"]
                 ):
                     session_info = self.sessions[server_name]
+
+                    # Close write stream
                     try:
                         if (
                             session_info["write_stream"]
@@ -262,37 +272,34 @@ class MCPClient:
                         ):
                             await session_info["write_stream"].aclose()
                             if self.debug:
-                                logger.info(
-                                    f"Closed write stream for {server_name}"
-                                )
+                                logger.info(f"Closed write stream for {server_name}")
+                    except Exception as e:
+                        logger.error(f"Error closing write stream for {server_name}: {e}")
 
+                    # Close read stream
+                    try:
                         if (
                             session_info["read_stream"]
                             and not session_info["read_stream"]._closed
                         ):
                             await session_info["read_stream"].aclose()
                             if self.debug:
-                                logger.info(
-                                    f"Closed read stream for {server_name}"
-                                )
+                                logger.info(f"Closed read stream for {server_name}")
+                    except Exception as e:
+                        logger.error(f"Error closing read stream for {server_name}: {e}")
 
+                    # Close session
+                    try:
                         if session_info["session"]:
-                            close_method = getattr(
-                                session_info["session"], "close", None
-                            )
+                            close_method = getattr(session_info["session"], "close", None)
                             if close_method and callable(close_method):
                                 await close_method()
                                 if self.debug:
-                                    logger.info(
-                                        f"Closed session for {server_name}"
-                                    )
-
+                                    logger.info(f"Closed session for {server_name}")
                     except Exception as e:
-                        logger.error(
-                            f"Error during stream closure for {server_name}: {e}"
-                        )
+                        logger.error(f"Error closing session for {server_name}: {e}")
 
-                    # Mark as disconnected and clear references
+                    # Mark as disconnected and clear all references
                     self.sessions[server_name]["connected"] = False
                     self.sessions[server_name]["session"] = None
                     self.sessions[server_name]["read_stream"] = None
@@ -300,15 +307,16 @@ class MCPClient:
 
                     if self.debug:
                         logger.info(f"Cleaned up server: {server_name}")
+
             except Exception as e:
                 logger.error(f"Error cleaning up server {server_name}: {e}")
+
 
     async def cleanup(self):
         """Clean up all resources"""
         try:
             logger.info("Starting client shutdown...")
 
-            # First make sure all servers are properly shut down
             try:
                 async with asyncio.timeout(
                     10.0

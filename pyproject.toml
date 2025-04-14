@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcpomni_connect"
-version = "0.1.12"
+version = "0.1.13"
 description = "Universal MCP Client with multi-transport support and LLM-powered tool routing"
 readme = "README.md"
 authors = [{ name = "Abiola Adeshina", email = "abiolaadedayo1993@gmail.com" }]
@@ -35,9 +35,8 @@ dependencies = [
     "groq>=0.20.0",
     "redis>=5.2.1",
     "python-decouple>=3.8",
-    "qdrant-client>=1.13.3",
     "mcp[cli]>=1.6.0",
-    "sentence-transformers>=4.0.2",
+    
 ]
 
 [project.scripts]
