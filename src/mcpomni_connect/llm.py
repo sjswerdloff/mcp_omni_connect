@@ -2,7 +2,6 @@ from typing import Any
 
 from groq import Groq
 from openai import OpenAI
-
 from mcpomni_connect.utils import logger
 
 
@@ -18,6 +17,10 @@ class LLMConnection:
         )
         self.gemini = OpenAI(
             base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            api_key=self.config.llm_api_key,
+        )
+        self.deepseek = OpenAI(
+            base_url="https://api.deepseek.com",
             api_key=self.config.llm_api_key,
         )
         if not self.llm_config:
@@ -138,6 +141,26 @@ class LLMConnection:
                     )
                 else:
                     response = self.gemini.chat.completions.create(
+                        model=self.llm_config["model"],
+                        max_tokens=self.llm_config["max_tokens"],
+                        temperature=self.llm_config["temperature"],
+                        top_p=self.llm_config["top_p"],
+                        messages=messages,
+                    )
+                return response
+            elif self.llm_config["provider"].lower() == "deepseek":
+                if tools:
+                    response = self.deepseek.chat.completions.create(
+                        model=self.llm_config["model"],
+                        max_tokens=self.llm_config["max_tokens"],
+                        temperature=self.llm_config["temperature"],
+                        top_p=self.llm_config["top_p"],
+                        messages=messages,
+                        tools=tools,
+                        tool_choice="auto",
+                    )
+                else:
+                    response = self.deepseek.chat.completions.create(
                         model=self.llm_config["model"],
                         max_tokens=self.llm_config["max_tokens"],
                         temperature=self.llm_config["temperature"],

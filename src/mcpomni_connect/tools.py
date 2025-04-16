@@ -17,4 +17,5 @@ async def list_tools(
                 tools.extend(tools_response.tools)
             except Exception as e:
                 logger.info(f"{server_name} Does not support tools")
+    logger.info(f"total number of tools connected to the client: {len(tools)}")
     return tools

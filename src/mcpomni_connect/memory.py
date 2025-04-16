@@ -20,204 +20,244 @@ from mcpomni_connect.system_prompts import EPISODIC_MEMORY_PROMPT
 # from qdrant_client.http.models import Distance, VectorParams
 
 
-# class InMemoryShortTermMemory:
-#     message_history = {}
-#     """In memory short term memory."""
-
-#     def __init__(
-#         self, max_context_tokens: int = 30000, debug: bool = False
-#     ) -> None:
-#         """Initialize."""
-#         self.max_context_tokens = max_context_tokens
-#         self.debug = debug
-
-#     async def truncate_message_history(self, agent_name: str):
-#         """Truncate the message history to the max context tokens"""
-#         try:
-#             if agent_name not in self.message_history:
-#                 self.message_history[agent_name] = []
-#                 return
-
-#             # get the total tokens in the message history
-#             total_tokens = sum(
-#                 len(msg["content"].split())
-#                 for msg in self.message_history[agent_name]
-#             )
-#             while total_tokens > self.max_context_tokens:
-#                 self.message_history[agent_name].pop(0)
-#                 total_tokens = sum(
-#                     len(msg["content"].split())
-#                     for msg in self.message_history[agent_name]
-#                 )
-#         except Exception as e:
-#             logger.error(
-#                 f"Failed to truncate message history for agent {agent_name}: {e}"
-#             )
-#             self.message_history[agent_name] = []
-
-#     async def store_message(
-#         self,
-#         agent_name: str,
-#         role: str,
-#         content: str,
-#         metadata: Optional[dict] = None,
-#     ):
-#         try:
-#             # Initialize message history for new agents
-#             if agent_name not in self.message_history:
-#                 self.message_history[agent_name] = []
-
-#             """Add a message to the message history"""
-#             message = {
-#                 "role": role,
-#                 "content": content,
-#                 "timestamp": asyncio.get_running_loop().time(),
-#                 "metadata": metadata or {},
-#             }
-#             self.message_history[agent_name].append(message)
-#             if self.debug:
-#                 logger.info(
-#                     f"Added message to history: {role} - {content[:100]}"
-#                 )
-#         except Exception as e:
-#             logger.error(f"Failed to store message: {e}")
-
-#     async def get_all_messages_history(self):
-#         """Get the message history for all agents and reconstruct the message history for each agent"""
-#         all_messages = []
-#         for agent_name, messages in self.message_history.items():
-#             for message in messages:
-#                 all_messages.append(message)
-#         return all_messages
-
-#     async def get_messages(self, agent_name: str = None):
-#         """Get the message history"""
-#         try:
-#             # Initialize message history for new agents if it doesn't exist
-#             if agent_name not in self.message_history:
-#                 self.message_history[agent_name] = []
-#             await self.truncate_message_history(agent_name)
-#             return self.message_history[agent_name]
-#         except Exception as e:
-#             logger.error(f"Failed to get messages for agent {agent_name}: {e}")
-#             return []
-
-#     async def show_history(self, agent_name: str):
-#         """Show the message history"""
-#         try:
-#             if agent_name not in self.message_history:
-#                 logger.info(
-#                     f"No message history found for agent: {agent_name}"
-#                 )
-#                 return
-
-#             for i, message in enumerate(self.message_history[agent_name]):
-#                 logger.info(
-#                     f"Message {i}: {message['role']} - {message['content']}"
-#                 )
-#         except Exception as e:
-#             logger.error(f"Failed to show history for agent {agent_name}: {e}")
-
-#     async def clear_memory(self, agent_name: str):
-#         """Clear the message history"""
-#         agent_messages = self.message_history[agent_name]
-#         del self.message_history[agent_name]
-#         return agent_messages
-
-#     async def save_message_history_to_file(self, file_path: str):
-#         """Save the message history to a file"""
-#         with open(file_path, "w") as f:
-#             for agent_name, messages in self.message_history.items():
-#                 f.write(f"Agent: {agent_name}\n")
-#                 for message in messages:
-#                     f.write(f"{message['role']}: {message['content']}\n")
-#                 f.write("\n")
-#         if self.debug:
-#             logger.info(f"Message history saved to {file_path}")
-
 class InMemoryShortTermMemory:
-    message_history = []
-    """In memory short term memory."""
+    """In memory short term memory with support for both single and multi-agent scenarios."""
+
+    # Class-level storage for multi-agent mode
+    multi_agent_history = {}
+    single_agent_history = []
 
     def __init__(
-        self, max_context_tokens: int = 30000, debug: bool = False
+        self,
+        max_context_tokens: int = 30000,
+        debug: bool = False,
+        multi_agent: bool = False,
     ) -> None:
-        """Initialize."""
+        """Initialize memory storage.
+
+        Args:
+            max_context_tokens: Maximum tokens to keep in memory
+            debug: Enable debug logging
+            multi_agent: Whether to use multi-agent memory structure
+        """
         self.max_context_tokens = max_context_tokens
         self.debug = debug
+        self.multi_agent = multi_agent
+        self.short_term_limit = int(0.7 * max_context_tokens)
 
-    async def truncate_message_history(self):
-        """Truncate the message history to the max context tokens"""
+    async def truncate_message_history(self, agent_name: str = None):
+        """Truncate the message history to the max context tokens."""
         try:
-            # get the total tokens in the message history
+            if self.multi_agent:
+                if agent_name not in self.multi_agent_history:
+                    self.multi_agent_history[agent_name] = []
+                    return
+                messages = self.multi_agent_history[agent_name]
+            else:
+                messages = self.single_agent_history
+
+            # Calculate total tokens
             total_tokens = sum(
-                len(msg["content"].split())
-                for msg in self.message_history
+                len(str(msg["content"]).split()) for msg in messages
             )
-            while total_tokens > self.max_context_tokens:
-                self.message_history.pop(0)
+
+            # Remove oldest messages until under token limit
+            while total_tokens > self.short_term_limit and messages:
+                messages.pop(0)
                 total_tokens = sum(
-                    len(msg["content"].split())
-                    for msg in self.message_history
+                    len(str(msg["content"]).split()) for msg in messages
                 )
+
         except Exception as e:
-            logger.error(
-                f"Failed to truncate message history: {e}"
-            )
-            self.message_history = []
+            logger.error(f"Failed to truncate message history: {e}")
+            if self.multi_agent:
+                self.multi_agent_history[agent_name] = []
+            else:
+                self.single_agent_history = []
 
     async def store_message(
         self,
         role: str,
         content: str,
         metadata: Optional[dict] = None,
+        agent_name: str = None,
     ):
+        """Store a message in memory.
+
+        Args:
+            role: Message role (e.g., 'user', 'assistant')
+            content: Message content
+            agent_name: Name of agent (required for multi-agent mode)
+            metadata: Optional metadata about the message
+        """
         try:
-            """Add a message to the message history"""
+            if self.multi_agent and not agent_name:
+                raise ValueError("agent_name is required in multi-agent mode")
+
             message = {
                 "role": role,
                 "content": content,
                 "timestamp": asyncio.get_running_loop().time(),
                 "metadata": metadata or {},
             }
-            self.message_history.append(message)
-            if self.debug:
-                logger.info(
-                    f"Added message to history: {role} - {content[:100]}"
-                )
+
+            if self.multi_agent:
+                if agent_name not in self.multi_agent_history:
+                    self.multi_agent_history[agent_name] = []
+                self.multi_agent_history[agent_name].append(message)
+            else:
+                self.single_agent_history.append(message)
+
         except Exception as e:
             logger.error(f"Failed to store message: {e}")
 
-    async def get_messages(self):
-        """Get the message history"""
+    async def get_messages(self, agent_name: str = None):
+        """Get messages from memory.
+
+        Args:
+            agent_name: Name of agent (required for multi-agent mode)
+
+        Returns:
+            List of messages
+        """
         try:
-            await self.truncate_message_history()
-            return self.message_history
+            if self.multi_agent:
+                if not agent_name:
+                    raise ValueError(
+                        "agent_name is required in multi-agent mode"
+                    )
+                if agent_name not in self.multi_agent_history:
+                    self.multi_agent_history[agent_name] = []
+                await self.truncate_message_history(agent_name)
+                return self.multi_agent_history[agent_name]
+            else:
+                await self.truncate_message_history()
+                return self.single_agent_history
+
         except Exception as e:
             logger.error(f"Failed to get messages: {e}")
             return []
 
-    async def show_history(self):
-        """Show the message history"""
+    async def clear_memory(self, agent_name: str = None):
+        """Clear memory for an agent or all memory.
+
+        Args:
+            agent_name: Name of agent to clear (required for multi-agent mode)
+        """
         try:
-            return self.message_history
+            if self.multi_agent:
+                if not agent_name:
+                    raise ValueError(
+                        "agent_name is required in multi-agent mode"
+                    )
+                if agent_name in self.multi_agent_history:
+                    del self.multi_agent_history[agent_name]
+            else:
+                self.single_agent_history = []
+
         except Exception as e:
-            logger.error(f"Failed to show history: {e}")
+            logger.error(f"Failed to clear memory: {e}")
 
-    async def clear_memory(self):
-        """Clear the message history"""
-        agent_messages = self.message_history
-        self.message_history = []
-        return agent_messages
+    async def save_message_history_to_file(
+        self, file_path: str, agent_name: str = None
+    ):
+        """Save message history to a file, appending to existing content."""
+        try:
+            with open(file_path, "a") as f:
+                # Add separator if file has content
+                if f.tell() > 0:
+                    f.write("\n\n")
 
-    async def save_message_history_to_file(self, file_path: str):
-        """Save the message history to a file"""
-        with open(file_path, "w") as f:
-            for message in self.message_history:
-                f.write(f"{message['role']}: {message['content']}\n")
-                f.write("\n")
-        if self.debug:
-            logger.info(f"Message history saved to {file_path}")
+                if self.multi_agent:
+                    if agent_name:
+                        messages = self.multi_agent_history.get(agent_name, [])
+                        if messages:
+                            f.write(f"Agent: {agent_name}\n")
+                            for message in messages:
+                                f.write(
+                                    f"{message['role']}: {message['content']}\n"
+                                )
+                    else:
+                        logger.info(
+                            f"Saving multi-agent messages for all agents: {self.multi_agent_history}"
+                        )
+                        for (
+                            agent,
+                            messages,
+                        ) in self.multi_agent_history.items():
+                            if messages:
+                                logger.info(
+                                    f"Saving multi-agent messages for agent: {agent}"
+                                )
+                                f.write(f"Agent: {agent}\n")
+                                for message in messages:
+                                    f.write(
+                                        f"{message['role']}: {message['content']}\n"
+                                    )
+                                f.write("\n")
+                else:
+                    for message in self.single_agent_history:
+                        f.write(f"{message['role']}: {message['content']}\n")
+
+            if self.debug:
+                logger.info(f"Message history saved to {file_path}")
+
+        except Exception as e:
+            logger.error(f"Failed to save message history: {e}")
+            raise
+
+    async def load_message_history_from_file(
+        self, file_path: str, agent_name: str = None
+    ):
+        """Load message history from a file and store in in memory short term memory."""
+        try:
+            with open(file_path, "r") as f:
+                content = f.read()
+
+                if "Agent:" in content:
+                    # Multi-agent format
+                    sections = content.split("Agent:")
+                    for section in sections[1:]:
+                        lines = section.strip().split("\n")
+                        current_agent = lines[0].strip()
+                        messages = lines[1:]
+                        for msg in messages:
+                            if ":" in msg:
+                                role, content = msg.split(":", 1)
+                                # update the multi-agent to be true
+                                self.multi_agent = True
+                                await self.store_message(
+                                    agent_name=current_agent,
+                                    role=role.strip(),
+                                    content=content.strip(),
+                                )
+                else:
+                    # Single-agent format
+                    messages = content.strip().split("\n")
+                    for msg in messages:
+                        if ":" in msg:
+                            role, content = msg.split(":", 1)
+                            await self.store_message(
+                                agent_name=agent_name,
+                                role=role.strip(),
+                                content=content.strip(),
+                            )
+
+            if self.debug:
+                logger.info(
+                    f"Successfully loaded message history from {file_path}"
+                )
+                if self.multi_agent:
+                    logger.info(
+                        f"Loaded messages for agents: {list(self.multi_agent_history.keys())}"
+                    )
+                else:
+                    logger.info(
+                        f"Loaded {len(self.single_agent_history)} messages"
+                    )
+
+        except Exception as e:
+            logger.error(f"Failed to load message history from file: {e}")
 
 
 class RedisShortTermMemory:
@@ -260,7 +300,7 @@ class RedisShortTermMemory:
 
         message = {
             "role": role,
-            "content": content,
+            "content": str(content),
             "metadata": self._serialize(metadata),
             "timestamp": timestamp,
         }

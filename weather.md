@@ -1,0 +1,1 @@
+Current weather in Lagos, Nigeria: Temperature: 33.1°C (91.6°F), Condition: Partly cloudy, Wind: 15.0 mph (24.1 kph) from the southwest, Humidity: 63%, Pressure: 1009 mb, Visibility: 10 km, Feels like: 43.8°C (110.9°F). Additional forecasts indicate possible thunderstorms with temperatures around 28°C (82°F) and humidity levels reaching 89%.

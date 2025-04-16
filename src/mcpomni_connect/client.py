@@ -7,25 +7,18 @@ from contextlib import AsyncExitStack
 from pathlib import Path
 from typing import Any, Optional
 from dotenv import load_dotenv
-from groq import Groq
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.client.websocket import websocket_client
-from openai import OpenAI
 from dataclasses import dataclass, field
 from mcpomni_connect.refresh_server_capabilities import refresh_capabilities
 from mcpomni_connect.notifications import handle_notifications
 from mcpomni_connect.llm import LLMConnection
 from mcpomni_connect.system_prompts import generate_react_agent_role_prompt
 from mcpomni_connect.utils import logger
-from mcp.types import (
-    CreateMessageRequestParams,
-    CreateMessageResult,
-    ErrorData,
-)
-from mcp.shared.context import RequestContext
 from datetime import timedelta
+from mcpomni_connect.sampling import samplingCallback
 
 
 @dataclass
@@ -73,6 +66,7 @@ class MCPClient:
         self.system_prompt = None
         self.exit_stack = AsyncExitStack()
         self.llm_connection = LLMConnection(self.config)
+        self.sampling_callback = samplingCallback()
 
     async def connect_to_servers(self):
         """Connect to an MCP server"""
@@ -213,7 +207,7 @@ class MCPClient:
                 ClientSession(
                     read_stream,
                     write_stream,
-                    # sampling_callback=self._sampling_callback,  # Use the bound metho
+                    sampling_callback=self.sampling_callback._sampling,
                     read_timeout_seconds=timedelta(
                         seconds=300
                     ),  # 5 minutes timeout
@@ -272,9 +266,13 @@ class MCPClient:
                         ):
                             await session_info["write_stream"].aclose()
                             if self.debug:
-                                logger.info(f"Closed write stream for {server_name}")
+                                logger.info(
+                                    f"Closed write stream for {server_name}"
+                                )
                     except Exception as e:
-                        logger.error(f"Error closing write stream for {server_name}: {e}")
+                        logger.error(
+                            f"Error closing write stream for {server_name}: {e}"
+                        )
 
                     # Close read stream
                     try:
@@ -284,20 +282,30 @@ class MCPClient:
                         ):
                             await session_info["read_stream"].aclose()
                             if self.debug:
-                                logger.info(f"Closed read stream for {server_name}")
+                                logger.info(
+                                    f"Closed read stream for {server_name}"
+                                )
                     except Exception as e:
-                        logger.error(f"Error closing read stream for {server_name}: {e}")
+                        logger.error(
+                            f"Error closing read stream for {server_name}: {e}"
+                        )
 
                     # Close session
                     try:
                         if session_info["session"]:
-                            close_method = getattr(session_info["session"], "close", None)
+                            close_method = getattr(
+                                session_info["session"], "close", None
+                            )
                             if close_method and callable(close_method):
                                 await close_method()
                                 if self.debug:
-                                    logger.info(f"Closed session for {server_name}")
+                                    logger.info(
+                                        f"Closed session for {server_name}"
+                                    )
                     except Exception as e:
-                        logger.error(f"Error closing session for {server_name}: {e}")
+                        logger.error(
+                            f"Error closing session for {server_name}: {e}"
+                        )
 
                     # Mark as disconnected and clear all references
                     self.sessions[server_name]["connected"] = False
@@ -310,7 +318,6 @@ class MCPClient:
 
             except Exception as e:
                 logger.error(f"Error cleaning up server {server_name}: {e}")
-
 
     async def cleanup(self):
         """Clean up all resources"""

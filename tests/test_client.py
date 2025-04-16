@@ -7,7 +7,7 @@ import asyncio
 
 # Mock data for testing
 MOCK_SERVER_CONFIG = {
-    "LLM":{
+    "LLM": {
         "provider": "openai",
         "model": "gpt-4o-mini",
         "max_tokens": 1000,
@@ -30,7 +30,7 @@ MOCK_SERVER_CONFIG = {
             "sse_read_timeout": 300,
         },
         "server3": {"type": "websocket", "url": "ws://test.com"},
-    }
+    },
 }
 
 
@@ -106,67 +106,98 @@ class TestMCPClient:
         session = AsyncMock()
         server_info = MagicMock()
         server_info.name = "test_server"  # Use string instead of MagicMock
-        session.initialize = AsyncMock(return_value=MagicMock(
-            serverInfo=server_info,
-            capabilities={"tools": [], "resources": [], "prompts": []}
-        ))
+        session.initialize = AsyncMock(
+            return_value=MagicMock(
+                serverInfo=server_info,
+                capabilities={"tools": [], "resources": [], "prompts": []},
+            )
+        )
         return session
 
     @pytest.mark.asyncio
-    async def test_connect_to_single_server_stdio(self, mock_client, mock_session):
+    async def test_connect_to_single_server_stdio(
+        self, mock_client, mock_session
+    ):
         """Test connecting to a stdio server"""
-        with patch('mcpomni_connect.client.stdio_client') as mock_stdio_client:
+        with patch("mcpomni_connect.client.stdio_client") as mock_stdio_client:
             mock_transport = (AsyncMock(), AsyncMock())
-            mock_stdio_client.return_value.__aenter__.return_value = mock_transport
-            
+            mock_stdio_client.return_value.__aenter__.return_value = (
+                mock_transport
+            )
+
             mock_client.exit_stack.enter_async_context = AsyncMock()
             mock_client.exit_stack.enter_async_context.side_effect = [
                 mock_transport,
-                mock_session
+                mock_session,
             ]
 
-            server_info = {"name": "server1", "srv_config": MOCK_SERVER_CONFIG["mcpServers"]["server1"]}
+            server_info = {
+                "name": "server1",
+                "srv_config": MOCK_SERVER_CONFIG["mcpServers"]["server1"],
+            }
             await mock_client._connect_to_single_server(server_info)
 
-            assert mock_client.server_names == ["test_server"]  # Check for the actual server name
+            assert mock_client.server_names == [
+                "test_server"
+            ]  # Check for the actual server name
             assert mock_client.sessions["test_server"]["type"] == "stdio"
 
     @pytest.mark.asyncio
-    async def test_connect_to_single_server_sse(self, mock_client, mock_session):
+    async def test_connect_to_single_server_sse(
+        self, mock_client, mock_session
+    ):
         """Test connecting to an SSE server"""
-        with patch('mcpomni_connect.client.sse_client') as mock_sse_client:
+        with patch("mcpomni_connect.client.sse_client") as mock_sse_client:
             mock_transport = (AsyncMock(), AsyncMock())
-            mock_sse_client.return_value.__aenter__.return_value = mock_transport
-            
+            mock_sse_client.return_value.__aenter__.return_value = (
+                mock_transport
+            )
+
             mock_client.exit_stack.enter_async_context = AsyncMock()
             mock_client.exit_stack.enter_async_context.side_effect = [
                 mock_transport,
-                mock_session
+                mock_session,
             ]
 
-            server_info = {"name": "server2", "srv_config": MOCK_SERVER_CONFIG["mcpServers"]["server2"]}
+            server_info = {
+                "name": "server2",
+                "srv_config": MOCK_SERVER_CONFIG["mcpServers"]["server2"],
+            }
             await mock_client._connect_to_single_server(server_info)
 
-            assert mock_client.server_names == ["test_server"]  # Check for the actual server name
+            assert mock_client.server_names == [
+                "test_server"
+            ]  # Check for the actual server name
             assert mock_client.sessions["test_server"]["type"] == "sse"
 
     @pytest.mark.asyncio
-    async def test_connect_to_single_server_websocket(self, mock_client, mock_session):
+    async def test_connect_to_single_server_websocket(
+        self, mock_client, mock_session
+    ):
         """Test connecting to a WebSocket server"""
-        with patch('mcpomni_connect.client.websocket_client') as mock_ws_client:
+        with patch(
+            "mcpomni_connect.client.websocket_client"
+        ) as mock_ws_client:
             mock_transport = (AsyncMock(), AsyncMock())
-            mock_ws_client.return_value.__aenter__.return_value = mock_transport
-            
+            mock_ws_client.return_value.__aenter__.return_value = (
+                mock_transport
+            )
+
             mock_client.exit_stack.enter_async_context = AsyncMock()
             mock_client.exit_stack.enter_async_context.side_effect = [
                 mock_transport,
-                mock_session
+                mock_session,
             ]
 
-            server_info = {"name": "server3", "srv_config": MOCK_SERVER_CONFIG["mcpServers"]["server3"]}
+            server_info = {
+                "name": "server3",
+                "srv_config": MOCK_SERVER_CONFIG["mcpServers"]["server3"],
+            }
             await mock_client._connect_to_single_server(server_info)
 
-            assert mock_client.server_names == ["test_server"]  # Check for the actual server name
+            assert mock_client.server_names == [
+                "test_server"
+            ]  # Check for the actual server name
             assert mock_client.sessions["test_server"]["type"] == "websocket"
 
     @pytest.mark.asyncio
@@ -179,7 +210,7 @@ class TestMCPClient:
         mock_write_stream._closed = False
         mock_session = AsyncMock()
         mock_session.close = AsyncMock()
-        
+
         mock_client.server_names = ["test_server"]
         mock_client.sessions = {
             "test_server": {
@@ -187,7 +218,7 @@ class TestMCPClient:
                 "read_stream": mock_read_stream,
                 "write_stream": mock_write_stream,
                 "connected": True,
-                "type": "stdio"
+                "type": "stdio",
             }
         }
 
@@ -225,13 +256,15 @@ class TestMCPClient:
         mock_write_stream = AsyncMock()
         mock_write_stream._closed = False
         mock_session = AsyncMock()
-        
+
         # Instead of making all operations timeout, let's make only some timeout
         # to better simulate real behavior
         mock_write_stream.aclose = AsyncMock()  # This one succeeds
-        mock_read_stream.aclose = AsyncMock(side_effect=asyncio.TimeoutError)  # This one times out
+        mock_read_stream.aclose = AsyncMock(
+            side_effect=asyncio.TimeoutError
+        )  # This one times out
         mock_session.close = AsyncMock()  # This one succeeds
-        
+
         mock_client.server_names = ["test_server"]
         mock_client.sessions = {
             "test_server": {
@@ -239,39 +272,53 @@ class TestMCPClient:
                 "read_stream": mock_read_stream,
                 "write_stream": mock_write_stream,
                 "connected": True,
-                "type": "stdio"
+                "type": "stdio",
             }
         }
 
         # Mock the exit_stack.aclose
         mock_client.exit_stack.aclose = AsyncMock()
-        
+
         # The cleanup should handle the TimeoutError and still proceed
         await mock_client.cleanup()
-        
+
         # Verify that all stream operations were attempted
-        assert mock_write_stream.aclose.called, "Write stream close was not called"
-        assert mock_read_stream.aclose.called, "Read stream close was not called"
+        assert (
+            mock_write_stream.aclose.called
+        ), "Write stream close was not called"
+        assert (
+            mock_read_stream.aclose.called
+        ), "Read stream close was not called"
         assert mock_session.close.called, "Session close was not called"
-        
+
         # Verify that exit_stack was closed
-        assert mock_client.exit_stack.aclose.called, "Exit stack close was not called"
-        
+        assert (
+            mock_client.exit_stack.aclose.called
+        ), "Exit stack close was not called"
+
         # Verify that all collections were cleared
-        assert len(mock_client.server_names) == 0, "Server names were not cleared"
+        assert (
+            len(mock_client.server_names) == 0
+        ), "Server names were not cleared"
         assert len(mock_client.sessions) == 0, "Sessions were not cleared"
         assert len(mock_client.available_tools) == 0, "Tools were not cleared"
-        assert len(mock_client.available_resources) == 0, "Resources were not cleared"
-        assert len(mock_client.available_prompts) == 0, "Prompts were not cleared"
+        assert (
+            len(mock_client.available_resources) == 0
+        ), "Resources were not cleared"
+        assert (
+            len(mock_client.available_prompts) == 0
+        ), "Prompts were not cleared"
 
     @pytest.mark.asyncio
     async def test_connect_to_servers_all_failed(self, mock_client):
         """Test behavior when all server connections fail"""
-        mock_client._connect_to_single_server = AsyncMock(side_effect=Exception("Connection failed"))
+        mock_client._connect_to_single_server = AsyncMock(
+            side_effect=Exception("Connection failed")
+        )
 
         with pytest.raises(RuntimeError) as exc_info:
             await mock_client.connect_to_servers()
-        
+
         assert "No servers could be connected" in str(exc_info.value)
 
     @pytest.mark.asyncio
@@ -292,7 +339,7 @@ class TestMCPClient:
                 "read_stream": mock_read_stream,
                 "write_stream": mock_write_stream,
                 "connected": True,
-                "type": "stdio"
+                "type": "stdio",
             }
         }
 

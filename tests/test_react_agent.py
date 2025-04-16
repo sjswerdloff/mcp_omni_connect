@@ -50,19 +50,23 @@ def mock_llm_connection():
 @pytest_asyncio.fixture
 async def mock_add_message_to_history():
     """Create mock add_message_to_history function"""
+
     async def add_message_to_history(role, content, metadata=None):
         return {"role": role, "content": content}
+
     return add_message_to_history
 
 
 @pytest_asyncio.fixture
 async def mock_message_history():
     """Create mock message_history function"""
+
     async def message_history():
         return [
             {"role": "system", "content": "System prompt"},
             {"role": "user", "content": "User message"},
         ]
+
     return message_history
 
 
@@ -190,7 +194,7 @@ class TestReActAgent:
             "server_name": "server1",
         }
         response = "Using tool1"
-        
+
         await agent.act(
             parsed_response,
             response,
@@ -199,7 +203,7 @@ class TestReActAgent:
             "Test system prompt",
             debug=True,
         )
-        
+
         assert agent.state == AgentState.OBSERVING
 
     @pytest.mark.asyncio
@@ -208,24 +212,24 @@ class TestReActAgent:
     ):
         """Test act with tool timeout"""
         agent = ReActAgent(tool_call_timeout=0.1)
-        
+
         # Initialize agent messages with system prompt
         agent.messages = [{"role": "system", "content": "Test system prompt"}]
-        
+
         # Mock the timeout by making the call_tool function sleep longer than timeout
         async def delayed_call(*args, **kwargs):
             await asyncio.sleep(0.2)  # Sleep longer than timeout
             return {"status": "success", "data": "Should not reach this"}
-            
+
         mock_sessions["server1"]["session"].call_tool = delayed_call
-        
+
         parsed_response = {
             "action": True,
             "tool_name": "tool1",
             "tool_args": {"param1": "value1"},
             "server_name": "server1",
         }
-        
+
         # Set initial state
         async with agent.agent_state_context(AgentState.TOOL_CALLING):
             await agent.act(
@@ -235,19 +239,20 @@ class TestReActAgent:
                 mock_sessions,
                 "Test system prompt",
             )
-            
+
             # Print all messages for debugging
             print("All messages:")
             for msg in agent.messages:
                 print(f"Message: {msg}")
-            
+
             # Verify the timeout message is added correctly
-            assert len(agent.messages) >= 2  # Should have system prompt and timeout message
+            assert (
+                len(agent.messages) >= 2
+            )  # Should have system prompt and timeout message
             assert agent.messages[0]["role"] == "system"
             assert agent.messages[-1]["role"] == "user"
             assert "Tool call timed out" in agent.messages[-1]["content"]
             assert agent.state == AgentState.TOOL_CALLING
-
 
     @pytest.mark.asyncio
     async def test_run_with_final_answer(
@@ -261,7 +266,7 @@ class TestReActAgent:
         agent = ReActAgent()
         # Ensure agent starts in IDLE state (default state)
         assert agent.state == AgentState.IDLE
-        
+
         # Setup the LLM response
         mock_llm_connection.llm_call = AsyncMock(
             return_value=Mock(
@@ -274,10 +279,12 @@ class TestReActAgent:
         # Capture state changes
         state_changes = []
         original_info = logging.info
+
         def mock_info(msg):
             if "Agent state changed from" in msg:
                 state_changes.append(msg)
             original_info(msg)
+
         logging.info = mock_info
 
         try:
@@ -294,13 +301,15 @@ class TestReActAgent:
 
             # Verify the result
             assert result == "Test complete"
-            
+
             # Verify state transitions
             assert len(state_changes) > 0
             assert "RUNNING to FINISHED" in state_changes[-1]
 
             # Verify the message flow
-            assert len(agent.messages) >= 2  # Should have at least system prompt and final answer
+            assert (
+                len(agent.messages) >= 2
+            )  # Should have at least system prompt and final answer
             assert agent.messages[0]["role"] == "system"
             assert agent.messages[-1]["role"] == "assistant"
             assert agent.messages[-1]["content"] == "Test complete"
@@ -319,7 +328,7 @@ class TestReActAgent:
     # ):
     #     """Test run with tool chain execution"""
     #     agent = ReActAgent(max_steps=2)
-        
+
     #     async with agent.agent_state_context(AgentState.RUNNING):
     #         mock_llm_connection.llm_call = AsyncMock(
     #             side_effect=[
@@ -365,10 +374,10 @@ class TestReActAgent:
     # async def test_agent_state_context(self):
     #     """Test agent state context manager"""
     #     agent = ReActAgent()
-        
+
     #     async with agent.agent_state_context(AgentState.RUNNING):
     #         assert agent.state == AgentState.RUNNING
-            
+
     #     assert agent.state == AgentState.IDLE
 
     #     with pytest.raises(ValueError):
@@ -386,25 +395,25 @@ class TestReActAgent:
     # async def test_agent_state_transitions(self):
     #     """Test complete agent state transition flow"""
     #     agent = ReActAgent()
-        
+
     #     assert agent.state == AgentState.IDLE
-        
+
     #     async with agent.agent_state_context(AgentState.RUNNING):
     #         assert agent.state == AgentState.RUNNING
-            
+
     #         async with agent.agent_state_context(AgentState.TOOL_CALLING):
     #             assert agent.state == AgentState.TOOL_CALLING
-                
+
     #             async with agent.agent_state_context(AgentState.OBSERVING):
     #                 assert agent.state == AgentState.OBSERVING
-                
+
     #             assert agent.state == AgentState.TOOL_CALLING
-            
+
     #         assert agent.state == AgentState.RUNNING
-            
+
     #         async with agent.agent_state_context(AgentState.FINISHED):
     #             assert agent.state == AgentState.FINISHED
-            
+
     #         assert agent.state == AgentState.RUNNING
-        
+
     #     assert agent.state == AgentState.IDLE

@@ -33,9 +33,9 @@ async def refresh_capabilities(
     available_resources: Dict[str, Any],
     available_prompts: Dict[str, Any],
     debug: bool,
-    server_name: str,
     llm_connection: Callable,
     generate_react_agent_role_prompt: Callable,
+    server_name: str = None,
 ) -> None:
     """Refresh the capabilities of the server and update system prompt"""
     for server_name in server_names:
@@ -77,15 +77,25 @@ async def refresh_capabilities(
             logger.info(f"{server_name} does not support prompts: {e}")
             available_prompts[server_name] = []
     # Generate the react agent role prompt
-    # react_agent_role_prompt = await generate_react_agent_role_prompt_func(
-    #     available_tools=available_tools,
-    #     server_name=server_name,
-    #     llm_connection=llm_connection,
-    #     generate_react_agent_role_prompt=generate_react_agent_role_prompt,
-    # )
-    # AGENTS_REGISTRY[server_name] = react_agent_role_prompt
-    # if debug:
-    #     logger.info(f"React agent role prompt: {react_agent_role_prompt}")
+    if server_name:
+        react_agent_role_prompt = await generate_react_agent_role_prompt_func(
+            available_tools=available_tools,
+            server_name=server_name,
+            llm_connection=llm_connection,
+            generate_react_agent_role_prompt=generate_react_agent_role_prompt,
+        )
+        AGENTS_REGISTRY[server_name] = react_agent_role_prompt
+    else:
+        for _server_name in server_names:
+            react_agent_role_prompt = await generate_react_agent_role_prompt_func(
+                available_tools=available_tools,
+                server_name=_server_name,
+                llm_connection=llm_connection,
+                generate_react_agent_role_prompt=generate_react_agent_role_prompt,
+            )
+            AGENTS_REGISTRY[_server_name] = react_agent_role_prompt
+    if debug:
+        logger.info(f"Agents Registry: {AGENTS_REGISTRY}")
     if debug:
         logger.info(f"Refreshed capabilities for {server_names}")
 

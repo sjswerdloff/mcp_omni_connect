@@ -2,7 +2,11 @@ import pytest
 import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock
-from mcpomni_connect.memory import InMemoryShortTermMemory, RedisShortTermMemory
+from mcpomni_connect.memory import (
+    InMemoryShortTermMemory,
+    RedisShortTermMemory,
+)
+
 
 @pytest.mark.asyncio
 class TestInMemoryShortTermMemory:
@@ -41,6 +45,7 @@ class TestInMemoryShortTermMemory:
         assert len(cleared) == 1
         assert await memory.get_messages() == []
 
+
 @pytest.mark.asyncio
 class TestRedisShortTermMemory:
 
@@ -57,18 +62,22 @@ class TestRedisShortTermMemory:
 
     async def test_store_message(self, mock_redis):
         memory = RedisShortTermMemory(redis_client=mock_redis)
-        await memory.store_message("user", "hello", metadata={"intent": "greeting"})
+        await memory.store_message(
+            "user", "hello", metadata={"intent": "greeting"}
+        )
 
         assert mock_redis.zadd.called
         assert mock_redis.set.called
 
     async def test_get_messages(self, mock_redis):
-        stored_msg = json.dumps({
-            "role": "user",
-            "content": "Hello from Redis!",
-            "metadata": json.dumps({"intent": "greet"}),
-            "timestamp": 1680000000.0,
-        })
+        stored_msg = json.dumps(
+            {
+                "role": "user",
+                "content": "Hello from Redis!",
+                "metadata": json.dumps({"intent": "greet"}),
+                "timestamp": 1680000000.0,
+            }
+        )
         mock_redis.zrange.return_value = [stored_msg]
         memory = RedisShortTermMemory(redis_client=mock_redis)
         messages = await memory.get_messages()
@@ -90,10 +99,18 @@ class TestRedisShortTermMemory:
 
     async def test_enforce_short_term_limit(self, mock_redis):
         messages = [
-            (json.dumps({"role": "user", "content": "word " * 200}), 1680000000.0),
-            (json.dumps({"role": "assistant", "content": "another " * 200}), 1680000001.0),
+            (
+                json.dumps({"role": "user", "content": "word " * 200}),
+                1680000000.0,
+            ),
+            (
+                json.dumps({"role": "assistant", "content": "another " * 200}),
+                1680000001.0,
+            ),
         ]
         mock_redis.zrange.return_value = messages
-        memory = RedisShortTermMemory(redis_client=mock_redis, max_context_tokens=100)
+        memory = RedisShortTermMemory(
+            redis_client=mock_redis, max_context_tokens=100
+        )
         await memory.enforce_short_term_limit()
         assert mock_redis.zrem.called

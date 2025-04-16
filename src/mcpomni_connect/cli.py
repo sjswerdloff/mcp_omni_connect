@@ -34,6 +34,7 @@ from mcpomni_connect.system_prompts import (
     generate_system_prompt,
     generate_orchestrator_prompt_template,
     generate_react_agent_prompt,
+    generate_react_agent_role_prompt,
 )
 from mcpomni_connect.tools import list_tools
 from mcpomni_connect.utils import logger
@@ -65,6 +66,7 @@ class CommandType(Enum):
     HISTORY = "history"
     CLEAR_HISTORY = "clear_history"
     SAVE_HISTORY = "save_history"
+    LOAD_HISTORY = "load_history"
     MEMORY = "memory"
     MODE = "mode"
     QUIT = "quit"
@@ -81,11 +83,15 @@ class CommandHelp:
                 "description": "Toggle between auto and chat mode",
                 "usage": "/mode:<auto|chat>",
                 "examples": [
-                    "/mode:auto  # Toggle between auto and chat mode",
-                    "/mode:chat  # Toggle between auto and chat mode",
+                    "/mode:auto  # Toggle to auto mode",
+                    "/mode:chat  # Toggle to chat mode",
+                    "/mode:orchestrator  # Toggle to orchestrator mode",
                 ],
                 "subcommands": {},
-                "tips": ["Use to toggle between auto and chat mode"],
+                "tips": [
+                    "Use to toggle between auto and chat mode",
+                    "Use to toggle to orchestrator mode",
+                ],
             },
             "memory": {
                 "description": "Toggle memory usage between Redis and In-Memory",
@@ -222,6 +228,15 @@ class CommandHelp:
                 "subcommands": {},
                 "tips": ["Use to save the message history to a file"],
             },
+            "load_history": {
+                "description": "Load the message history from a file",
+                "usage": "/load_history:path/to/file",
+                "examples": [
+                    "/load_history:path/to/file  # Load the message history from a file"
+                ],
+                "subcommands": {},
+                "tips": ["Use to load the message history from a file"],
+            },
             "subscribe": {
                 "description": "Subscribe to a resource",
                 "usage": "/subscribe:/resource:<uri>",
@@ -252,7 +267,7 @@ class MCPClientCLI:
             "servers_config.json"
         )["LLM"]["max_context_length"]
         self.USE_MEMORY = {"redis": False, "in_memory": True}
-        self.MODE = {"auto": False, "chat": True}
+        self.MODE = {"auto": False, "chat": True, "orchestrator": False}
         self.redis_short_term_memory = RedisShortTermMemory(
             max_context_tokens=self.MAX_CONTEXT_TOKENS
         )
@@ -301,6 +316,8 @@ class MCPClientCLI:
             return CommandType.CLEAR_HISTORY, ""
         elif input_text.startswith("/save_history:"):
             return CommandType.SAVE_HISTORY, input_text[14:].strip()
+        elif input_text.startswith("/load_history:"):
+            return CommandType.LOAD_HISTORY, input_text[14:].strip()
         elif input_text == "/memory":
             return CommandType.MEMORY, ""
         elif input_text.startswith("/mode:"):
@@ -327,18 +344,33 @@ class MCPClientCLI:
             f"{'enabled' if self.USE_MEMORY["redis"] else 'disabled'}[/]"
         )
 
-    async def handle_mode_command(self, input_text: str = ""):
-        """Handle mode command like /mode:auto or /mode:chat"""
-        if input_text == "auto":
+    async def handle_mode_command(self, mode: str) -> str:
+        """Handle mode switching command."""
+        if mode.lower() == "chat":
+            self.MODE["chat"] = True
+            self.MODE["auto"] = False
+            self.MODE["orchestrator"] = False
+            self.console.print(
+                "[green]Switched to Chat Mode - Direct model interaction[/]"
+            )
+        elif mode.lower() == "auto":
             self.MODE["auto"] = True
             self.MODE["chat"] = False
-        elif input_text == "chat":
+            self.MODE["orchestrator"] = False
+            self.console.print(
+                "[green]Switched to Auto Mode - Using ReAct Agent for tool execution[/]"
+            )
+        elif mode.lower() == "orchestrator":
+            self.MODE["orchestrator"] = True
             self.MODE["auto"] = False
-            self.MODE["chat"] = True
-        self.console.print(
-            f"[{'green' if self.MODE["auto"] else 'red'}]Mode "
-            f"{'auto' if self.MODE["auto"] else 'chat'}[/]"
-        )
+            self.MODE["chat"] = False
+            self.console.print(
+                "[green]Switched to Orchestrator Mode - Coordinating multiple tools and agents[/]"
+            )
+        else:
+            self.console.print(
+                f"[red]Invalid mode. Available modes: chat, auto, orchestrator[/]"
+            )
 
     async def handle_refresh_command(self, input_text: str = ""):
         """Handle refresh capabilities command"""
@@ -355,6 +387,8 @@ class MCPClientCLI:
                 available_resources=self.client.available_resources,
                 available_prompts=self.client.available_prompts,
                 debug=self.client.debug,
+                llm_connection=self.client.llm_connection,
+                generate_react_agent_role_prompt=generate_react_agent_role_prompt,
             )
         self.console.print("[green]Capabilities refreshed successfully[/]")
 
@@ -599,8 +633,7 @@ class MCPClientCLI:
                 )
             else:
                 # Use ReAct agent for LLMs without tool support
-                react_agent_prompt = generate_react_agent_prompt(
-                )
+                react_agent_prompt = generate_react_agent_prompt()
                 initial_response = await get_prompt_with_react_agent(
                     sessions=self.client.sessions,
                     system_prompt=react_agent_prompt,
@@ -767,36 +800,7 @@ class MCPClientCLI:
                         debug=self.client.debug,
                     )
                 elif self.MODE["auto"]:
-                    # orchestrator_agent_prompt = generate_orchestrator_prompt_template(
-                    #     agent_registry=AGENTS_REGISTRY,
-                    #     episodic_memory=episodic_query,
-                    #     available_tools=self.client.available_tools,
-                    # )
-                    # orchestrator_agent = OrchestratorAgent(
-                    #     agent_registry=AGENTS_REGISTRY,
-                    # )
-                    # response = await orchestrator_agent.run(
-                    #     query=query,
-                    #     sessions=self.client.sessions,
-                    #     add_message_to_history=(
-                    #         self.redis_short_term_memory.store_message
-                    #         if self.USE_MEMORY["redis"]
-                    #         else self.in_memory_short_term_memory.store_message
-                    #     ),
-                    #     llm_connection=self.llm_connection,
-                    #     available_tools=self.client.available_tools,
-                    #     message_history=(
-                    #         self.redis_short_term_memory.get_messages
-                    #         if self.USE_MEMORY["redis"]
-                    #         else self.in_memory_short_term_memory.get_messages
-                    #     ),
-                    #     episodic_memory=episodic_query,
-                    #     orchestrator_system_prompt=orchestrator_agent_prompt,
-                    #     debug=self.client.debug,
-                    # )
-
-                    react_agent_prompt = generate_react_agent_prompt(
-                    )
+                    react_agent_prompt = generate_react_agent_prompt()
                     response = await ReActAgent().run(
                         sessions=self.client.sessions,
                         system_prompt=react_agent_prompt,
@@ -815,8 +819,39 @@ class MCPClientCLI:
                         ),
                         debug=self.client.debug,
                     )
+                elif self.MODE["orchestrator"]:
+                    # initialize the orchestrator agent in memory
+                    in_memory_short_term_memory = InMemoryShortTermMemory(
+                        debug=self.client.debug,
+                        multi_agent=True,
+                    )
+
+                    orchestrator_agent_prompt = (
+                        generate_orchestrator_prompt_template()
+                    )
+                    orchestrator_agent = OrchestratorAgent(
+                        agent_registry=AGENTS_REGISTRY,
+                        debug=self.client.debug,
+                    )
+                    response = await orchestrator_agent.run(
+                        query=query,
+                        sessions=self.client.sessions,
+                        add_message_to_history=(
+                            self.redis_short_term_memory.store_message
+                            if self.USE_MEMORY["redis"]
+                            else in_memory_short_term_memory.store_message
+                        ),
+                        llm_connection=self.llm_connection,
+                        available_tools=self.client.available_tools,
+                        message_history=(
+                            self.redis_short_term_memory.get_messages
+                            if self.USE_MEMORY["redis"]
+                            else in_memory_short_term_memory.get_messages
+                        ),
+                        orchestrator_system_prompt=orchestrator_agent_prompt,
+                    )
                 else:
-                    response = "Your current model doesn't support function calling. You must use '/mode:auto' to switch to Agent Mode - it works with both function-calling and non-function-calling models, providing seamless tool execution through our Omni-Connect Agent."
+                    response = "Your current model doesn't support function calling. You must use '/mode:auto' to switch to Auto Mode - it works with both function-calling and non-function-calling models, providing seamless tool execution through our ReAct Agent. For advanced tool orchestration, use '/mode:orchestrator'."
             if response:  # Only try to print if we have a response
                 if "```" in response or "#" in response:
                     self.console.print(Markdown(response))
@@ -872,10 +907,30 @@ class MCPClientCLI:
                 input_text
             )
         else:
-            await self.in_memory_short_term_memory.save_message_history_to_file(
-                input_text
-            )
+            # check if the orchestrator mode is on
+            if self.MODE["orchestrator"]:
+                # create new instance to ensure the multi-agent history is saved
+                in_memory_short_term_memory = InMemoryShortTermMemory(
+                    debug=self.client.debug,
+                    multi_agent=True,
+                )
+                await in_memory_short_term_memory.save_message_history_to_file(
+                    input_text
+                )
+            else:
+                await self.in_memory_short_term_memory.save_message_history_to_file(
+                    input_text
+                )
         self.console.print(f"[green]Message history saved to {input_text}[/]")
+
+    async def handle_load_history_command(self, input_text: str):
+        """Handle load history command for in memory short term memory"""
+        await self.in_memory_short_term_memory.load_message_history_from_file(
+            input_text
+        )
+        self.console.print(
+            f"[green]Message history loaded from {input_text}[/]"
+        )
 
     async def handle_episodic_memory_command(self):
         """Handle episodic memory command"""
@@ -916,6 +971,7 @@ class MCPClientCLI:
             CommandType.UNSUBSCRIBE: self.handle_unsubscribe,
             CommandType.MEMORY: self.handle_memory_command,
             CommandType.MODE: self.handle_mode_command,
+            CommandType.LOAD_HISTORY: self.handle_load_history_command,
         }
 
         while True:
@@ -1013,9 +1069,11 @@ class MCPClientCLI:
                 "",
             ),
             (
-                "/mode:auto",
-                "Toggle mode between autonomous agent and chat mode 🤖",
-                "",
+                "/mode:<type>",
+                "Toggle mode between autonomous agent, orchestrator, and chat mode 🤖",
+                "/mode:auto  # Toggle to auto mode\n"
+                "/mode:chat  # Toggle to chat mode\n"
+                "/mode:orchestrator  # Toggle to orchestrator mode",
             ),
             ("/debug", "Toggle debug mode 🐛", ""),
             ("/refresh", "Refresh server capabilities 🔄", ""),
@@ -1026,6 +1084,11 @@ class MCPClientCLI:
                 "/save_history",
                 "Save message history to file 💾",
                 "/save_history:path/to/file",
+            ),
+            (
+                "/load_history",
+                "Load message history from file 💾",
+                "/load_history:path/to/file",
             ),
             ("/tools", "List available tools 🔧", ""),
             ("/resources", "List available resources 📚", ""),

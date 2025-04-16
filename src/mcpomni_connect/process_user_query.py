@@ -18,7 +18,7 @@ async def process_query(
 ) -> str:
     """Process a query using LLM and available tools"""
     # add user query to history
-    await add_message_to_history("user", query)
+    await add_message_to_history(role="user", content=query)
     # prepare messages for LLM
     messages = []
 
@@ -170,7 +170,9 @@ async def process_query(
         )
     # add the assistant message to history with tool calls metadata
     await add_message_to_history(
-        "assistant", initial_response, tool_calls_metadata
+        role="assistant",
+        content=initial_response,
+        metadata=tool_calls_metadata,
     )
     final_text.append(initial_response)
     if assistant_message.tool_calls:
@@ -277,9 +279,9 @@ async def process_query(
                 )
                 # add message to history
                 await add_message_to_history(
-                    "tool",
-                    str(tool_content),
-                    {
+                    role="tool",
+                    content=str(tool_content),
+                    metadata={
                         "tool_call_id": tool_call.id,
                         "tool": tool_name,
                         "args": tool_args,
@@ -298,9 +300,9 @@ async def process_query(
                 )
                 # add error message to history
                 await add_message_to_history(
-                    "tool",
-                    error_message,
-                    {
+                    role="tool",
+                    content=error_message,
+                    metadata={
                         "tool_call_id": tool_call.id,
                         "tool": tool_name,
                         "args": tool_args,
@@ -319,13 +321,17 @@ async def process_query(
             )
             final_assistant_message = second_response.choices[0].message
             response_content = final_assistant_message.content or ""
-            await add_message_to_history("assistant", response_content)
+            await add_message_to_history(
+                role="assistant", content=response_content
+            )
             final_text.append(response_content)
         except Exception as e:
             error_message = f"Error getting final response from llm: {e}"
             logger.error(error_message)
             await add_message_to_history(
-                "assistant", error_message, {"error": True}
+                role="assistant",
+                content=error_message,
+                metadata={"error": True},
             )
             final_text.append(
                 f"\n[Error getting final response from llm: {e}]"

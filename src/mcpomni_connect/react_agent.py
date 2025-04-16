@@ -12,7 +12,7 @@ from mcpomni_connect.utils import (
 from datetime import datetime
 import asyncio
 from contextlib import asynccontextmanager
-from mcpomni_connect.schemas import AgentState
+from mcpomni_connect.types import AgentState
 
 
 class ReActAgent:
@@ -22,7 +22,7 @@ class ReActAgent:
     - JSON-based interaction with external tools and services
     - Structured reasoning loop (Reason → Act → Observe → Repeat)
     - Integrated tool execution with schema validation
-    - OpenAI model integration with retry logic
+    - Any LLM can be used as the underlying model
     - Production-ready logging and error handling
     - Dynamic tool schema injection for LLM context
     - Iteration-limited execution for cost control
@@ -142,7 +142,10 @@ class ReActAgent:
             return {"error": str(e), "action": False}
 
     def parse_response(
-        self, response: str, available_tools: dict[str, Any], debug: bool = False
+        self,
+        response: str,
+        available_tools: dict[str, Any],
+        debug: bool = False,
     ) -> Dict[str, Any]:
         """Parse model response to extract actions or final answers"""
         try:
@@ -170,11 +173,15 @@ class ReActAgent:
                 elif "error" in json_match_result:
                     return json_match_result["error"]
                 else:
-                    return {"error": "No valid action or answer found in response"}
+                    return {
+                        "error": "No valid action or answer found in response"
+                    }
             else:
                 # its a normal response
                 if debug:
-                    logger.info("Normal response found in response: %s", response)
+                    logger.info(
+                        "Normal response found in response: %s", response
+                    )
                 return {"answer": response}
         except Exception as e:
             logger.error("Error parsing response: %s", str(e), exc_info=True)
@@ -199,34 +206,58 @@ class ReActAgent:
             result = await sessions[server_name]["session"].call_tool(
                 tool_name, tool_args
             )
-            # Handle dictionary response
+
             if isinstance(result, dict):
                 if result.get("status") == "success":
-                    tool_result = result.get("data", str(result))
+                    tool_result = result.get("data", result)
+                    response = {"status": "success", "data": tool_result}
                 else:
-                    tool_result = json.dumps(result)
-            # Handle content-based response
+                    response = result
             elif hasattr(result, "content"):
                 tool_content = result.content
                 tool_result = (
                     tool_content[0].text
                     if isinstance(tool_content, list)
-                    else str(tool_content)
+                    else tool_content
                 )
+                response = {"status": "success", "data": tool_result}
             else:
-                tool_result = str(result)
-            # add the tool result to the message history
-            tool_metadata = {
-                "tool_call_id": tool_call_id,
-                "tool": tool_name,
-                "args": tool_args,
-            }
-            await add_message_to_history("tool", tool_result, tool_metadata)
-            return tool_result
-        except Exception as e:
-            return json.dumps(
-                {"status": "error", "data": None, "message": str(e)}
+                response = {"status": "success", "data": result}
+            tool_content = response.get("data")
+            if tool_content in (None, "", [], {}, "[]", "{}"):
+                response = {
+                    "status": "error",
+                    "message": "No results found from the tool. Please try again or use a different approach. if the issue persists, please provide a detailed description of the problem and the current state of the conversation. and stop immediately, do not try again.",
+                }
+                tool_content = response["message"]
+
+            await add_message_to_history(
+                role="tool",
+                content=tool_content,
+                metadata={
+                    "tool_call_id": tool_call_id,
+                    "tool": tool_name,
+                    "args": tool_args,
+                },
             )
+
+            return json.dumps(response)
+
+        except Exception as e:
+            error_response = {
+                "status": "error",
+                "message": f"Error: {str(e)}. Please try again or use a different approach. if the issue persists, please provide a detailed description of the problem and the current state of the conversation. and stop immediately, do not try again.",
+            }
+            await add_message_to_history(
+                role="tool",
+                content=f"Error: {error_response['message']}",
+                metadata={
+                    "tool_call_id": tool_call_id,
+                    "tool": tool_name,
+                    "args": tool_args,
+                },
+            )
+            return json.dumps(error_response)
 
     async def update_llm_working_memory(
         self, message_history: Callable[[], Any]
@@ -331,7 +362,7 @@ class ReActAgent:
 
         # Add the assistant message with tool calls to history
         await add_message_to_history(
-            "assistant", response, tool_calls_metadata
+            role="assistant", content=response, metadata=tool_calls_metadata
         )
         try:
             async with asyncio.timeout(self.tool_call_timeout):
@@ -344,13 +375,24 @@ class ReActAgent:
                     tool_call_id,
                     add_message_to_history,
                 )
+                try:
+                    parsed = json.loads(observation)
+                except json.JSONDecodeError:
+                    parsed = {
+                        "status": "error",
+                        "message": "Invalid JSON returned by tool. Please try again or use a different approach. if the issue persists, please provide a detailed description of the problem and the current state of the conversation. and stop immediately, do not try again.",
+                    }
 
+                if parsed.get("status") == "error":
+                    observation = f"Error: {parsed['message']}"
+                else:
+                    observation = str(parsed["data"])
                 # Add the observation to messages and history
                 self.messages.append(
                     {"role": "user", "content": f"Observation:\n{observation}"}
                 )
                 await add_message_to_history(
-                    "user", f"Observation:\n{observation}"
+                    role="user", content=f"Observation:\n{observation}"
                 )
                 if debug:
                     logger.info(
@@ -375,9 +417,9 @@ class ReActAgent:
             logger.warning(timeout_response)
             # Add timeout response to the message history
             await add_message_to_history(
-                "tool",
-                "Tool call timed out. Please try again or use a different approach.",
-                {"tool_call_id": tool_call_id},
+                role="tool",
+                content="Tool call timed out. Please try again or use a different approach.",
+                metadata={"tool_call_id": tool_call_id},
             )
             # append the timeout response as user message to the messages that will be sent to LLM
             self.messages.append(
@@ -396,9 +438,9 @@ class ReActAgent:
             logger.error(error_response)
             # Add error response to the message history
             await add_message_to_history(
-                "tool",
-                f"Error executing tool: {str(e)}",
-                {"tool_call_id": tool_call_id},
+                role="tool",
+                content=f"Error executing tool: {str(e)}",
+                metadata={"tool_call_id": tool_call_id},
             )
             # append the error response as user message to the messages that will be sent to LLM
             # this ensure the llm knows about the error
@@ -424,6 +466,7 @@ class ReActAgent:
                 f"3. If stuck, explain the issue to the user\n"
                 f"4. Consider breaking down the task into smaller steps\n"
                 f"5. Check if the tool parameters need adjustment"
+                f"6. If the issue persists, please provide a detailed description of the problem and the current state of the conversation. and stop immediately, do not try again.\n"
             )
             self.messages.append(
                 {
@@ -460,6 +503,7 @@ class ReActAgent:
             raise
         finally:
             self.state = previous_state
+
     async def get_tools_registry(self, available_tools: dict):
         """Get the tools registry for the available tools"""
         tools_section = []
@@ -480,7 +524,9 @@ class ReActAgent:
                         tool_desc += "| Name | Type | Description |\n"
                         tool_desc += "|------|------|-------------|\n"
                         for param_name, param_info in params.items():
-                            param_desc = param_info.get("description", "No description")
+                            param_desc = param_info.get(
+                                "description", "No description"
+                            )
                             param_type = param_info.get("type", "any")
                             tool_desc += f"| `{param_name}` | `{param_type}` | {param_desc} |\n"
                 tools_section.append(tool_desc)
@@ -503,12 +549,17 @@ class ReActAgent:
         self.messages = [{"role": "system", "content": system_prompt}]
 
         # Add initial user message to message history
-        await add_message_to_history("user", query)
+        await add_message_to_history(role="user", content=query)
         # Initialize messages with current message history (only once at start)
         await self.update_llm_working_memory(message_history)
         # inject the tools registry into the assistant message
         tools_section = await self.get_tools_registry(available_tools)
-        self.messages.append({"role": "assistant", "content": f"### Tools Registry Observation\n\n{tools_section}"})
+        self.messages.append(
+            {
+                "role": "assistant",
+                "content": f"### Tools Registry Observation\n\n{tools_section}",
+            }
+        )
         # check if the agent is in a valid state to run
         if self.state not in [
             AgentState.IDLE,
@@ -525,9 +576,11 @@ class ReActAgent:
             while (
                 self.state != AgentState.FINISHED
                 and current_steps < self.max_steps
-            ):  
+            ):
                 if debug:
-                    logger.info(f"Sending {len(self.messages)} messages to LLM")
+                    logger.info(
+                        f"Sending {len(self.messages)} messages to LLM"
+                    )
                 current_steps += 1
                 try:
                     response = await llm_connection.llm_call(self.messages)
@@ -552,7 +605,7 @@ class ReActAgent:
                         }
                     )
                     await add_message_to_history(
-                        "assistant", parsed_response["answer"]
+                        role="assistant", content=parsed_response["answer"]
                     )
                     # check if the system prompt has changed
                     if system_prompt != self.messages[0]["content"]:
@@ -597,7 +650,9 @@ class ReActAgent:
                         "content": error_message,
                     }
                 )
-                await add_message_to_history("user", error_message)
+                await add_message_to_history(
+                    role="user", content=error_message
+                )
                 self.loop_detector.record_message(error_message, response)
                 if self.loop_detector.is_looping():
                     logger.warning("Loop detected")
@@ -614,6 +669,7 @@ class ReActAgent:
                         f"Current approach is not working. Please:\n"
                         f"1. Analyze why the previous attempts failed\n"
                         f"2. Try a completely different tool or approach\n"
+                        f"3. If the issue persists, please provide a detailed description of the problem and the current state of the conversation. and don't try again.\n"
                     )
                     self.messages.append(
                         {

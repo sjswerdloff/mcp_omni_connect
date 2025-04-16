@@ -24,6 +24,10 @@ class LLMToolSupport:
             "provider": "gemini",
             "models": None,  # None means all models support tools
         },
+        "deepseek": {
+            "provider": "deepseek",
+            "models": None,  # None means all models support tools
+        },
     }
 
     @classmethod

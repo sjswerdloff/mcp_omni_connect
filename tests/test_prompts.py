@@ -192,7 +192,9 @@ async def test_list_prompts_edge_cases():
 
     # Test server throwing exception
     mock_session = AsyncMock()
-    mock_session.list_prompts = AsyncMock(side_effect=Exception("Server error"))
+    mock_session.list_prompts = AsyncMock(
+        side_effect=Exception("Server error")
+    )
     mock_sessions = {
         "server1": {"session": mock_session, "connected": True},
     }
@@ -212,6 +214,7 @@ async def test_list_prompts_edge_cases():
 @pytest.mark.asyncio
 async def test_find_prompt_server_edge_cases():
     """Test finding prompt server with edge cases"""
+
     # Test with object-style prompts
     class PromptObj:
         def __init__(self, name):
@@ -244,7 +247,9 @@ async def test_find_prompt_server_edge_cases():
         "server1": [{"name": "common-prompt"}],
         "server2": [{"name": "common-prompt"}],
     }
-    server_name, found = await find_prompt_server("common-prompt", duplicate_prompts)
+    server_name, found = await find_prompt_server(
+        "common-prompt", duplicate_prompts
+    )
     assert found is True
     # Should return the first server that has the prompt
     assert server_name == "server1"
@@ -262,7 +267,9 @@ async def test_get_prompt_advanced():
         return {"role": role, "content": content}
 
     async def mock_llm_call(messages):
-        return AsyncMock(choices=[AsyncMock(message=AsyncMock(content="LLM Response"))])
+        return AsyncMock(
+            choices=[AsyncMock(message=AsyncMock(content="LLM Response"))]
+        )
 
     # Test with object-style message content
     class MessageContent:
@@ -272,10 +279,7 @@ async def test_get_prompt_advanced():
     mock_session.get_prompt = AsyncMock(
         return_value=AsyncMock(
             messages=[
-                AsyncMock(
-                    role="user",
-                    content=MessageContent("Test message")
-                )
+                AsyncMock(role="user", content=MessageContent("Test message"))
             ]
         )
     )
@@ -329,7 +333,7 @@ async def test_get_prompt_with_react_agent_advanced():
             messages=[
                 AsyncMock(
                     role="assistant",
-                    content=ComplexContent("Test message", {"key": "value"})
+                    content=ComplexContent("Test message", {"key": "value"}),
                 )
             ]
         )
@@ -347,7 +351,9 @@ async def test_get_prompt_with_react_agent_advanced():
 
     # Test with invalid message structure
     mock_session.get_prompt = AsyncMock(
-        return_value=AsyncMock(messages=[AsyncMock(role="user")])  # Missing content
+        return_value=AsyncMock(
+            messages=[AsyncMock(role="user")]
+        )  # Missing content
     )
 
     content = await get_prompt_with_react_agent(
@@ -411,9 +417,7 @@ async def test_get_prompt_empty_messages():
         return {"role": role, "content": content}
 
     # Test empty messages list
-    mock_session.get_prompt = AsyncMock(
-        return_value=AsyncMock(messages=[])
-    )
+    mock_session.get_prompt = AsyncMock(return_value=AsyncMock(messages=[]))
 
     content = await get_prompt(
         sessions=mock_sessions,
@@ -439,7 +443,9 @@ async def test_get_prompt_content_types():
         return {"role": role, "content": content}
 
     async def mock_llm_call(messages):
-        return AsyncMock(choices=[AsyncMock(message=AsyncMock(content="LLM Response"))])
+        return AsyncMock(
+            choices=[AsyncMock(message=AsyncMock(content="LLM Response"))]
+        )
 
     # Test dict content
     mock_session.get_prompt = AsyncMock(
@@ -447,7 +453,7 @@ async def test_get_prompt_content_types():
             messages=[
                 AsyncMock(
                     role="user",
-                    content={"text": "Dict message", "metadata": {}}
+                    content={"text": "Dict message", "metadata": {}},
                 )
             ]
         )
@@ -466,13 +472,7 @@ async def test_get_prompt_content_types():
 
     # Test missing role attribute
     mock_session.get_prompt = AsyncMock(
-        return_value=AsyncMock(
-            messages=[
-                AsyncMock(
-                    content="No role message"
-                )
-            ]
-        )
+        return_value=AsyncMock(messages=[AsyncMock(content="No role message")])
     )
 
     content = await get_prompt(
@@ -499,7 +499,9 @@ async def test_get_prompt_arguments_validation():
         return {"role": role, "content": content}
 
     # Test with invalid arguments
-    mock_session.get_prompt = AsyncMock(side_effect=Exception("Invalid arguments"))
+    mock_session.get_prompt = AsyncMock(
+        side_effect=Exception("Invalid arguments")
+    )
 
     content = await get_prompt(
         sessions=mock_sessions,
@@ -526,9 +528,7 @@ async def test_get_prompt_with_react_agent_empty_messages():
         return {"role": role, "content": content}
 
     # Test empty messages list
-    mock_session.get_prompt = AsyncMock(
-        return_value=AsyncMock(messages=[])
-    )
+    mock_session.get_prompt = AsyncMock(return_value=AsyncMock(messages=[]))
 
     content = await get_prompt_with_react_agent(
         sessions=mock_sessions,
@@ -555,12 +555,7 @@ async def test_get_prompt_with_react_agent_debug_logging():
     # Test debug logging
     mock_session.get_prompt = AsyncMock(
         return_value=AsyncMock(
-            messages=[
-                AsyncMock(
-                    role="user",
-                    content="Debug test message"
-                )
-            ]
+            messages=[AsyncMock(role="user", content="Debug test message")]
         )
     )
 
@@ -585,6 +580,7 @@ async def test_get_prompt_with_react_agent_error_metadata():
     }
 
     metadata_captured = {}
+
     async def mock_add_message_to_history(role, content, metadata=None):
         nonlocal metadata_captured
         metadata_captured = metadata or {}
@@ -601,8 +597,7 @@ async def test_get_prompt_with_react_agent_error_metadata():
         available_prompts={"server1": [{"name": "test-prompt"}]},
         name="test-prompt",
     )
-    
+
     assert "Error getting prompt" in content
     assert metadata_captured.get("error") is True
     assert metadata_captured.get("prompt_name") == "test-prompt"
-

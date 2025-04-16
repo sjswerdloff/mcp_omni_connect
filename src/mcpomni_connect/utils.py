@@ -8,6 +8,9 @@ import platform
 import json
 from decouple import config
 from openai import OpenAI
+import os
+from datetime import datetime
+from typing import Optional, List, Any
 
 # Configure logging
 logger = logging.getLogger("mcpomni_connect")
@@ -410,6 +413,8 @@ def handle_stuck_state(
             "   - Explain clearly why not\n"
             "   - Provide alternative solutions\n"
             "   - DO NOT repeat the same failed action\n\n"
+            "   - DO NOT try again. immediately stop and do not try again.\n\n"
+            "   - Tell user your last known good state, error message and the current state of the conversation.\n\n"
             "❗ CONTINUING THE SAME APPROACH WILL RESULT IN FURTHER FAILURES"
         )
     else:
@@ -422,6 +427,8 @@ def handle_stuck_state(
             "   - **Clearly explain** to the user *why* the issue cannot be solved.\n"
             "   - Provide any relevant reasoning or constraints.\n"
             "   - Offer one or more alternative solutions or next steps.\n"
+            "   - DO NOT try again. immediately stop and do not try again.\n\n"
+            "   - Tell user your last known good state, error message and the current state of the conversation.\n\n"
             "❗ Do not repeat the same failed strategy or go silent."
         )
 
@@ -429,12 +436,9 @@ def handle_stuck_state(
     modified_system_prompt = (
         f"{stuck_prompt}\n\n"
         f"Your previous approaches to solve this problem have failed. You need to try something completely different.\n\n"
-        f"{original_system_prompt}"
+        # f"{original_system_prompt}"
     )
 
-    logger.warning(
-        "Agent detected stuck state. Modified system prompt with corrective guidance."
-    )
     return modified_system_prompt
 
 
@@ -460,6 +464,8 @@ def embed_text(text: str) -> List[float]:
 #     except Exception as e:
 #         logger.error(f"Error generating embedding: {e}")
 #         return []
+
+
 def get_mac_address() -> str:
     """Get the MAC address of the client machine.
 

@@ -142,7 +142,9 @@ class TestLLMConnection:
         tools = [{"name": "test_tool", "description": "Test tool"}]
 
         mock_response = Mock()
-        mock_llm_connection.gemini.chat.completions.create.return_value = mock_response
+        mock_llm_connection.gemini.chat.completions.create.return_value = (
+            mock_response
+        )
 
         response = await mock_llm_connection.llm_call(messages, tools)
 
@@ -164,9 +166,11 @@ class TestLLMConnection:
 
         # Test OpenAI without tools
         mock_response_openai = Mock()
-        mock_llm_connection.openai.chat.completions.create.return_value = mock_response_openai
+        mock_llm_connection.openai.chat.completions.create.return_value = (
+            mock_response_openai
+        )
         mock_llm_connection.llm_config["provider"] = "openai"
-        
+
         response = await mock_llm_connection.llm_call(messages)
         assert response == mock_response_openai
         mock_llm_connection.openai.chat.completions.create.assert_called_with(
@@ -179,9 +183,11 @@ class TestLLMConnection:
 
         # Test OpenRouter without tools
         mock_response_openrouter = Mock()
-        mock_llm_connection.openrouter.chat.completions.create.return_value = mock_response_openrouter
+        mock_llm_connection.openrouter.chat.completions.create.return_value = (
+            mock_response_openrouter
+        )
         mock_llm_connection.llm_config["provider"] = "openrouter"
-        
+
         response = await mock_llm_connection.llm_call(messages)
         assert response == mock_response_openrouter
         mock_llm_connection.openrouter.chat.completions.create.assert_called_with(
@@ -210,13 +216,17 @@ class TestLLMConnection:
 
         # Test API error with OpenAI
         mock_llm_connection.llm_config["provider"] = "openai"
-        mock_llm_connection.openai.chat.completions.create.side_effect = Exception("API Error")
+        mock_llm_connection.openai.chat.completions.create.side_effect = (
+            Exception("API Error")
+        )
         response = await mock_llm_connection.llm_call(messages)
         assert response is None
 
         # Test API error with Groq
         mock_llm_connection.llm_config["provider"] = "groq"
-        mock_llm_connection.groq.chat.completions.create.side_effect = Exception("API Error")
+        mock_llm_connection.groq.chat.completions.create.side_effect = (
+            Exception("API Error")
+        )
         response = await mock_llm_connection.llm_call(messages)
         assert response is None
 
