@@ -1,5 +1,5 @@
 # 🚀 MCPOmni Connect - Universal Gateway to MCP Servers
-
+[![PyPI Downloads](https://static.pepy.tech/badge/mcpomni-connect)](https://pepy.tech/projects/mcpomni-connect)
 [![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](https://github.com/Abiorh001/mcp_omni_connect/actions)
