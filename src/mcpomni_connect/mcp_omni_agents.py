@@ -26,7 +26,7 @@ from mcpomni_connect.types import AgentState
 from mcpomni_connect.telemetry import telemetry_logger
 
 
-class ReActAgent:
+class McpServerAgent:
     """Autonomous agent implementing the ReAct paradigm for task solving through iterative reasoning and tool usage.
 
     Key Features:
@@ -169,7 +169,9 @@ class ReActAgent:
             # First, check for a final answer
             if "Final Answer:" in response or "Answer:" in response:
                 if debug:
-                    logger.info("Final Answer found in response: %s", response)
+                    logger.info(
+                        f"{agent_name.upper()} AGENT: Final Answer found in response: {response}"
+                    )
                 # Split the response at "Final Answer:" or "Answer:"
                 parts = re.split(
                     r"(?:Final Answer:|Answer:)", response, flags=re.IGNORECASE
@@ -189,7 +191,9 @@ class ReActAgent:
                 #     task=query,
                 # )
                 if debug:
-                    logger.info("Action found in response: %s", response)
+                    logger.info(
+                        f"{agent_name.upper()} AGENT: Action found in response: {response} "
+                    )
                 json_match_result = await self.parse_action(
                     response, available_tools, debug
                 )
@@ -200,7 +204,7 @@ class ReActAgent:
                 # its a normal response
                 if debug:
                     logger.info(
-                        "Normal response found in response: %s", response
+                        f"{agent_name.upper()} AGENT: Normal response found in response: {response}"
                     )
                 return {"answer": response}
         except Exception as e:
@@ -538,9 +542,6 @@ class ReActAgent:
             self.messages = await self.reset_system_prompt(
                 self.messages, new_system_prompt, agent_name
             )
-            logger.info(
-                f"New system prompt addede: {self.messages[agent_name]}"
-            )
             loop_message = (
                 f"Observation:\n"
                 f"⚠️ Tool call loop detected: {loop_type}\n\n"
@@ -817,7 +818,7 @@ class ReActAgent:
 
 
 class OrchestratorAgent:
-    react_agent = ReActAgent()
+    mcp_server_agent = McpServerAgent()
 
     def __init__(self, agent_registry: dict[str, Any], debug: bool = False):
         self.agent_registry = agent_registry
@@ -926,7 +927,7 @@ class OrchestratorAgent:
             logger.error("JSON decode error: %s", str(e))
             return {"error": f"Invalid JSON format: {str(e)}", "action": False}
         except Exception as e:
-            logger.error("Error parsing response: %s", str(e), exc_info=True)
+            logger.error("Error parsing response: %s", str(e))
             return {"error": str(e), "action": False}
 
     def parse_response(self, response: str) -> Dict[str, Any]:
@@ -935,7 +936,10 @@ class OrchestratorAgent:
             # First, check for a final answer
             if "Final Answer:" in response or "Answer:" in response:
                 if self.debug:
-                    logger.info("Final Answer found in response: %s", response)
+                    logger.info(
+                        "ORCHESTRATOR AGENT: Final Answer found in response: %s",
+                        response,
+                    )
                 # Split the response at "Final Answer:" or "Answer:"
                 parts = re.split(
                     r"(?:Final Answer:|Answer:)", response, flags=re.IGNORECASE
@@ -947,7 +951,10 @@ class OrchestratorAgent:
 
             if "Action" in response:
                 if self.debug:
-                    logger.info("Action found in response: %s", response)
+                    logger.info(
+                        "ORCHESTRATOR AGENT: Action found in response: %s",
+                        response,
+                    )
                 json_match_result = self.parse_action(response)
                 if json_match_result and json_match_result.get("action"):
                     return json_match_result
@@ -956,7 +963,8 @@ class OrchestratorAgent:
                 # its a normal response
                 if self.debug:
                     logger.info(
-                        "Normal response found in response: %s", response
+                        "ORCHESTRATOR AGENT: Normal response found in response: %s",
+                        response,
                     )
                 return {"answer": response}
         except Exception as e:
@@ -987,27 +995,6 @@ class OrchestratorAgent:
         short_term_memory_message_history = await message_history(
             "orchestrator"
         )
-        # Process message history in order that will be sent to LLM
-        # for agent_name, messages in short_term_memory_message_history.items():
-        #     for _, message in enumerate(messages):
-        #         if message["role"] == "user":
-        #             # append all the user messages in the message history to the messages that will be sent to LLM
-        #             self.orchestrator_messages.append(
-        #                 {"role": "user", "content": message["content"]}
-        #             )
-
-        #         elif message["role"] == "assistant":
-        #             # Add all the assistant messages in the message history to the messages that will be sent to LLM
-        #             self.orchestrator_messages.append(
-        #                 {"role": "assistant", "content": message["content"]}
-        #             )
-
-        #         elif message["role"] == "system":
-        #             # add only the system message to the messages that will be sent to LLM.
-        #             # it will be the first message sent to LLM and only one at all times
-        #             self.orchestrator_messages.append(
-        #                 {"role": "system", "content": message["content"]}
-        #             )
 
         for _, message in enumerate(short_term_memory_message_history):
             if message["role"] == "user":
@@ -1045,7 +1032,7 @@ class OrchestratorAgent:
                 agent_name=agent_name,
                 available_tools=available_tools,
             )
-            observation = await self.react_agent.run(
+            observation = await self.mcp_server_agent.run(
                 agent_name=agent_name,
                 sessions=sessions,
                 system_prompt=agent_system_prompt,
@@ -1073,7 +1060,7 @@ class OrchestratorAgent:
             )
             return observation
         except Exception as e:
-            logger.error("Error executing agent: %s", str(e), exc_info=True)
+            logger.error("Error executing agent: %s", str(e))
 
     async def agent_registry_tool(
         self, available_tools: dict[str, Any]

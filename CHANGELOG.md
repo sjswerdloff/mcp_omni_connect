@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.14] - 2025-04-18
+
+### Added
+- DeepSeek model integration with full support for tool execution
+- New Orchestrator Agent Mode:
+  - Advanced planning for complex multi-step tasks
+  - Strategic delegation across multiple MCP servers
+  - Intelligent agent coordination and communication
+  - Parallel task execution capabilities
+  - Dynamic resource allocation
+  - Sophisticated workflow management
+  - Real-time progress monitoring
+  - Adaptive task prioritization
+- Client-Side Sampling Support:
+  - Dynamic sampling configuration from client
+  - Flexible LLM response generation
+  - Customizable sampling parameters
+  - Real-time sampling adjustments
+- Chat History File Storage:
+  - Save complete chat conversations to files
+  - Load previous conversations from saved files
+  - Continue conversations from where you left off
+  - File-based backup and restoration
+  - Persistent chat history across sessions
+
+### Changed
+- Enhanced Mode System with three distinct modes:
+  - Chat Mode (Default)
+  - Autonomous Mode
+  - Orchestrator Mode
+- Updated AI model integration documentation
+- Improved chat history management system
+- Enhanced server configuration options for new features
+
+### Fixed
+- Improved mode switching reliability
+- Enhanced chat history persistence
+- Optimized orchestrator mode performance
+
 ## [0.1.13] - 2025-04-14
 
 ### Added

@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import Mock, AsyncMock
-from mcpomni_connect.process_user_query import process_query
+from mcpomni_connect.tool_calling_agent import tool_calling_agent
 
 
 class MockTool:
@@ -73,7 +73,7 @@ async def test_process_query_without_agent(
     system_prompt = "You are a helpful assistant"
     query = "Test query"
 
-    result = await process_query(
+    result = await tool_calling_agent(
         query=query,
         system_prompt=system_prompt,
         llm_connection=mock_llm_connection,
@@ -148,7 +148,7 @@ async def test_process_query_with_tool_calls(
         Mock(choices=[Mock(message=Mock(content="Tool result processed"))]),
     ]
 
-    result = await process_query(
+    result = await tool_calling_agent(
         query=query,
         system_prompt=system_prompt,
         llm_connection=mock_llm_connection,
@@ -180,7 +180,7 @@ async def test_process_query_with_error(
 
     mock_llm_connection.llm_call.side_effect = Exception("Test error")
 
-    result = await process_query(
+    result = await tool_calling_agent(
         query=query,
         system_prompt=system_prompt,
         llm_connection=mock_llm_connection,

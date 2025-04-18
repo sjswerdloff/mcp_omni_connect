@@ -15,7 +15,7 @@ from rich.table import Table
 from mcpomni_connect.client import MCPClient
 from mcpomni_connect.llm import LLMConnection
 from mcpomni_connect.llm_support import LLMToolSupport
-from mcpomni_connect.process_user_query import process_query
+from mcpomni_connect.tool_calling_agent import tool_calling_agent
 from mcpomni_connect.prompts import (
     get_prompt,
     get_prompt_with_react_agent,
@@ -81,7 +81,7 @@ class CommandHelp:
         help_docs = {
             "mode": {
                 "description": "Toggle between auto and chat mode",
-                "usage": "/mode:<auto|chat>",
+                "usage": "/mode:<auto|chat|orchestrator>",
                 "examples": [
                     "/mode:auto  # Toggle to auto mode",
                     "/mode:chat  # Toggle to chat mode",
@@ -779,7 +779,7 @@ class MCPClientCLI:
                         # episodic_memory=episodic_query,
                     )
 
-                    response = await process_query(
+                    response = await tool_calling_agent(
                         query=query,
                         system_prompt=system_prompt,
                         llm_connection=self.llm_connection,
@@ -1046,7 +1046,7 @@ class MCPClientCLI:
             Panel(
                 content,
                 title="[bold blue]⚡ MCPOmni Connect ⚡[/]",
-                subtitle="[bold cyan]v0.1.13[/]",
+                subtitle="[bold cyan]v0.1.14[/]",
                 border_style="blue",
                 box=box.DOUBLE_EDGE,
             )

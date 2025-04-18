@@ -8,6 +8,7 @@ class ContextInclusion(str, Enum):
     THIS_SERVER = "thisServer"
     ALL_SERVERS = "allServers"
 
+
 class AgentState(str, Enum):
     IDLE = "idle"
     RUNNING = "running"

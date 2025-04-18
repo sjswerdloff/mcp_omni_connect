@@ -3,8 +3,8 @@ from typing import Any, Callable, Optional
 from mcpomni_connect.utils import logger
 
 
-# process a query using LLM and available tools
-async def process_query(
+# process a query using LLM and available tools using tool calling agent
+async def tool_calling_agent(
     query: str,
     system_prompt: str,
     llm_connection: Callable[[], Any],
@@ -155,9 +155,10 @@ async def process_query(
             )
         # if the initial response is empty, set it to the tool call name to ensure the context is clear
         if not initial_response:
-            logger.info(
-                f"Initial response is empty, setting it to the tool call name"
-            )
+            if debug:
+                logger.info(
+                    f"Initial response is empty, setting it to the tool call name"
+                )
             tool_name = assistant_message.tool_calls[0].function.name
             initial_response = f"Tool called {tool_name}"
         # Properly append assistant message with tool calls
