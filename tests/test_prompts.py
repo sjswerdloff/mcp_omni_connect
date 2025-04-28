@@ -336,11 +336,14 @@ async def test_get_prompt_with_react_agent_advanced():
         available_prompts={"server1": [{"name": "test-prompt"}]},
         name="test-prompt",
     )
+    print(f"Complex content = {content}")
     assert content == "Test message"
 
     # Test with invalid message structure
     mock_session.get_prompt = AsyncMock(
-        return_value=AsyncMock(messages=[AsyncMock(role="user")])  # Missing content
+        return_value=AsyncMock(
+            messages=[AsyncMock(role="user", spec=["role"])]
+        )  # Missing content
     )
 
     content = await get_prompt_with_react_agent(
@@ -351,6 +354,10 @@ async def test_get_prompt_with_react_agent_advanced():
         available_prompts={"server1": [{"name": "test-prompt"}]},
         name="test-prompt",
     )
+    if content:
+        print(f"Missing content = {content}")
+    else:
+        print("content was None")
     assert "Error getting prompt" in content
 
 
@@ -413,7 +420,10 @@ async def test_get_prompt_empty_messages():
         available_prompts={"server1": [{"name": "test-prompt"}]},
         name="test-prompt",
     )
+
     assert content is not None
+    print(f"Content returned: {content}")
+    assert "Error" in content
 
 
 @pytest.mark.asyncio
