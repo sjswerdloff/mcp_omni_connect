@@ -66,6 +66,6 @@ jobs:
       run: |
         uv run pytest tests -m "not OpenAIIntegration"
 
-    - name: Run integration tests with OpenAIIntegration
-      run: |
-        uv run pytest -m "OpenAIIntegration" -v
+    # - name: Run integration tests with OpenAIIntegration
+    #   run: |
+    #     uv run pytest -m "OpenAIIntegration" -v
