@@ -3,19 +3,15 @@ from typing import Any, Callable, Optional
 from mcpomni_connect.utils import logger
 
 
-async def list_prompts(
-    server_names: list[str], sessions: dict[str, dict[str, Any]]
-):
+async def list_prompts(server_names: list[str], sessions: dict[str, dict[str, Any]]):
     """List all prompts"""
     prompts = []
     for server_name in server_names:
         if sessions[server_name]["connected"]:
             try:
-                prompts_response = await sessions[server_name][
-                    "session"
-                ].list_prompts()
+                prompts_response = await sessions[server_name]["session"].list_prompts()
                 prompts.extend(prompts_response.prompts)
-            except Exception as e:
+            except Exception:
                 logger.info(f"{server_name} Does not support prompts")
     return prompts
 
@@ -79,9 +75,7 @@ async def get_prompt(
                     message_content = str(message.content)
 
             if debug:
-                logger.info(
-                    f"LLM processing {user_role} prompt: {message_content}"
-                )
+                logger.info(f"LLM processing {user_role} prompt: {message_content}")
             messages = []
             logger.info(f"System prompt: {system_prompt}")
             messages.append({"role": "system", "content": system_prompt})
@@ -141,9 +135,7 @@ async def get_prompt_with_react_agent(
                     message_content = str(message.content)
 
             if debug:
-                logger.info(
-                    f"LLM processing {user_role} prompt: {message_content}"
-                )
+                logger.info(f"LLM processing {user_role} prompt: {message_content}")
             return message_content
             # messages = []
             # logger.info(f"System prompt: {system_prompt}")

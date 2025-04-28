@@ -1,5 +1,4 @@
 from typing import Any, Callable
-import asyncio
 from mcpomni_connect.utils import logger
 
 
@@ -46,9 +45,7 @@ async def unsubscribe_resource(
 
 
 # list all resources in mcp server
-async def list_resources(
-    server_names: list[str], sessions: dict[str, dict[str, Any]]
-):
+async def list_resources(server_names: list[str], sessions: dict[str, dict[str, Any]]):
     """List all resources"""
     resources = []
     for server_name in server_names:
@@ -58,7 +55,7 @@ async def list_resources(
                     "session"
                 ].list_resources()
                 resources.extend(resources_response.resources)
-            except Exception as e:
+            except Exception:
                 logger.info(f"{server_name} Does not support resources")
     return resources
 
@@ -103,9 +100,7 @@ async def read_resource(
         return error_message
     logger.info(f"Resource found in {server_name}")
     try:
-        resource_response = await sessions[server_name][
-            "session"
-        ].read_resource(uri)
+        resource_response = await sessions[server_name]["session"].read_resource(uri)
         if debug:
             logger.info("LLM processing resource")
         llm_response = await llm_call(

@@ -24,19 +24,13 @@ async def handle_notifications(
     """Handle incoming notifications from the server."""
     try:
         for server_name in sessions:
-            async for message in sessions[server_name][
-                "session"
-            ].incoming_messages:
-                logger.debug(
-                    f"Received notification from {server_name}: {message}"
-                )
+            async for message in sessions[server_name]["session"].incoming_messages:
+                logger.debug(f"Received notification from {server_name}: {message}")
 
                 # Common refresh function for capability changes
                 async def refresh_capabilities_task():
                     try:
-                        logger.info(
-                            f"Starting capability refresh for {server_name}"
-                        )
+                        logger.info(f"Starting capability refresh for {server_name}")
 
                         await refresh_capabilities(
                             sessions=sessions,
@@ -70,9 +64,7 @@ async def handle_notifications(
                                 f"Resource updated: {params.uri} from {server_name}"
                             )
                             # Create and track the task
-                            task = asyncio.create_task(
-                                refresh_capabilities_task()
-                            )
+                            task = asyncio.create_task(refresh_capabilities_task())
                             # Add a callback to log completion
                             task.add_done_callback(
                                 lambda t: logger.debug(
@@ -81,12 +73,8 @@ async def handle_notifications(
                             )
 
                         case ResourceListChangedNotification(params=params):
-                            logger.info(
-                                f"Resource list changed from {server_name}"
-                            )
-                            task = asyncio.create_task(
-                                refresh_capabilities_task()
-                            )
+                            logger.info(f"Resource list changed from {server_name}")
+                            task = asyncio.create_task(refresh_capabilities_task())
                             task.add_done_callback(
                                 lambda t: logger.debug(
                                     f"Capability refresh task completed for {server_name}"
@@ -94,12 +82,8 @@ async def handle_notifications(
                             )
 
                         case ToolListChangedNotification(params=params):
-                            logger.info(
-                                f"Tool list changed from {server_name}"
-                            )
-                            task = asyncio.create_task(
-                                refresh_capabilities_task()
-                            )
+                            logger.info(f"Tool list changed from {server_name}")
+                            task = asyncio.create_task(refresh_capabilities_task())
                             task.add_done_callback(
                                 lambda t: logger.debug(
                                     f"Capability refresh task completed for {server_name}"
@@ -107,12 +91,8 @@ async def handle_notifications(
                             )
 
                         case PromptListChangedNotification(params=params):
-                            logger.info(
-                                f"Prompt list changed from {server_name}"
-                            )
-                            task = asyncio.create_task(
-                                refresh_capabilities_task()
-                            )
+                            logger.info(f"Prompt list changed from {server_name}")
+                            task = asyncio.create_task(refresh_capabilities_task())
                             task.add_done_callback(
                                 lambda t: logger.debug(
                                     f"Capability refresh task completed for {server_name}"
@@ -140,7 +120,7 @@ async def handle_notifications(
                     )
                     continue
 
-    except AttributeError as e:
+    except AttributeError:
         logger.warning(f"No notification received from {server_name}")
     except Exception as e:
         logger.error(f"Fatal error in notification handler: {str(e)}")

@@ -1,11 +1,9 @@
 import asyncio
 import json
 import os
-import platform
-import sys
 from contextlib import AsyncExitStack
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from dotenv import load_dotenv
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
@@ -89,9 +87,7 @@ class MCPClient:
                 )
             except Exception as e:
                 failed_server = server.get("name", "Unknown")
-                error_msg = (
-                    f"Failed to connect to server {failed_server}: {str(e)}"
-                )
+                error_msg = f"Failed to connect to server {failed_server}: {str(e)}"
                 logger.error(error_msg)
                 failed_connections.append((failed_server, str(e)))
                 continue  # Continue with next server
@@ -149,19 +145,13 @@ class MCPClient:
             connection_type = server["srv_config"].get("type", "stdio")
             logger.info(f"connection_type: {connection_type}")
             if connection_type == "sse":
-                url = self._validate_and_convert_url(
-                    server["srv_config"]["url"], "sse"
-                )
+                url = self._validate_and_convert_url(server["srv_config"]["url"], "sse")
                 headers = server["srv_config"].get("headers", {})
                 timeout = server["srv_config"].get("timeout", 5)
-                sse_read_timeout = server["srv_config"].get(
-                    "sse_read_timeout", 300
-                )
+                sse_read_timeout = server["srv_config"].get("sse_read_timeout", 300)
 
                 if self.debug:
-                    logger.info(
-                        f"SSE connection to {url} with timeout {timeout}"
-                    )
+                    logger.info(f"SSE connection to {url} with timeout {timeout}")
 
                 transport = await self.exit_stack.enter_async_context(
                     sse_client(
@@ -208,9 +198,7 @@ class MCPClient:
                     read_stream,
                     write_stream,
                     sampling_callback=self.sampling_callback._sampling,
-                    read_timeout_seconds=timedelta(
-                        seconds=300
-                    ),  # 5 minutes timeout
+                    read_timeout_seconds=timedelta(seconds=300),  # 5 minutes timeout
                 )
             )
             init_result = await session.initialize()
@@ -266,9 +254,7 @@ class MCPClient:
                         ):
                             await session_info["write_stream"].aclose()
                             if self.debug:
-                                logger.info(
-                                    f"Closed write stream for {server_name}"
-                                )
+                                logger.info(f"Closed write stream for {server_name}")
                     except Exception as e:
                         logger.error(
                             f"Error closing write stream for {server_name}: {e}"
@@ -282,9 +268,7 @@ class MCPClient:
                         ):
                             await session_info["read_stream"].aclose()
                             if self.debug:
-                                logger.info(
-                                    f"Closed read stream for {server_name}"
-                                )
+                                logger.info(f"Closed read stream for {server_name}")
                     except Exception as e:
                         logger.error(
                             f"Error closing read stream for {server_name}: {e}"
@@ -299,13 +283,9 @@ class MCPClient:
                             if close_method and callable(close_method):
                                 await close_method()
                                 if self.debug:
-                                    logger.info(
-                                        f"Closed session for {server_name}"
-                                    )
+                                    logger.info(f"Closed session for {server_name}")
                     except Exception as e:
-                        logger.error(
-                            f"Error closing session for {server_name}: {e}"
-                        )
+                        logger.error(f"Error closing session for {server_name}: {e}")
 
                     # Mark as disconnected and clear all references
                     self.sessions[server_name]["connected"] = False

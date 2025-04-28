@@ -51,9 +51,7 @@ async def test_list_resources():
     # Update mock sessions with mock method
     test_sessions = MOCK_SESSIONS.copy()
     test_sessions["server1"]["session"] = AsyncMock()
-    test_sessions["server1"][
-        "session"
-    ].list_resources.side_effect = mock_list_resources
+    test_sessions["server1"]["session"].list_resources.side_effect = mock_list_resources
 
     resources = await list_resources(
         server_names=["server1", "server2"], sessions=test_sessions
@@ -61,9 +59,7 @@ async def test_list_resources():
 
     # Assertions
     assert len(resources) == 2
-    assert all(
-        hasattr(res, "uri") and hasattr(res, "name") for res in resources
-    )
+    assert all(hasattr(res, "uri") and hasattr(res, "name") for res in resources)
     assert {res.uri for res in resources} == {"resource1", "resource2"}
 
 
@@ -71,16 +67,12 @@ async def test_list_resources():
 async def test_find_resource_server():
     """Test finding a resource server"""
     # Test existing resource
-    server_name, found = await find_resource_server(
-        "resource1", MOCK_RESOURCES
-    )
+    server_name, found = await find_resource_server("resource1", MOCK_RESOURCES)
     assert found is True
     assert server_name == "server1"
 
     # Test non-existing resource
-    server_name, found = await find_resource_server(
-        "non-existent", MOCK_RESOURCES
-    )
+    server_name, found = await find_resource_server("non-existent", MOCK_RESOURCES)
     assert found is False
     assert server_name == ""
 
