@@ -1,6 +1,6 @@
 import pytest
 import pytest_asyncio
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import Mock, AsyncMock
 from mcpomni_connect.react_agent import ReActAgent, AgentState
 import asyncio
 import json
@@ -40,9 +40,7 @@ def mock_llm_connection():
     """Create mock LLM connection"""
     mock = AsyncMock()
     mock.llm_call = AsyncMock(
-        return_value=Mock(
-            choices=[Mock(message=Mock(content="Test response"))]
-        )
+        return_value=Mock(choices=[Mock(message=Mock(content="Test response"))])
     )
     return mock
 
@@ -154,9 +152,7 @@ class TestReActAgent:
         assert result == "Tool result"
 
     @pytest.mark.asyncio
-    async def test_execute_tool_error(
-        self, mock_sessions, mock_add_message_to_history
-    ):
+    async def test_execute_tool_error(self, mock_sessions, mock_add_message_to_history):
         """Test tool execution with error"""
         agent = ReActAgent()
         mock_sessions["server1"]["session"].call_tool = AsyncMock(
@@ -182,9 +178,7 @@ class TestReActAgent:
         assert agent.messages[1]["role"] == "user"
 
     @pytest.mark.asyncio
-    async def test_act_success(
-        self, mock_sessions, mock_add_message_to_history
-    ):
+    async def test_act_success(self, mock_sessions, mock_add_message_to_history):
         """Test successful act execution"""
         agent = ReActAgent()
         parsed_response = {
@@ -207,9 +201,7 @@ class TestReActAgent:
         assert agent.state == AgentState.OBSERVING
 
     @pytest.mark.asyncio
-    async def test_act_timeout(
-        self, mock_sessions, mock_add_message_to_history
-    ):
+    async def test_act_timeout(self, mock_sessions, mock_add_message_to_history):
         """Test act with tool timeout"""
         agent = ReActAgent(tool_call_timeout=0.1)
 
@@ -270,9 +262,7 @@ class TestReActAgent:
         # Setup the LLM response
         mock_llm_connection.llm_call = AsyncMock(
             return_value=Mock(
-                choices=[
-                    Mock(message=Mock(content="Final Answer: Test complete"))
-                ]
+                choices=[Mock(message=Mock(content="Final Answer: Test complete"))]
             )
         )
 

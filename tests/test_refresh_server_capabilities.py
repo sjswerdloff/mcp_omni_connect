@@ -73,9 +73,7 @@ def mock_sessions():
             "connected": True,
             "session": Mock(
                 list_tools=AsyncMock(side_effect=mock_list_tools_error),
-                list_resources=AsyncMock(
-                    side_effect=mock_list_resources_error
-                ),
+                list_resources=AsyncMock(side_effect=mock_list_resources_error),
                 list_prompts=AsyncMock(side_effect=mock_list_prompts_error),
             ),
         },
@@ -89,9 +87,7 @@ def mock_available_dicts():
 
 
 @pytest.mark.asyncio
-async def test_refresh_capabilities_success(
-    mock_sessions, mock_available_dicts
-):
+async def test_refresh_capabilities_success(mock_sessions, mock_available_dicts):
     """Test successful refresh of capabilities"""
     server_names = ["server1", "server2"]
 
@@ -117,27 +113,25 @@ async def test_refresh_capabilities_success(
     # Compare tool attributes
     assert len(server1_tools) == len(MOCK_TOOLS)
     for actual, expected in zip(server1_tools, MOCK_TOOLS):
-        assert isinstance(
-            actual, MockTool
-        ), f"Expected MockTool, got {type(actual)}"
+        assert isinstance(actual, MockTool), f"Expected MockTool, got {type(actual)}"
         assert actual.name == expected.name
         assert actual.description == expected.description
 
     # Compare resource attributes
     assert len(server1_resources) == len(MOCK_RESOURCES)
     for actual, expected in zip(server1_resources, MOCK_RESOURCES):
-        assert isinstance(
-            actual, MockResource
-        ), f"Expected MockResource, got {type(actual)}"
+        assert isinstance(actual, MockResource), (
+            f"Expected MockResource, got {type(actual)}"
+        )
         assert actual.name == expected.name
         assert actual.description == expected.description
 
     # Compare prompt attributes
     assert len(server1_prompts) == len(MOCK_PROMPTS)
     for actual, expected in zip(server1_prompts, MOCK_PROMPTS):
-        assert isinstance(
-            actual, MockPrompt
-        ), f"Expected MockPrompt, got {type(actual)}"
+        assert isinstance(actual, MockPrompt), (
+            f"Expected MockPrompt, got {type(actual)}"
+        )
         assert actual.name == expected.name
         assert actual.description == expected.description
 
@@ -153,21 +147,15 @@ async def test_refresh_capabilities_not_connected():
     sessions = {"server1": {"connected": False, "session": Mock()}}
 
     with pytest.raises(ValueError, match="Not connected to server: server1"):
-        await refresh_capabilities(
-            sessions, ["server1"], {}, {}, {}, debug=False
-        )
+        await refresh_capabilities(sessions, ["server1"], {}, {}, {}, debug=False)
 
 
 @pytest.mark.asyncio
-async def test_refresh_capabilities_with_debug(
-    mock_sessions, mock_available_dicts
-):
+async def test_refresh_capabilities_with_debug(mock_sessions, mock_available_dicts):
     """Test refresh with debug logging"""
     server_names = ["server1", "server2"]
 
-    with patch(
-        "mcpomni_connect.refresh_server_capabilities.logger"
-    ) as mock_logger:
+    with patch("mcpomni_connect.refresh_server_capabilities.logger") as mock_logger:
         await refresh_capabilities(
             mock_sessions,
             server_names,
@@ -178,18 +166,14 @@ async def test_refresh_capabilities_with_debug(
         )
 
         # Verify debug logging
-        mock_logger.info.assert_any_call(
-            f"Refreshed capabilities for {server_names}"
-        )
+        mock_logger.info.assert_any_call(f"Refreshed capabilities for {server_names}")
 
         for category, data in {
             "Tools": mock_available_dicts["tools"],
             "Resources": mock_available_dicts["resources"],
             "Prompts": mock_available_dicts["prompts"],
         }.items():
-            mock_logger.info.assert_any_call(
-                f"Available {category.lower()} by server:"
-            )
+            mock_logger.info.assert_any_call(f"Available {category.lower()} by server:")
             for server_name, items in data.items():
                 mock_logger.info.assert_any_call(f"  {server_name}:")
                 for item in items:

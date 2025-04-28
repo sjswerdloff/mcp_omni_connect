@@ -1,7 +1,7 @@
 import os
 import json
 from datetime import datetime
-from typing import Optional, List, Any, Dict
+from typing import Optional, List, Any
 from mcpomni_connect.utils import logger
 
 
@@ -19,9 +19,7 @@ class TelemetryLogger:
         """
         os.makedirs(log_dir, exist_ok=True)
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        self.log_path = os.path.join(
-            log_dir, f"{file_prefix}_{timestamp}.jsonl"
-        )
+        self.log_path = os.path.join(log_dir, f"{file_prefix}_{timestamp}.jsonl")
         self.logger = logger
 
     async def log_agent_step(
@@ -82,9 +80,7 @@ class TelemetryLogger:
                 f.write(json.dumps(entry) + "\n")
 
             if self.logger:
-                self.logger.debug(
-                    f"Logged telemetry for {agent_name}: {status}"
-                )
+                self.logger.debug(f"Logged telemetry for {agent_name}: {status}")
 
         except Exception as e:
             if self.logger:
@@ -136,9 +132,7 @@ class TelemetryLogger:
                 f.write(json.dumps(entry) + "\n")
 
             if self.logger:
-                self.logger.debug(
-                    f"Logged tool call for {agent_name}: {tool_name}"
-                )
+                self.logger.debug(f"Logged tool call for {agent_name}: {tool_name}")
 
         except Exception as e:
             if self.logger:

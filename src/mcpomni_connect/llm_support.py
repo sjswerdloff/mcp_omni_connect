@@ -1,7 +1,5 @@
 from typing import Any, Dict, List, Optional
 
-from mcpomni_connect.utils import logger
-
 
 class LLMToolSupport:
     """Class to handle LLM tool support checking"""

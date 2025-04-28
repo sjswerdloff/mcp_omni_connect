@@ -70,9 +70,7 @@ async def tool_calling_agent(
                     pending_tool_responses = []
 
                 # add the regular assistant message to messages
-                messages.append(
-                    {"role": "assistant", "content": message["content"]}
-                )
+                messages.append({"role": "assistant", "content": message["content"]})
         elif message["role"] == "tool" and "tool_call_id" in message.get(
             "metadata", {}
         ):
@@ -101,9 +99,7 @@ async def tool_calling_agent(
         for i, message in enumerate(messages):
             role = message["role"]
             has_tool_calls = "tool_calls" in message
-            preview = (
-                message["content"][:50] + "..." if message["content"] else ""
-            )
+            preview = message["content"][:50] + "..." if message["content"] else ""
             logger.info(
                 f"Message {i}: {role} {'with tool_calls' if has_tool_calls else ''} - {preview}"
             )
@@ -150,14 +146,12 @@ async def tool_calling_agent(
             "tool_calls": assistant_message.tool_calls,
         }
         if debug:
-            logger.info(
-                f"Processing {len(assistant_message.tool_calls)} tool calls"
-            )
+            logger.info(f"Processing {len(assistant_message.tool_calls)} tool calls")
         # if the initial response is empty, set it to the tool call name to ensure the context is clear
         if not initial_response:
             if debug:
                 logger.info(
-                    f"Initial response is empty, setting it to the tool call name"
+                    "Initial response is empty, setting it to the tool call name"
                 )
             tool_name = assistant_message.tool_calls[0].function.name
             initial_response = f"Tool called {tool_name}"
@@ -178,9 +172,7 @@ async def tool_calling_agent(
     final_text.append(initial_response)
     if assistant_message.tool_calls:
         if debug:
-            logger.info(
-                f"Processing {len(assistant_message.tool_calls)} tool calls"
-            )
+            logger.info(f"Processing {len(assistant_message.tool_calls)} tool calls")
 
         for tool_call in assistant_message.tool_calls:
             tool_name = tool_call.function.name
@@ -195,16 +187,12 @@ async def tool_calling_agent(
                     )
                     tool_args = {}
             if debug:
-                logger.info(
-                    f"Processing tool call: {tool_name} with args {tool_args}"
-                )
+                logger.info(f"Processing tool call: {tool_name} with args {tool_args}")
             # execute tool call on the server
             try:
                 tool_content = None
                 if debug:
-                    logger.info(
-                        f"Looking for tool {tool_name} in available tools"
-                    )
+                    logger.info(f"Looking for tool {tool_name} in available tools")
 
                 for server_name, tools in available_tools.items():
                     # Get tool names, handling both Mock objects and regular tools
@@ -218,9 +206,7 @@ async def tool_calling_agent(
                             tool_names.append(tool.name)
                         elif isinstance(tool, str):
                             if debug:
-                                logger.info(
-                                    f"Found tool with string name: {tool}"
-                                )
+                                logger.info(f"Found tool with string name: {tool}")
                             tool_names.append(tool)
 
                     if debug:
@@ -233,9 +219,9 @@ async def tool_calling_agent(
                             logger.info(
                                 f"Found matching tool {tool_name} in {server_name}"
                             )
-                        result = await sessions[server_name][
-                            "session"
-                        ].call_tool(tool_name, tool_args)
+                        result = await sessions[server_name]["session"].call_tool(
+                            tool_name, tool_args
+                        )
                         tool_content = (
                             result.content
                             if hasattr(result, "content")
@@ -244,9 +230,7 @@ async def tool_calling_agent(
                         break
 
                 if tool_content is None:
-                    raise Exception(
-                        f"Tool {tool_name} not found in any server"
-                    )
+                    raise Exception(f"Tool {tool_name} not found in any server")
 
                 # Handle the result content appropriately
                 if (
@@ -257,9 +241,7 @@ async def tool_calling_agent(
                     tool_content = tool_content[0].text
                 else:
                     tool_content = tool_content
-                tool_results.append(
-                    {"call": tool_name, "result": tool_content}
-                )
+                tool_results.append({"call": tool_name, "result": tool_content})
                 if debug:
                     result_preview = (
                         tool_content[:200] + "..."
@@ -272,9 +254,7 @@ async def tool_calling_agent(
                 messages.append(
                     {
                         "role": "tool",
-                        "content": str(
-                            tool_content
-                        ),  # Ensure content is a string
+                        "content": str(tool_content),  # Ensure content is a string
                         "tool_call_id": tool_call.id,
                     }
                 )
@@ -322,9 +302,7 @@ async def tool_calling_agent(
             )
             final_assistant_message = second_response.choices[0].message
             response_content = final_assistant_message.content or ""
-            await add_message_to_history(
-                role="assistant", content=response_content
-            )
+            await add_message_to_history(role="assistant", content=response_content)
             final_text.append(response_content)
         except Exception as e:
             error_message = f"Error getting final response from llm: {e}"
@@ -334,8 +312,6 @@ async def tool_calling_agent(
                 content=error_message,
                 metadata={"error": True},
             )
-            final_text.append(
-                f"\n[Error getting final response from llm: {e}]"
-            )
+            final_text.append(f"\n[Error getting final response from llm: {e}]")
 
     return "\n".join(final_text)

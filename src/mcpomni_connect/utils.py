@@ -1,16 +1,17 @@
-import logging
-import colorlog
-import sys
-from pathlib import Path
-import uuid
-import subprocess
-import platform
+import hashlib
 import json
+import logging
+import platform
+import subprocess
+import sys
+import uuid
+from collections import deque
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+import colorlog
 from decouple import config
 from openai import OpenAI
-import os
-from datetime import datetime
-from typing import Optional, List, Any
 
 # Configure logging
 logger = logging.getLogger("mcpomni_connect")
@@ -96,11 +97,6 @@ def clean_json_response(json_response):
             )
 
 
-from collections import deque
-import hashlib
-from typing import Tuple, List, Set, Optional, Dict, Any, Union
-
-
 def hash_text(text: str) -> str:
     """Hash a string using SHA-256."""
     return hashlib.sha256(text.encode()).hexdigest()
@@ -162,9 +158,7 @@ class RobustLoopDetector:
         # Invalidate cache
         self._cache = {}
 
-    def record_message(
-        self, user_message: str, assistant_message: str
-    ) -> None:
+    def record_message(self, user_message: str, assistant_message: str) -> None:
         """Record a new message exchange interaction.
 
         Args:
@@ -389,9 +383,7 @@ class RobustLoopDetector:
         return type_counts
 
 
-def handle_stuck_state(
-    original_system_prompt: str, message_stuck_prompt: bool = False
-):
+def handle_stuck_state(original_system_prompt: str, message_stuck_prompt: bool = False):
     """
     Creates a modified system prompt that includes stuck detection guidance.
 
@@ -445,9 +437,7 @@ def handle_stuck_state(
 def embed_text(text: str) -> List[float]:
     """Embed text using OpenAI's embedding API."""
     client = OpenAI(api_key=config("OPENAI_API_KEY"))
-    response = client.embeddings.create(
-        input=text, model="text-embedding-ada-002"
-    )
+    response = client.embeddings.create(input=text, model="text-embedding-ada-002")
     return response.data[0].embedding
 
 
@@ -493,9 +483,7 @@ def get_mac_address() -> str:
                     return line.split("link/ether")[1].split()[0]
 
         elif platform.system() == "Darwin":  # macOS
-            result = subprocess.run(
-                ["ifconfig"], capture_output=True, text=True
-            )
+            result = subprocess.run(["ifconfig"], capture_output=True, text=True)
             for line in result.stdout.split("\n"):
                 if "ether" in line:
                     return line.split("ether")[1].split()[0]
