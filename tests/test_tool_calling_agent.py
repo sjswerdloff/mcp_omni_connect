@@ -101,7 +101,9 @@ async def test_process_query_without_agent(
     assert result == "Test response"
     assert mock_add_message_to_history.call_count == 2
     mock_add_message_to_history.assert_any_call(role="user", content="Test query")
-    mock_add_message_to_history.assert_any_call("assistant", "Test response", {})
+    mock_add_message_to_history.assert_any_call(
+        role="assistant", content="Test response", metadata={}
+    )
 
 
 @pytest.mark.asyncio
