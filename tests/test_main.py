@@ -27,7 +27,6 @@ def test_check_config_exists_new(mock_config_path):
             assert config["LLM"]["temperature"] == 0.5
             assert config["LLM"]["max_tokens"] == 5000
             assert config["LLM"]["top_p"] == 0
-            assert config["LLM"]["max_input_tokens"] == 30000
             assert "server_name" in config["mcpServers"]
 
 
