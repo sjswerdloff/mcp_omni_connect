@@ -1,0 +1,30 @@
+{
+    "LLM": {
+        "provider": "lmstudio",
+        "model": "deepseek-coder-v2-lite-instruct-mlx",
+        "temperature": 0.5,
+        "max_tokens": 5000,
+        "max_context_length": 30000,
+        "top_p": 0
+    },
+    "mcpServers": {
+        "filesystem-server": {
+            "command": "npx",
+            "args": [
+                "@modelcontextprotocol/server-filesystem",
+                "/Users/stuartswerdloff/ai/MCPOmniConnect/mcp_omni_connect/playground"
+            ]
+        },
+        "sse-server": {
+            "type": "sse",
+            "url": "http://localhost:3000/mcp",
+            "headers": {
+                "Authorization": "Bearer token"
+            }
+        },
+        "docker-server": {
+            "command": "docker",
+            "args": ["run", "-i", "--rm", "mcp/server"]
+        }
+    }
+}
