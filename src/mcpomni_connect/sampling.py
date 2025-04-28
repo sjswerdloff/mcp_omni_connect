@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import os
 from pathlib import Path
@@ -26,20 +27,31 @@ api_key = os.getenv("LLM_API_KEY")
 
 class LLMConnection:
     def __init__(self):
-        self.openai = OpenAI(api_key=api_key)
-        self.groq = Groq(api_key=api_key)
-        self.openrouter = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=api_key,
-        )
-        self.gemini = OpenAI(
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-            api_key=api_key,
-        )
-        self.deepseek = OpenAI(
-            base_url="https://api.deepseek.com",
-            api_key=api_key,
-        )
+        self.openai = None
+        self.groq = None
+        self.gemini = None
+        self.openrouter = None
+        self.deepseek = None
+        with contextlib.suppress(Exception):
+            self.openai = OpenAI(api_key=api_key)
+        with contextlib.suppress(Exception):
+            self.groq = Groq(api_key=api_key)
+        with contextlib.suppress(Exception):
+            self.openrouter = OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=api_key,
+            )
+
+        with contextlib.suppress(Exception):
+            self.gemini = OpenAI(
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                api_key=api_key,
+            )
+        with contextlib.suppress(Exception):
+            self.deepseek = OpenAI(
+                base_url="https://api.deepseek.com",
+                api_key=api_key,
+            )
 
     async def llm_call(
         self,
