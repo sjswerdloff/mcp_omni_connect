@@ -1,29 +1,18 @@
 # from mcpomni_connect.react_agent import ReActAgent
-from mcpomni_connect.constants import AGENTS_REGISTRY
 from typing import Any, Dict, Callable, Optional
 import re
 import json
 from mcpomni_connect.utils import logger
 from mcpomni_connect.system_prompts import generate_react_agent_prompt_template
-import time
-from datetime import datetime
 
-import json
-import logging
-import os
-import re
 import uuid
-from typing import Any, Callable, Dict, Optional
 from mcpomni_connect.utils import (
-    logger,
     RobustLoopDetector,
     handle_stuck_state,
 )
-from datetime import datetime
 import asyncio
 from contextlib import asynccontextmanager
 from mcpomni_connect.types import AgentState
-from mcpomni_connect.telemetry import telemetry_logger
 
 
 class McpServerAgent:
@@ -68,7 +57,6 @@ class McpServerAgent:
         try:
             action_start = response.find("Action:")
             if action_start != -1:
-
                 action_text = response[action_start + len("Action:") :].strip()
 
                 # Find the start of the JSON object (the first "{")
@@ -105,14 +93,10 @@ class McpServerAgent:
                         try:
                             action = json.loads(json_str)
                             tool_name = (
-                                action["tool"].lower()
-                                if "tool" in action
-                                else None
+                                action["tool"].lower() if "tool" in action else None
                             )
                             tool_args = (
-                                action["parameters"]
-                                if "parameters" in action
-                                else None
+                                action["parameters"] if "parameters" in action else None
                             )
                             # if tool_name is None or tool_args is None, return an error
                             if tool_name is None or tool_args is None:
@@ -127,9 +111,7 @@ class McpServerAgent:
                                     server_name,
                                     tools,
                                 ) in available_tools.items():
-                                    tool_names = [
-                                        tool.name.lower() for tool in tools
-                                    ]
+                                    tool_names = [tool.name.lower() for tool in tools]
                                     if tool_name in tool_names:
                                         return {
                                             "action": True,
@@ -211,9 +193,7 @@ class McpServerAgent:
             logger.error("Error parsing response: %s", str(e))
             return {"error": str(e)}
 
-        logger.warning(
-            "No valid action or answer found in response: %s", response
-        )
+        logger.warning("No valid action or answer found in response: %s", response)
         return {"error": "No valid action or answer found in response"}
 
     async def _execute_tool(
@@ -302,16 +282,9 @@ class McpServerAgent:
         for _, message in enumerate(short_term_memory_message_history):
             if message["role"] == "user":
                 # First flush any pending tool responses if needed
-                if (
-                    self.assistant_with_tool_calls
-                    and self.pending_tool_responses
-                ):
-                    self.messages[agent_name].append(
-                        self.assistant_with_tool_calls
-                    )
-                    self.messages[agent_name].extend(
-                        self.pending_tool_responses
-                    )
+                if self.assistant_with_tool_calls and self.pending_tool_responses:
+                    self.messages[agent_name].append(self.assistant_with_tool_calls)
+                    self.messages[agent_name].extend(self.pending_tool_responses)
                     self.assistant_with_tool_calls = None
                     self.pending_tool_responses = []
 
@@ -326,12 +299,8 @@ class McpServerAgent:
                 if metadata.get("has_tool_calls", False):
                     # If we already have a pending assistant with tool calls, flush it
                     if self.assistant_with_tool_calls:
-                        self.messages[agent_name].append(
-                            self.assistant_with_tool_calls
-                        )
-                        self.messages[agent_name].extend(
-                            self.pending_tool_responses
-                        )
+                        self.messages[agent_name].append(self.assistant_with_tool_calls)
+                        self.messages[agent_name].extend(self.pending_tool_responses)
                         self.pending_tool_responses = []
 
                     # Store this assistant message for later (until we collect all tool responses)
@@ -344,12 +313,8 @@ class McpServerAgent:
                     # Regular assistant message without tool calls
                     # First flush any pending tool calls
                     if self.assistant_with_tool_calls:
-                        self.messages[agent_name].append(
-                            self.assistant_with_tool_calls
-                        )
-                        self.messages[agent_name].extend(
-                            self.pending_tool_responses
-                        )
+                        self.messages[agent_name].append(self.assistant_with_tool_calls)
+                        self.messages[agent_name].extend(self.pending_tool_responses)
                         self.assistant_with_tool_calls = None
                         self.pending_tool_responses = []
 
@@ -368,9 +333,7 @@ class McpServerAgent:
                         {
                             "role": "tool",
                             "content": message["content"],
-                            "tool_call_id": message["metadata"][
-                                "tool_call_id"
-                            ],
+                            "tool_call_id": message["metadata"]["tool_call_id"],
                         }
                     )
 
@@ -418,7 +381,7 @@ class McpServerAgent:
         try:
             async with asyncio.timeout(self.tool_call_timeout):
                 # Execute the tool
-                start_time = time.time()
+                # start_time = time.time()
                 observation = await self._execute_tool(
                     agent_name,
                     sessions,
@@ -428,7 +391,7 @@ class McpServerAgent:
                     tool_call_id,
                     add_message_to_history,
                 )
-                end_time = time.time()
+                # end_time = time.time()
                 # get the tool call telemetry
                 # await telemetry_logger.log_tool_call(
                 #     source="ReactAgent",
@@ -501,15 +464,15 @@ class McpServerAgent:
             # Add timeout response to the message history
             await add_message_to_history(
                 agent_name=agent_name,
-                role="tool",
-                content="Tool call timed out. Please try again or use a different approach.",
+                role=timeout_response["role"],
+                content=timeout_response["content"],
                 metadata={"tool_call_id": tool_call_id},
             )
             # append the timeout response as user message to the messages that will be sent to LLM
             self.messages[agent_name].append(
                 {
                     "role": "user",
-                    "content": "Observation:\nTool call timed out. Please try again or use a different approach.",
+                    "content": f"Observation:\n{timeout_response['content']}",
                 }
             )
 
@@ -522,8 +485,8 @@ class McpServerAgent:
             # Add error response to the message history
             await add_message_to_history(
                 agent_name=agent_name,
-                role="tool",
-                content=f"Error executing tool: {str(e)}",
+                role=error_response["role"],
+                content=error_response["content"],
                 metadata={"tool_call_id": tool_call_id},
             )
             # append the error response as user message to the messages that will be sent to LLM
@@ -572,9 +535,7 @@ class McpServerAgent:
         try:
             # Reset system prompt and keep all messages
             old_messages = messages[agent_name][1:]
-            messages[agent_name] = [
-                {"role": "system", "content": system_prompt}
-            ]
+            messages[agent_name] = [{"role": "system", "content": system_prompt}]
             messages[agent_name].extend(old_messages)
             return messages
         except Exception as e:
@@ -598,9 +559,7 @@ class McpServerAgent:
         finally:
             self.state = previous_state
 
-    async def get_tools_registry(
-        self, available_tools: dict, agent_name: str
-    ) -> str:
+    async def get_tools_registry(self, available_tools: dict, agent_name: str) -> str:
         """Get the tools registry for the given agent"""
         try:
             tools_section = []
@@ -623,7 +582,9 @@ class McpServerAgent:
                                 "description", "**No description**"
                             )
                             param_type = param_info.get("type", "any")
-                            tool_md += f"| `{param_name}` | `{param_type}` | {param_desc} |\n"
+                            tool_md += (
+                                f"| `{param_name}` | `{param_type}` | {param_desc} |\n"
+                            )
 
                 tools_section.append(tool_md)
 
@@ -650,14 +611,10 @@ class McpServerAgent:
             self.messages[agent_name] = []
 
         # Reset messages for this agent and initialize with system prompt
-        self.messages[agent_name] = [
-            {"role": "system", "content": system_prompt}
-        ]
+        self.messages[agent_name] = [{"role": "system", "content": system_prompt}]
 
         # Add initial user message to message history
-        await add_message_to_history(
-            agent_name=agent_name, role="user", content=query
-        )
+        await add_message_to_history(agent_name=agent_name, role="user", content=query)
 
         # Initialize messages with current message history (only once at start)
         await self.update_llm_working_memory(agent_name, message_history)
@@ -677,17 +634,12 @@ class McpServerAgent:
             AgentState.STUCK,
             AgentState.ERROR,
         ]:
-            raise RuntimeError(
-                f"Agent is not in a valid state to run: {self.state}"
-            )
+            raise RuntimeError(f"Agent is not in a valid state to run: {self.state}")
 
         # set the agent state to running
         async with self.agent_state_context(AgentState.RUNNING):
             current_steps = 0
-            while (
-                self.state != AgentState.FINISHED
-                and current_steps < self.max_steps
-            ):
+            while self.state != AgentState.FINISHED and current_steps < self.max_steps:
                 current_steps += 1
                 try:
                     if debug:
@@ -726,10 +678,7 @@ class McpServerAgent:
                             content=parsed_response["answer"],
                         )
                         # check if the system prompt has changed
-                        if (
-                            system_prompt
-                            != self.messages[agent_name][0]["content"]
-                        ):
+                        if system_prompt != self.messages[agent_name][0]["content"]:
                             # Reset system prompt and keep all messages
                             self.messages = await self.reset_system_prompt(
                                 self.messages, system_prompt, agent_name
@@ -744,10 +693,7 @@ class McpServerAgent:
                         current_steps = 0
                         return parsed_response["answer"]
 
-                    elif (
-                        "action" in parsed_response
-                        and parsed_response["action"]
-                    ):
+                    elif "action" in parsed_response and parsed_response["action"]:
                         if debug:
                             logger.info(
                                 f"Agent state changed from {self.state} to {AgentState.TOOL_CALLING}"
@@ -838,7 +784,6 @@ class OrchestratorAgent:
         try:
             action_start = response.find("Action:")
             if action_start != -1:
-
                 action_text = response[action_start + len("Action:") :].strip()
 
                 # Find the start of the JSON object (the first "{")
@@ -875,9 +820,7 @@ class OrchestratorAgent:
                         try:
                             action = json.loads(json_str)
                             agent_name_to_act = (
-                                action["agent_name"]
-                                if "agent_name" in action
-                                else None
+                                action["agent_name"] if "agent_name" in action else None
                             )
                             # strip away if Agent or agent is part of the agent name
                             agent_name_to_act = (
@@ -885,14 +828,9 @@ class OrchestratorAgent:
                                 .replace("agent", "")
                                 .strip()
                             )
-                            task_to_act = (
-                                action["task"] if "task" in action else None
-                            )
+                            task_to_act = action["task"] if "task" in action else None
                             # if tool_name is None or tool_args is None, return an error
-                            if (
-                                agent_name_to_act is None
-                                or task_to_act is None
-                            ):
+                            if agent_name_to_act is None or task_to_act is None:
                                 return {
                                     "error": "Invalid JSON format",
                                     "action": False,
@@ -908,18 +846,13 @@ class OrchestratorAgent:
                                         agent_name.lower()
                                         for agent_name in self.agent_registry.keys()
                                     ]
-                                    if (
-                                        agent_name_to_act.lower()
-                                        in agent_names
-                                    ):
+                                    if agent_name_to_act.lower() in agent_names:
                                         return {
                                             "action": True,
                                             "agent_name": agent_name_to_act,
                                             "task": task_to_act,
                                         }
-                            logger.warning(
-                                "Agent not found: %s", agent_name_to_act
-                            )
+                            logger.warning("Agent not found: %s", agent_name_to_act)
                             return {
                                 "action": False,
                                 "error": f"Agent {agent_name_to_act} not found",
@@ -978,9 +911,7 @@ class OrchestratorAgent:
             logger.error("Error parsing response: %s", str(e))
             return {"error": str(e)}
 
-        logger.warning(
-            "No valid action or answer found in response: %s", response
-        )
+        logger.warning("No valid action or answer found in response: %s", response)
         return {"error": "No valid action or answer found in response"}
 
     async def create_agent_system_prompt(
@@ -996,13 +927,9 @@ class OrchestratorAgent:
         )
         return agent_system_prompt
 
-    async def update_llm_working_memory(
-        self, message_history: Callable[[], Any]
-    ):
+    async def update_llm_working_memory(self, message_history: Callable[[], Any]):
         """Update the LLM's working memory with the current message history"""
-        short_term_memory_message_history = await message_history(
-            "orchestrator"
-        )
+        short_term_memory_message_history = await message_history("orchestrator")
 
         for _, message in enumerate(short_term_memory_message_history):
             if message["role"] == "user":
@@ -1081,9 +1008,7 @@ class OrchestratorAgent:
         except Exception as e:
             logger.error("Error executing agent: %s", str(e))
 
-    async def agent_registry_tool(
-        self, available_tools: dict[str, Any]
-    ) -> str:
+    async def agent_registry_tool(self, available_tools: dict[str, Any]) -> str:
         """
         This function is used to create a tool that will return the agent registry
         """
@@ -1146,9 +1071,7 @@ class OrchestratorAgent:
                     logger.info(
                         f"Sending {len(self.orchestrator_messages)} messages to LLM"
                     )
-                response = await llm_connection.llm_call(
-                    self.orchestrator_messages
-                )
+                response = await llm_connection.llm_call(self.orchestrator_messages)
                 if response:
                     response = response.choices[0].message.content.strip()
             except Exception as e:
@@ -1190,7 +1113,9 @@ class OrchestratorAgent:
                 error_message = parsed_response["error"]
             else:
                 # append the invalid response to the messages and the message history
-                error_message = "Invalid response format. Please use the correct required format"
+                error_message = (
+                    "Invalid response format. Please use the correct required format"
+                )
             self.orchestrator_messages.append(
                 {
                     "role": "user",

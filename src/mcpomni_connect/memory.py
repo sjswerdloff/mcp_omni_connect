@@ -2,17 +2,12 @@ import json
 from mcpomni_connect.utils import (
     logger,
     CLIENT_MAC_ADDRESS,
-    clean_json_response,
-    embed_text,
 )
 import redis.asyncio as redis
 import time
-from typing import Optional, Callable, List, Dict, Any
+from typing import Optional
 from decouple import config
 import asyncio
-from datetime import datetime
-import uuid
-from mcpomni_connect.system_prompts import EPISODIC_MEMORY_PROMPT
 
 # TODO: Add QDRANT DB episodic memory
 # from qdrant_client import QdrantClient
@@ -64,9 +59,7 @@ class InMemoryShortTermMemory:
 
             while total_tokens > self.short_term_limit and messages:
                 messages.pop(0)
-                total_tokens = sum(
-                    len(str(msg["content"]).split()) for msg in messages
-                )
+                total_tokens = sum(len(str(msg["content"]).split()) for msg in messages)
 
             return messages
         except Exception as e:
@@ -266,9 +259,7 @@ class RedisShortTermMemory:
             f"Initialized RedisShortTermMemory with client ID: {self.client_id}"
         )
 
-    async def store_message(
-        self, role: str, content: str, metadata: dict = None
-    ):
+    async def store_message(self, role: str, content: str, metadata: dict = None):
         """Store a message in Redis with a timestamp using the client's MAC address as ID."""
         metadata = metadata or {}
         logger.info(f"Storing message for client {self.client_id}: {content}")
@@ -285,13 +276,9 @@ class RedisShortTermMemory:
 
         # Store as a JSON string in Redis
         await self._redis_client.zadd(key, {json.dumps(message): timestamp})
-        await self._redis_client.set(
-            f"mcp_last_active:{self.client_id}", timestamp
-        )
+        await self._redis_client.set(f"mcp_last_active:{self.client_id}", timestamp)
         # store to the in memory to act as current working memory which will be use for episodic memory
-        await self.in_memory_short_term_memory.store_message(
-            role, content, metadata
-        )
+        await self.in_memory_short_term_memory.store_message(role, content, metadata)
         # Enforce the short term limit
         await self.enforce_short_term_limit()
 

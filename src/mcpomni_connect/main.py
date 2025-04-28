@@ -67,6 +67,7 @@ async def async_main():
         if not api_key:
             raise RuntimeError("LLM_API_KEY environment variable is missing. Please set it in your environment or .env file.")
         config_path = check_config_exists()
+        logger.debug(f"Configuration read in from {config_path}")
         config = Configuration()
         client = MCPClient(config)
         llm_connection = LLMConnection(config)

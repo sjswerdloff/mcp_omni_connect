@@ -59,9 +59,7 @@ class TestLLMConnection:
         tools = [{"name": "test_tool", "description": "Test tool"}]
 
         mock_response = Mock()
-        mock_llm_connection.openai.chat.completions.create.return_value = (
-            mock_response
-        )
+        mock_llm_connection.openai.chat.completions.create.return_value = mock_response
 
         response = await mock_llm_connection.llm_call(messages, tools)
 
@@ -85,9 +83,7 @@ class TestLLMConnection:
         tools = [{"name": "test_tool", "description": "Test tool"}]
 
         mock_response = Mock()
-        mock_llm_connection.groq.chat.completions.create.return_value = (
-            mock_response
-        )
+        mock_llm_connection.groq.chat.completions.create.return_value = mock_response
 
         response = await mock_llm_connection.llm_call(messages, tools)
 
@@ -142,9 +138,7 @@ class TestLLMConnection:
         tools = [{"name": "test_tool", "description": "Test tool"}]
 
         mock_response = Mock()
-        mock_llm_connection.gemini.chat.completions.create.return_value = (
-            mock_response
-        )
+        mock_llm_connection.gemini.chat.completions.create.return_value = mock_response
 
         response = await mock_llm_connection.llm_call(messages, tools)
 
@@ -216,16 +210,16 @@ class TestLLMConnection:
 
         # Test API error with OpenAI
         mock_llm_connection.llm_config["provider"] = "openai"
-        mock_llm_connection.openai.chat.completions.create.side_effect = (
-            Exception("API Error")
+        mock_llm_connection.openai.chat.completions.create.side_effect = Exception(
+            "API Error"
         )
         response = await mock_llm_connection.llm_call(messages)
         assert response is None
 
         # Test API error with Groq
         mock_llm_connection.llm_config["provider"] = "groq"
-        mock_llm_connection.groq.chat.completions.create.side_effect = (
-            Exception("API Error")
+        mock_llm_connection.groq.chat.completions.create.side_effect = Exception(
+            "API Error"
         )
         response = await mock_llm_connection.llm_call(messages)
         assert response is None
@@ -259,19 +253,17 @@ class TestLLMConnection:
         print("Original message count:", len(messages))
         print("Truncated message count:", len(truncated))
         for i, msg in enumerate(truncated):
-            print(
-                f"Message {i} ({msg['role']}): {len(msg['content'])} characters"
-            )
+            print(f"Message {i} ({msg['role']}): {len(msg['content'])} characters")
 
         # Check system message truncation
         assert truncated[0]["role"] == "system"
         assert len(truncated[0]["content"]) == 1000
 
         if len(messages) > 10:
-            assert any(
-                len(msg["content"]) < 600 for msg in truncated
-            ), "Expected some messages to be truncated"
+            assert any(len(msg["content"]) < 600 for msg in truncated), (
+                "Expected some messages to be truncated"
+            )
         else:
-            assert len(truncated) == len(
-                messages
-            ), "No truncation expected for ≤10 messages"
+            assert len(truncated) == len(messages), (
+                "No truncation expected for ≤10 messages"
+            )

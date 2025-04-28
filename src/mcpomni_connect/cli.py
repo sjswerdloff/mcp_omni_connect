@@ -3,13 +3,11 @@ from enum import Enum
 from typing import Any, Dict, Optional
 
 from rich import box
-from rich import print as rprint
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Prompt
-from rich.syntax import Syntax
 from rich.table import Table
 
 from mcpomni_connect.client import MCPClient
@@ -30,7 +28,6 @@ from mcpomni_connect.resources import (
     unsubscribe_resource,
 )
 from mcpomni_connect.system_prompts import (
-    generate_react_agent_prompt_template,
     generate_system_prompt,
     generate_orchestrator_prompt_template,
     generate_react_agent_prompt,
@@ -104,9 +101,7 @@ class CommandHelp:
                     "/memory  # Toggle memory usage between Redis and In-Memory"
                 ],
                 "subcommands": {},
-                "tips": [
-                    "Use to toggle memory usage between Redis and In-Memory"
-                ],
+                "tips": ["Use to toggle memory usage between Redis and In-Memory"],
             },
             "tools": {
                 "description": "List and manage available tools across all connected servers",
@@ -369,8 +364,8 @@ class MCPClientCLI:
         """Handle memory command"""
         self.USE_MEMORY["redis"] = not self.USE_MEMORY["redis"]
         self.console.print(
-            f"[{'green' if self.USE_MEMORY["redis"] else 'red'}]Redis memory "
-            f"{'enabled' if self.USE_MEMORY["redis"] else 'disabled'}[/]"
+            f"[{'green' if self.USE_MEMORY['redis'] else 'red'}]Redis memory "
+            f"{'enabled' if self.USE_MEMORY['redis'] else 'disabled'}[/]"
         )
 
     async def handle_mode_command(self, mode: str) -> str:
@@ -398,7 +393,7 @@ class MCPClientCLI:
             )
         else:
             self.console.print(
-                f"[red]Invalid mode. Available modes: chat, auto, orchestrator[/]"
+                "[red]Invalid mode. Available modes: chat, auto, orchestrator[/]"
             )
 
     async def handle_refresh_command(self, input_text: str = ""):
@@ -425,9 +420,7 @@ class MCPClientCLI:
         """Show help information for commands"""
         if command_type:
             # Show specific command help
-            help_info = self.command_help.get_command_help(
-                command_type.lower()
-            )
+            help_info = self.command_help.get_command_help(command_type.lower())
             if help_info:
                 panel = Panel(
                     f"[bold cyan]{command_type.upper()}[/]\n\n"
@@ -436,7 +429,7 @@ class MCPClientCLI:
                     f"[bold white]Examples:[/]\n"
                     + "\n".join(help_info["examples"])
                     + "\n\n"
-                    f"[bold white]Tips:[/]\n"
+                    "[bold white]Tips:[/]\n"
                     + "\n".join(f"• {tip}" for tip in help_info["tips"]),
                     title="[bold blue]Command Help[/]",
                     border_style="blue",
@@ -703,9 +696,7 @@ class MCPClientCLI:
         else:
             self.console.print(Panel(content, title=name, border_style="blue"))
 
-    def parse_prompt_command(
-        self, input_text: str
-    ) -> tuple[str, Optional[dict]]:
+    def parse_prompt_command(self, input_text: str) -> tuple[str, Optional[dict]]:
         """Parse prompt command to determine name and arguments.
 
         Supports multiple formats:
@@ -973,9 +964,7 @@ class MCPClientCLI:
     async def handle_save_history_command(self, input_text: str):
         """Handle save history command"""
         if self.USE_MEMORY["redis"]:
-            await self.redis_short_term_memory.save_message_history_to_file(
-                input_text
-            )
+            await self.redis_short_term_memory.save_message_history_to_file(input_text)
         else:
             
             await self.in_memory_short_term_memory.save_message_history_to_file(
@@ -988,9 +977,7 @@ class MCPClientCLI:
         await self.in_memory_short_term_memory.load_message_history_from_file(
             input_text
         )
-        self.console.print(
-            f"[green]Message history loaded from {input_text}[/]"
-        )
+        self.console.print(f"[green]Message history loaded from {input_text}[/]")
 
     async def handle_episodic_memory_command(self):
         """Handle episodic memory command"""
@@ -1005,9 +992,7 @@ class MCPClientCLI:
                 f"[green]Episodic memory created: {created_episodic_memory}[/]"
             )
         else:
-            self.console.print(
-                "[yellow]No messages to create episodic memory[/]"
-            )
+            self.console.print("[yellow]No messages to create episodic memory[/]")
 
     async def chat_loop(self):
         """Run an interactive chat loop with rich UI"""
@@ -1051,14 +1036,10 @@ class MCPClientCLI:
                 if handler:
                     await handler(payload)
             except KeyboardInterrupt:
-                self.console.print(
-                    "[yellow]Shutting down client...[/]", style="yellow"
-                )
+                self.console.print("[yellow]Shutting down client...[/]", style="yellow")
                 break
             except Exception as e:
-                self.console.print(
-                    f"[red]Error:[/] {str(e)}", style="bold red"
-                )
+                self.console.print(f"[red]Error:[/] {str(e)}", style="bold red")
 
         # Shutdown message
         self.console.print(
@@ -1085,8 +1066,7 @@ class MCPClientCLI:
 
         # Server status with emojis and cool styling
         server_status = [
-            f"[bold green]●[/] [cyan]{name}[/]"
-            for name in self.client.server_names
+            f"[bold green]●[/] [cyan]{name}[/]" for name in self.client.server_names
         ]
 
         content = f"""
@@ -1095,7 +1075,7 @@ class MCPClientCLI:
 [bold magenta]🚀 Universal MCP Client[/]
 
 [bold white]Connected Servers:[/]
-{' | '.join(server_status)}
+{" | ".join(server_status)}
 
 [dim]▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰[/]
 [cyan]Your Universal Gateway to MCP Servers[/]
