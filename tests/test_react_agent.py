@@ -149,7 +149,10 @@ class TestReActAgent:
             tool_call_id,
             mock_add_message_to_history,
         )
-        assert result == "Tool result"
+        if not isinstance(result, dict):
+            result = json.loads(result)
+        assert result["status"] == "success"
+        assert result["data"] == "Tool result"
 
     @pytest.mark.asyncio
     async def test_execute_tool_error(self, mock_sessions, mock_add_message_to_history):
