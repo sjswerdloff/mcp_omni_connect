@@ -1,6 +1,6 @@
 import pytest
 import pytest_asyncio
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import Mock, AsyncMock
 from mcpomni_connect.react_agent import ReActAgent, AgentState
 import asyncio
 import json
@@ -40,9 +40,7 @@ def mock_llm_connection():
     """Create mock LLM connection"""
     mock = AsyncMock()
     mock.llm_call = AsyncMock(
-        return_value=Mock(
-            choices=[Mock(message=Mock(content="Test response"))]
-        )
+        return_value=Mock(choices=[Mock(message=Mock(content="Test response"))])
     )
     return mock
 
@@ -151,12 +149,13 @@ class TestReActAgent:
             tool_call_id,
             mock_add_message_to_history,
         )
-        assert result == "Tool result"
+        if not isinstance(result, dict):
+            result = json.loads(result)
+        assert result["status"] == "success"
+        assert result["data"] == "Tool result"
 
     @pytest.mark.asyncio
-    async def test_execute_tool_error(
-        self, mock_sessions, mock_add_message_to_history
-    ):
+    async def test_execute_tool_error(self, mock_sessions, mock_add_message_to_history):
         """Test tool execution with error"""
         agent = ReActAgent()
         mock_sessions["server1"]["session"].call_tool = AsyncMock(
@@ -182,9 +181,7 @@ class TestReActAgent:
         assert agent.messages[1]["role"] == "user"
 
     @pytest.mark.asyncio
-    async def test_act_success(
-        self, mock_sessions, mock_add_message_to_history
-    ):
+    async def test_act_success(self, mock_sessions, mock_add_message_to_history):
         """Test successful act execution"""
         agent = ReActAgent()
         parsed_response = {
@@ -207,9 +204,7 @@ class TestReActAgent:
         assert agent.state == AgentState.OBSERVING
 
     @pytest.mark.asyncio
-    async def test_act_timeout(
-        self, mock_sessions, mock_add_message_to_history
-    ):
+    async def test_act_timeout(self, mock_sessions, mock_add_message_to_history):
         """Test act with tool timeout"""
         agent = ReActAgent(tool_call_timeout=0.1)
 
@@ -261,8 +256,10 @@ class TestReActAgent:
         mock_llm_connection,
         mock_add_message_to_history,
         mock_message_history,
+        caplog,
     ):
         """Test run with immediate final answer"""
+        caplog.set_level(logging.INFO)  # Set the desired log level
         agent = ReActAgent()
         # Ensure agent starts in IDLE state (default state)
         assert agent.state == AgentState.IDLE
@@ -270,53 +267,54 @@ class TestReActAgent:
         # Setup the LLM response
         mock_llm_connection.llm_call = AsyncMock(
             return_value=Mock(
-                choices=[
-                    Mock(message=Mock(content="Final Answer: Test complete"))
-                ]
+                choices=[Mock(message=Mock(content="Final Answer: Test complete"))]
             )
         )
 
-        # Capture state changes
-        state_changes = []
-        original_info = logging.info
+        # Capturing state changes via caplog instead
+        # # Capture state changes
+        # state_changes = []
+        # original_info = logging.info
 
-        def mock_info(msg):
-            if "Agent state changed from" in msg:
-                state_changes.append(msg)
-            original_info(msg)
+        # def mock_info(msg):
+        #     print(f"mock info msg: {msg}")
+        #     nonlocal state_changes
+        #     if "Agent state changed from" in msg:
+        #         state_changes.append(msg)
+        #     original_info(msg)
 
-        logging.info = mock_info
+        # logging.info = mock_info
 
-        try:
-            result = await agent.run(
-                mock_sessions,
-                "Test system prompt",
-                "Test query",
-                mock_llm_connection,
-                MOCK_TOOLS,
-                mock_add_message_to_history,
-                mock_message_history,
-                debug=True,
-            )
+        result = await agent.run(
+            mock_sessions,
+            "Test system prompt",
+            "Test query",
+            mock_llm_connection,
+            MOCK_TOOLS,
+            mock_add_message_to_history,
+            mock_message_history,
+            debug=True,
+        )
 
-            # Verify the result
-            assert result == "Test complete"
+        # Verify the result
+        assert result == "Test complete"
 
-            # Verify state transitions
-            assert len(state_changes) > 0
-            assert "RUNNING to FINISHED" in state_changes[-1]
+        state_change_logs = [
+            record.message
+            for record in caplog.records
+            if "Agent state changed from" in record.message
+        ]
+        # Verify state transitions
+        assert state_change_logs
+        assert "AgentState.RUNNING to AgentState.FINISHED" in state_change_logs[-1]
 
-            # Verify the message flow
-            assert (
-                len(agent.messages) >= 2
-            )  # Should have at least system prompt and final answer
-            assert agent.messages[0]["role"] == "system"
-            assert agent.messages[-1]["role"] == "assistant"
-            assert agent.messages[-1]["content"] == "Test complete"
-
-        finally:
-            # Restore original logger
-            logging.info = original_info
+        # Verify the message flow
+        assert (
+            len(agent.messages) >= 2
+        )  # Should have at least system prompt and final answer
+        assert agent.messages[0]["role"] == "system"
+        assert agent.messages[-1]["role"] == "assistant"
+        assert agent.messages[-1]["content"] == "Test complete"
 
     # @pytest.mark.asyncio
     # async def test_run_with_tool_chain(

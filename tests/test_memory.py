@@ -1,7 +1,6 @@
 import pytest
-import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 from mcpomni_connect.memory import (
     InMemoryShortTermMemory,
     RedisShortTermMemory,
@@ -10,7 +9,6 @@ from mcpomni_connect.memory import (
 
 @pytest.mark.asyncio
 class TestInMemoryShortTermMemory:
-
     # This fixture resets the class-level message history before each test
     @pytest.fixture(autouse=True)
     def reset_message_history(self):
@@ -30,7 +28,14 @@ class TestInMemoryShortTermMemory:
         assert messages[1]["role"] == "assistant"
 
     async def test_truncate_message_history(self):
-        memory = InMemoryShortTermMemory(max_context_tokens=2)
+        # context_tokens are not the same thing as messages
+        # There are six context tokens in the three messages
+        # the short term limit is 70% of max tokens
+        # If we limit to context max of 3 tokens, 70% of that is 2 tokens
+        # there's only enough room for one whole message with two tokens
+        # if were to have a limit of 2 max_context_tokens, that leaves 1 token
+        # as the short term limit, and that's not enough for any messages.
+        memory = InMemoryShortTermMemory(max_context_tokens=3)
         await memory.store_message("user", "one two")
         await memory.store_message("user", "three four")
         await memory.store_message("user", "five six")
@@ -41,14 +46,14 @@ class TestInMemoryShortTermMemory:
     async def test_clear_memory(self):
         memory = InMemoryShortTermMemory()
         await memory.store_message("user", "test")
-        cleared = await memory.clear_memory()
-        assert len(cleared) == 1
+        # clear_memory has no return value
+        await memory.clear_memory()
+        # assert len(cleared) == 1
         assert await memory.get_messages() == []
 
 
 @pytest.mark.asyncio
 class TestRedisShortTermMemory:
-
     @pytest.fixture
     def mock_redis(self):
         redis_mock = AsyncMock()
@@ -62,9 +67,7 @@ class TestRedisShortTermMemory:
 
     async def test_store_message(self, mock_redis):
         memory = RedisShortTermMemory(redis_client=mock_redis)
-        await memory.store_message(
-            "user", "hello", metadata={"intent": "greeting"}
-        )
+        await memory.store_message("user", "hello", metadata={"intent": "greeting"})
 
         assert mock_redis.zadd.called
         assert mock_redis.set.called
@@ -109,8 +112,6 @@ class TestRedisShortTermMemory:
             ),
         ]
         mock_redis.zrange.return_value = messages
-        memory = RedisShortTermMemory(
-            redis_client=mock_redis, max_context_tokens=100
-        )
+        memory = RedisShortTermMemory(redis_client=mock_redis, max_context_tokens=100)
         await memory.enforce_short_term_limit()
         assert mock_redis.zrem.called

@@ -45,9 +45,7 @@ def mock_llm_connection():
     mock_conn = Mock()
     mock_conn.llm_call = AsyncMock(
         return_value=Mock(
-            choices=[
-                Mock(message=Mock(content="Test response", tool_calls=None))
-            ]
+            choices=[Mock(message=Mock(content="Test response", tool_calls=None))]
         )
     )
     return mock_conn
@@ -102,9 +100,9 @@ async def test_process_query_without_agent(
 
     assert result == "Test response"
     assert mock_add_message_to_history.call_count == 2
-    mock_add_message_to_history.assert_any_call("user", "Test query")
+    mock_add_message_to_history.assert_any_call(role="user", content="Test query")
     mock_add_message_to_history.assert_any_call(
-        "assistant", "Test response", {}
+        role="assistant", content="Test response", metadata={}
     )
 
 
@@ -138,11 +136,7 @@ async def test_process_query_with_tool_calls(
     mock_llm_connection.llm_call.side_effect = [
         Mock(
             choices=[
-                Mock(
-                    message=Mock(
-                        content="I'll use a tool", tool_calls=[tool_call]
-                    )
-                )
+                Mock(message=Mock(content="I'll use a tool", tool_calls=[tool_call]))
             ]
         ),
         Mock(choices=[Mock(message=Mock(content="Tool result processed"))]),
@@ -199,4 +193,6 @@ async def test_process_query_with_error(
     )
 
     assert result == "Error processing query: Test error"
-    mock_add_message_to_history.assert_awaited_once_with("user", "Test query")
+    mock_add_message_to_history.assert_awaited_once_with(
+        role="user", content="Test query"
+    )

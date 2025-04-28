@@ -115,15 +115,11 @@ class TestMCPClient:
         return session
 
     @pytest.mark.asyncio
-    async def test_connect_to_single_server_stdio(
-        self, mock_client, mock_session
-    ):
+    async def test_connect_to_single_server_stdio(self, mock_client, mock_session):
         """Test connecting to a stdio server"""
         with patch("mcpomni_connect.client.stdio_client") as mock_stdio_client:
             mock_transport = (AsyncMock(), AsyncMock())
-            mock_stdio_client.return_value.__aenter__.return_value = (
-                mock_transport
-            )
+            mock_stdio_client.return_value.__aenter__.return_value = mock_transport
 
             mock_client.exit_stack.enter_async_context = AsyncMock()
             mock_client.exit_stack.enter_async_context.side_effect = [
@@ -143,15 +139,11 @@ class TestMCPClient:
             assert mock_client.sessions["test_server"]["type"] == "stdio"
 
     @pytest.mark.asyncio
-    async def test_connect_to_single_server_sse(
-        self, mock_client, mock_session
-    ):
+    async def test_connect_to_single_server_sse(self, mock_client, mock_session):
         """Test connecting to an SSE server"""
         with patch("mcpomni_connect.client.sse_client") as mock_sse_client:
             mock_transport = (AsyncMock(), AsyncMock())
-            mock_sse_client.return_value.__aenter__.return_value = (
-                mock_transport
-            )
+            mock_sse_client.return_value.__aenter__.return_value = mock_transport
 
             mock_client.exit_stack.enter_async_context = AsyncMock()
             mock_client.exit_stack.enter_async_context.side_effect = [
@@ -171,17 +163,11 @@ class TestMCPClient:
             assert mock_client.sessions["test_server"]["type"] == "sse"
 
     @pytest.mark.asyncio
-    async def test_connect_to_single_server_websocket(
-        self, mock_client, mock_session
-    ):
+    async def test_connect_to_single_server_websocket(self, mock_client, mock_session):
         """Test connecting to a WebSocket server"""
-        with patch(
-            "mcpomni_connect.client.websocket_client"
-        ) as mock_ws_client:
+        with patch("mcpomni_connect.client.websocket_client") as mock_ws_client:
             mock_transport = (AsyncMock(), AsyncMock())
-            mock_ws_client.return_value.__aenter__.return_value = (
-                mock_transport
-            )
+            mock_ws_client.return_value.__aenter__.return_value = mock_transport
 
             mock_client.exit_stack.enter_async_context = AsyncMock()
             mock_client.exit_stack.enter_async_context.side_effect = [
@@ -283,31 +269,19 @@ class TestMCPClient:
         await mock_client.cleanup()
 
         # Verify that all stream operations were attempted
-        assert (
-            mock_write_stream.aclose.called
-        ), "Write stream close was not called"
-        assert (
-            mock_read_stream.aclose.called
-        ), "Read stream close was not called"
+        assert mock_write_stream.aclose.called, "Write stream close was not called"
+        assert mock_read_stream.aclose.called, "Read stream close was not called"
         assert mock_session.close.called, "Session close was not called"
 
         # Verify that exit_stack was closed
-        assert (
-            mock_client.exit_stack.aclose.called
-        ), "Exit stack close was not called"
+        assert mock_client.exit_stack.aclose.called, "Exit stack close was not called"
 
         # Verify that all collections were cleared
-        assert (
-            len(mock_client.server_names) == 0
-        ), "Server names were not cleared"
+        assert len(mock_client.server_names) == 0, "Server names were not cleared"
         assert len(mock_client.sessions) == 0, "Sessions were not cleared"
         assert len(mock_client.available_tools) == 0, "Tools were not cleared"
-        assert (
-            len(mock_client.available_resources) == 0
-        ), "Resources were not cleared"
-        assert (
-            len(mock_client.available_prompts) == 0
-        ), "Prompts were not cleared"
+        assert len(mock_client.available_resources) == 0, "Resources were not cleared"
+        assert len(mock_client.available_prompts) == 0, "Prompts were not cleared"
 
     @pytest.mark.asyncio
     async def test_connect_to_servers_all_failed(self, mock_client):
@@ -357,9 +331,7 @@ class TestMCPClient:
         assert url == "http://test.com"
 
         # Test WebSocket URL
-        url = mock_client._validate_and_convert_url(
-            "ws://test.com", "websocket"
-        )
+        url = mock_client._validate_and_convert_url("ws://test.com", "websocket")
         assert url == "ws://test.com"
 
         # Test invalid SSE URL

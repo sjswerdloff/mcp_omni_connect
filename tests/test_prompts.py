@@ -1,12 +1,14 @@
-import pytest
+import logging
 from unittest.mock import AsyncMock
+
+import pytest
+
 from mcpomni_connect.prompts import (
     find_prompt_server,
     get_prompt,
     get_prompt_with_react_agent,
     list_prompts,
 )
-from mcpomni_connect.utils import logger
 
 # Mock data for testing
 MOCK_AVAILABLE_PROMPTS = {
@@ -37,9 +39,7 @@ MOCK_AVAILABLE_PROMPTS = {
 async def test_find_prompt_server():
     """Test finding a prompt server"""
     # Test existing prompt
-    server_name, found = await find_prompt_server(
-        "test-prompt", MOCK_AVAILABLE_PROMPTS
-    )
+    server_name, found = await find_prompt_server("test-prompt", MOCK_AVAILABLE_PROMPTS)
     assert found is True
     assert server_name == "server1"
 
@@ -192,9 +192,7 @@ async def test_list_prompts_edge_cases():
 
     # Test server throwing exception
     mock_session = AsyncMock()
-    mock_session.list_prompts = AsyncMock(
-        side_effect=Exception("Server error")
-    )
+    mock_session.list_prompts = AsyncMock(side_effect=Exception("Server error"))
     mock_sessions = {
         "server1": {"session": mock_session, "connected": True},
     }
@@ -247,9 +245,7 @@ async def test_find_prompt_server_edge_cases():
         "server1": [{"name": "common-prompt"}],
         "server2": [{"name": "common-prompt"}],
     }
-    server_name, found = await find_prompt_server(
-        "common-prompt", duplicate_prompts
-    )
+    server_name, found = await find_prompt_server("common-prompt", duplicate_prompts)
     assert found is True
     # Should return the first server that has the prompt
     assert server_name == "server1"
@@ -267,9 +263,7 @@ async def test_get_prompt_advanced():
         return {"role": role, "content": content}
 
     async def mock_llm_call(messages):
-        return AsyncMock(
-            choices=[AsyncMock(message=AsyncMock(content="LLM Response"))]
-        )
+        return AsyncMock(choices=[AsyncMock(message=AsyncMock(content="LLM Response"))])
 
     # Test with object-style message content
     class MessageContent:
@@ -278,9 +272,7 @@ async def test_get_prompt_advanced():
 
     mock_session.get_prompt = AsyncMock(
         return_value=AsyncMock(
-            messages=[
-                AsyncMock(role="user", content=MessageContent("Test message"))
-            ]
+            messages=[AsyncMock(role="user", content=MessageContent("Test message"))]
         )
     )
 
@@ -347,12 +339,13 @@ async def test_get_prompt_with_react_agent_advanced():
         available_prompts={"server1": [{"name": "test-prompt"}]},
         name="test-prompt",
     )
+    print(f"Complex content = {content}")
     assert content == "Test message"
 
     # Test with invalid message structure
     mock_session.get_prompt = AsyncMock(
         return_value=AsyncMock(
-            messages=[AsyncMock(role="user")]
+            messages=[AsyncMock(role="user", spec=["role"])]
         )  # Missing content
     )
 
@@ -364,6 +357,10 @@ async def test_get_prompt_with_react_agent_advanced():
         available_prompts={"server1": [{"name": "test-prompt"}]},
         name="test-prompt",
     )
+    if content:
+        print(f"Missing content = {content}")
+    else:
+        print("content was None")
     assert "Error getting prompt" in content
 
 
@@ -381,9 +378,7 @@ async def test_list_prompts_additional_cases():
     # Test mixed server states
     mock_session_connected = AsyncMock()
     mock_session_connected.list_prompts = AsyncMock(
-        return_value=AsyncMock(
-            prompts=[{"name": "test-prompt", "description": "Test"}]
-        )
+        return_value=AsyncMock(prompts=[{"name": "test-prompt", "description": "Test"}])
     )
     mock_sessions = {
         "server1": {"session": mock_session_connected, "connected": True},
@@ -428,7 +423,10 @@ async def test_get_prompt_empty_messages():
         available_prompts={"server1": [{"name": "test-prompt"}]},
         name="test-prompt",
     )
+
     assert content is not None
+    print(f"Content returned: {content}")
+    assert "Error" in content
 
 
 @pytest.mark.asyncio
@@ -443,9 +441,7 @@ async def test_get_prompt_content_types():
         return {"role": role, "content": content}
 
     async def mock_llm_call(messages):
-        return AsyncMock(
-            choices=[AsyncMock(message=AsyncMock(content="LLM Response"))]
-        )
+        return AsyncMock(choices=[AsyncMock(message=AsyncMock(content="LLM Response"))])
 
     # Test dict content
     mock_session.get_prompt = AsyncMock(
@@ -499,9 +495,7 @@ async def test_get_prompt_arguments_validation():
         return {"role": role, "content": content}
 
     # Test with invalid arguments
-    mock_session.get_prompt = AsyncMock(
-        side_effect=Exception("Invalid arguments")
-    )
+    mock_session.get_prompt = AsyncMock(side_effect=Exception("Invalid arguments"))
 
     content = await get_prompt(
         sessions=mock_sessions,
@@ -542,8 +536,10 @@ async def test_get_prompt_with_react_agent_empty_messages():
 
 
 @pytest.mark.asyncio
-async def test_get_prompt_with_react_agent_debug_logging():
+async def test_get_prompt_with_react_agent_debug_logging(caplog):
     """Test get_prompt_with_react_agent debug logging"""
+    # Set the log level to capture debug messages
+    caplog.set_level(logging.DEBUG)
     mock_session = AsyncMock()
     mock_sessions = {
         "server1": {"session": mock_session, "connected": True},
@@ -559,16 +555,15 @@ async def test_get_prompt_with_react_agent_debug_logging():
         )
     )
 
-    with pytest.LogCaptureFixture() as log_capture:
-        content = await get_prompt_with_react_agent(
-            sessions=mock_sessions,
-            system_prompt="Test system prompt",
-            add_message_to_history=mock_add_message_to_history,
-            debug=True,
-            available_prompts={"server1": [{"name": "test-prompt"}]},
-            name="test-prompt",
-        )
-        assert "Debug test message" in str(log_capture)
+    content = await get_prompt_with_react_agent(  # noqa: F841
+        sessions=mock_sessions,
+        system_prompt="Test system prompt",
+        add_message_to_history=mock_add_message_to_history,
+        debug=True,
+        available_prompts={"server1": [{"name": "test-prompt"}]},
+        name="test-prompt",
+    )
+    assert "Debug test message" in caplog.text
 
 
 @pytest.mark.asyncio

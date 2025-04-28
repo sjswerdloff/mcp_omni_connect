@@ -1,26 +1,24 @@
-from mcpomni_connect.types import ContextInclusion
 import asyncio
+import contextlib
+import json
+import os
+from pathlib import Path
+from typing import Any, List, Optional
+
+from dotenv import load_dotenv
+from groq import Groq
+from mcp.client.session import ClientSession
+from mcp.shared.context import RequestContext
 from mcp.types import (
     CreateMessageRequestParams,
     CreateMessageResult,
     ErrorData,
     TextContent,
 )
-from mcp.shared.context import RequestContext
-from typing import Optional, List, Any, Dict
-from mcpomni_connect.utils import logger
-import os
 from openai import OpenAI
-from pathlib import Path
-import json
 
-
-from typing import Any
-
-from groq import Groq
-from openai import OpenAI
+from mcpomni_connect.types import ContextInclusion
 from mcpomni_connect.utils import logger
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -29,20 +27,31 @@ api_key = os.getenv("LLM_API_KEY")
 
 class LLMConnection:
     def __init__(self):
-        self.openai = OpenAI(api_key=api_key)
-        self.groq = Groq(api_key=api_key)
-        self.openrouter = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=api_key,
-        )
-        self.gemini = OpenAI(
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-            api_key=api_key,
-        )
-        self.deepseek = OpenAI(
-            base_url="https://api.deepseek.com",
-            api_key=api_key,
-        )
+        self.openai = None
+        self.groq = None
+        self.gemini = None
+        self.openrouter = None
+        self.deepseek = None
+        with contextlib.suppress(Exception):
+            self.openai = OpenAI(api_key=api_key)
+        with contextlib.suppress(Exception):
+            self.groq = Groq(api_key=api_key)
+        with contextlib.suppress(Exception):
+            self.openrouter = OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=api_key,
+            )
+
+        with contextlib.suppress(Exception):
+            self.gemini = OpenAI(
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                api_key=api_key,
+            )
+        with contextlib.suppress(Exception):
+            self.deepseek = OpenAI(
+                base_url="https://api.deepseek.com",
+                api_key=api_key,
+            )
 
     async def llm_call(
         self,
@@ -139,9 +148,7 @@ class samplingCallback:
             provider = llm_config.get("provider").lower()
         return available_models, provider
 
-    async def _select_model(
-        self, preferences, available_models: List[str]
-    ) -> str:
+    async def _select_model(self, preferences, available_models: List[str]) -> str:
         """Select the best model based on preferences and available models."""
 
         if not preferences or not preferences.hints:
@@ -156,24 +163,15 @@ class samplingCallback:
                     return model
 
         # If no match found, use priorities to select model
-        if (
-            preferences.intelligencePriority
-            and preferences.intelligencePriority > 0.7
-        ):
+        if preferences.intelligencePriority and preferences.intelligencePriority > 0.7:
             # Prefer more capable models
-            return max(
-                available_models, key=lambda x: len(x)
-            )  # Simple heuristic
+            return max(available_models, key=lambda x: len(x))  # Simple heuristic
         elif preferences.speedPriority and preferences.speedPriority > 0.7:
             # Prefer faster models
-            return min(
-                available_models, key=lambda x: len(x)
-            )  # Simple heuristic
+            return min(available_models, key=lambda x: len(x))  # Simple heuristic
         elif preferences.costPriority and preferences.cosPriority > 0.7:
             # Prefer cheaper models
-            return min(
-                available_models, key=lambda x: len(x)
-            )  # Simple heuristic
+            return min(available_models, key=lambda x: len(x))  # Simple heuristic
 
         return available_models[0]  # Default fallback
 
@@ -210,7 +208,6 @@ class samplingCallback:
     ) -> CreateMessageResult | ErrorData:
         """Enhanced sampling callback with support for advanced features."""
         try:
-
             # Validate required parameters
             if not params.messages or not isinstance(params.maxTokens, int):
                 return ErrorData(
@@ -223,18 +220,14 @@ class samplingCallback:
             available_models, provider = await self.load_model()
 
             # Select model based on preferences
-            model = await self._select_model(
-                params.modelPreferences, available_models
-            )
+            model = await self._select_model(params.modelPreferences, available_models)
 
             additional_context = await self._get_context(params.includeContext)
 
             # Prepare messages with context and system prompt
             messages = []
             if params.systemPrompt:
-                messages.append(
-                    {"role": "system", "content": params.systemPrompt}
-                )
+                messages.append({"role": "system", "content": params.systemPrompt})
             if additional_context:
                 messages.append(
                     {
