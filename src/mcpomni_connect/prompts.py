@@ -129,18 +129,34 @@ async def get_prompt_with_react_agent(
         prompt_response = await sessions[server_name]["session"].get_prompt(
             name, arguments
         )
-        if prompt_response and prompt_response.messages:
+        if prompt_response:
+            if not prompt_response.messages:  # Check for empty list
+                error_message = (
+                    "Error getting prompt: Prompt returned empty messages list"
+                )
+                await add_message_to_history(
+                    "user", error_message, {"prompt_name": name, "error": True}
+                )
+                logger.error(error_message)
+                return error_message
+
             message = prompt_response.messages[0]
-            user_role = None
             message_content = None
-            if hasattr(message, "role"):
-                user_role = message.role if message.role else "user"
+            user_role = message.role or "user" if hasattr(message, "role") else None
             if hasattr(message, "content"):
                 if hasattr(message.content, "text"):
                     message_content = message.content.text
                 else:
                     message_content = str(message.content)
-
+            if message_content is None:
+                error_message = (
+                    "Error getting prompt: Message content is missing or invalid"
+                )
+                await add_message_to_history(
+                    "user", error_message, {"prompt_name": name, "error": True}
+                )
+                logger.error(error_message)
+                return error_message
             if debug:
                 logger.info(f"LLM processing {user_role} prompt: {message_content}")
             return message_content
