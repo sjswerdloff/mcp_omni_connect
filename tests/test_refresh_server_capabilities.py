@@ -1,6 +1,25 @@
+import os
+from unittest.mock import AsyncMock, Mock, patch
+from dotenv import load_dotenv
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
-from mcpomni_connect.refresh_server_capabilities import refresh_capabilities
+
+load_dotenv()
+
+llm_api_key = os.getenv("LLM_API_KEY")
+if not llm_api_key:
+    os.environ["LLM_API_KEY"] = "SKU123"
+
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
+    os.environ["OPENAI_API_KEY"] = "SKU456"
+
+
+from mcpomni_connect.client import Configuration  # noqa: E402
+from mcpomni_connect.llm import LLMConnection  # noqa: E402
+from mcpomni_connect.refresh_server_capabilities import refresh_capabilities  # noqa: E402
+from mcpomni_connect.system_prompts import generate_react_agent_role_prompt  # noqa: E402
+
+MOCK_LLM_CONFIG = Configuration()
 
 
 # Mock data
@@ -103,6 +122,8 @@ async def test_refresh_capabilities_success(mock_sessions, mock_available_dicts)
         available_prompts=mock_available_dicts["prompts"],
         available_tools=mock_available_dicts["tools"],
         debug=False,
+        llm_connection=LLMConnection(MOCK_LLM_CONFIG),
+        generate_react_agent_role_prompt=generate_react_agent_role_prompt,
     )
 
     # Check server1 capabilities
@@ -147,7 +168,16 @@ async def test_refresh_capabilities_not_connected():
     sessions = {"server1": {"connected": False, "session": Mock()}}
 
     with pytest.raises(ValueError, match="Not connected to server: server1"):
-        await refresh_capabilities(sessions, ["server1"], {}, {}, {}, debug=False)
+        await refresh_capabilities(
+            sessions,
+            ["server1"],
+            {},
+            {},
+            {},
+            debug=False,
+            llm_connection=LLMConnection(MOCK_LLM_CONFIG),
+            generate_react_agent_role_prompt=generate_react_agent_role_prompt,
+        )
 
 
 @pytest.mark.asyncio
@@ -163,6 +193,8 @@ async def test_refresh_capabilities_with_debug(mock_sessions, mock_available_dic
             available_prompts=mock_available_dicts["prompts"],
             available_tools=mock_available_dicts["tools"],
             debug=True,
+            llm_connection=LLMConnection(MOCK_LLM_CONFIG),
+            generate_react_agent_role_prompt=generate_react_agent_role_prompt,
         )
 
         # Verify debug logging
