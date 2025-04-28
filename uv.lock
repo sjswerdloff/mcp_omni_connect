@@ -399,14 +399,12 @@ dependencies = [
     { name = "httpx-sse" },
     { name = "mcp", extra = ["cli"] },
     { name = "openai" },
-    { name = "pre-commit" },
     { name = "pydantic" },
     { name = "python-decouple" },
     { name = "python-dotenv" },
     { name = "python-multipart" },
     { name = "redis" },
     { name = "rich" },
-    { name = "ruff" },
     { name = "websockets" },
 ]
 
@@ -429,14 +427,12 @@ requires-dist = [
     { name = "httpx-sse", specifier = ">=0.4.0" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.6.0" },
     { name = "openai", specifier = ">=1.67.0" },
-    { name = "pre-commit", specifier = ">=4.2.0" },
     { name = "pydantic", specifier = ">=2.6.0" },
     { name = "python-decouple", specifier = ">=3.8" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "redis", specifier = ">=5.2.1" },
     { name = "rich", specifier = ">=13.9.4" },
-    { name = "ruff", specifier = ">=0.11.7" },
     { name = "websockets", specifier = ">=15.0.1" },
 ]
 
