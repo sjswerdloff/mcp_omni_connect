@@ -220,14 +220,16 @@ tests/
    ```
 3. ** Start Client**
    ```bash
-   # Start the cient
-   uv run src/main.py pr python src/main.py
+   # Start the client
+   uv run run.py
+   # or
+   python run.py
    ```
 
 ### Server Configuration Examples
 
 ```json
-{   
+{
     "LLM": {
         "provider": "openai",  // Supports: "openai", "openrouter", "groq"
         "model": "gpt-4",      // Any model from supported providers
