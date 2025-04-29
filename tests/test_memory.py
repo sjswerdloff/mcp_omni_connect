@@ -28,7 +28,14 @@ class TestInMemoryShortTermMemory:
         assert messages[1]["role"] == "assistant"
 
     async def test_truncate_message_history(self):
-        memory = InMemoryShortTermMemory(max_context_tokens=2)
+        # context_tokens are not the same thing as messages
+        # There are six context tokens in the three messages
+        # the short term limit is 70% of max tokens
+        # If we limit to context max of 3 tokens, 70% of that is 2 tokens
+        # there's only enough room for one whole message with two tokens
+        # if were to have a limit of 2 max_context_tokens, that leaves 1 token
+        # as the short term limit, and that's not enough for any messages.
+        memory = InMemoryShortTermMemory(max_context_tokens=3)
         await memory.store_message("user", "one two")
         await memory.store_message("user", "three four")
         await memory.store_message("user", "five six")
@@ -39,8 +46,9 @@ class TestInMemoryShortTermMemory:
     async def test_clear_memory(self):
         memory = InMemoryShortTermMemory()
         await memory.store_message("user", "test")
-        cleared = await memory.clear_memory()
-        assert len(cleared) == 1
+        # clear_memory has no return value
+        await memory.clear_memory()
+        # assert len(cleared) == 1
         assert await memory.get_messages() == []
 
 

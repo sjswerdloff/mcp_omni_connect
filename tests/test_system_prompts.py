@@ -66,7 +66,7 @@ def test_generate_concise_prompt():
 
     # Check basic structure
     assert "You are a helpful AI assistant" in prompt
-    assert "Available tools:" in prompt
+    assert "AVAILABLE TOOLS" in prompt
 
     # Check tool descriptions
     assert "[server1]" in prompt
@@ -76,8 +76,8 @@ def test_generate_concise_prompt():
     assert "• tool3: Test tool 3" in prompt
 
     # Check guidelines
-    assert "When using tools:" in prompt
-    assert "Remember to:" in prompt
+    assert "If a task involves using a tool" in prompt
+    assert "confirm with the user before proceeding" in prompt
 
 
 # def test_generate_detailed_prompt():

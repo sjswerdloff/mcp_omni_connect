@@ -149,7 +149,10 @@ class TestReActAgent:
             tool_call_id,
             mock_add_message_to_history,
         )
-        assert result == "Tool result"
+        if not isinstance(result, dict):
+            result = json.loads(result)
+        assert result["status"] == "success"
+        assert result["data"] == "Tool result"
 
     @pytest.mark.asyncio
     async def test_execute_tool_error(self, mock_sessions, mock_add_message_to_history):
@@ -253,8 +256,10 @@ class TestReActAgent:
         mock_llm_connection,
         mock_add_message_to_history,
         mock_message_history,
+        caplog,
     ):
         """Test run with immediate final answer"""
+        caplog.set_level(logging.INFO)  # Set the desired log level
         agent = ReActAgent()
         # Ensure agent starts in IDLE state (default state)
         assert agent.state == AgentState.IDLE
@@ -266,47 +271,50 @@ class TestReActAgent:
             )
         )
 
-        # Capture state changes
-        state_changes = []
-        original_info = logging.info
+        # Capturing state changes via caplog instead
+        # # Capture state changes
+        # state_changes = []
+        # original_info = logging.info
 
-        def mock_info(msg):
-            if "Agent state changed from" in msg:
-                state_changes.append(msg)
-            original_info(msg)
+        # def mock_info(msg):
+        #     print(f"mock info msg: {msg}")
+        #     nonlocal state_changes
+        #     if "Agent state changed from" in msg:
+        #         state_changes.append(msg)
+        #     original_info(msg)
 
-        logging.info = mock_info
+        # logging.info = mock_info
 
-        try:
-            result = await agent.run(
-                mock_sessions,
-                "Test system prompt",
-                "Test query",
-                mock_llm_connection,
-                MOCK_TOOLS,
-                mock_add_message_to_history,
-                mock_message_history,
-                debug=True,
-            )
+        result = await agent.run(
+            mock_sessions,
+            "Test system prompt",
+            "Test query",
+            mock_llm_connection,
+            MOCK_TOOLS,
+            mock_add_message_to_history,
+            mock_message_history,
+            debug=True,
+        )
 
-            # Verify the result
-            assert result == "Test complete"
+        # Verify the result
+        assert result == "Test complete"
 
-            # Verify state transitions
-            assert len(state_changes) > 0
-            assert "RUNNING to FINISHED" in state_changes[-1]
+        state_change_logs = [
+            record.message
+            for record in caplog.records
+            if "Agent state changed from" in record.message
+        ]
+        # Verify state transitions
+        assert state_change_logs
+        assert "AgentState.RUNNING to AgentState.FINISHED" in state_change_logs[-1]
 
-            # Verify the message flow
-            assert (
-                len(agent.messages) >= 2
-            )  # Should have at least system prompt and final answer
-            assert agent.messages[0]["role"] == "system"
-            assert agent.messages[-1]["role"] == "assistant"
-            assert agent.messages[-1]["content"] == "Test complete"
-
-        finally:
-            # Restore original logger
-            logging.info = original_info
+        # Verify the message flow
+        assert (
+            len(agent.messages) >= 2
+        )  # Should have at least system prompt and final answer
+        assert agent.messages[0]["role"] == "system"
+        assert agent.messages[-1]["role"] == "assistant"
+        assert agent.messages[-1]["content"] == "Test complete"
 
     # @pytest.mark.asyncio
     # async def test_run_with_tool_chain(

@@ -1,5 +1,8 @@
-import pytest
+import logging
 from unittest.mock import AsyncMock
+
+import pytest
+
 from mcpomni_connect.prompts import (
     find_prompt_server,
     get_prompt,
@@ -336,11 +339,14 @@ async def test_get_prompt_with_react_agent_advanced():
         available_prompts={"server1": [{"name": "test-prompt"}]},
         name="test-prompt",
     )
+    print(f"Complex content = {content}")
     assert content == "Test message"
 
     # Test with invalid message structure
     mock_session.get_prompt = AsyncMock(
-        return_value=AsyncMock(messages=[AsyncMock(role="user")])  # Missing content
+        return_value=AsyncMock(
+            messages=[AsyncMock(role="user", spec=["role"])]
+        )  # Missing content
     )
 
     content = await get_prompt_with_react_agent(
@@ -351,6 +357,10 @@ async def test_get_prompt_with_react_agent_advanced():
         available_prompts={"server1": [{"name": "test-prompt"}]},
         name="test-prompt",
     )
+    if content:
+        print(f"Missing content = {content}")
+    else:
+        print("content was None")
     assert "Error getting prompt" in content
 
 
@@ -413,7 +423,10 @@ async def test_get_prompt_empty_messages():
         available_prompts={"server1": [{"name": "test-prompt"}]},
         name="test-prompt",
     )
+
     assert content is not None
+    print(f"Content returned: {content}")
+    assert "Error" in content
 
 
 @pytest.mark.asyncio
@@ -523,8 +536,10 @@ async def test_get_prompt_with_react_agent_empty_messages():
 
 
 @pytest.mark.asyncio
-async def test_get_prompt_with_react_agent_debug_logging():
+async def test_get_prompt_with_react_agent_debug_logging(caplog):
     """Test get_prompt_with_react_agent debug logging"""
+    # Set the log level to capture debug messages
+    caplog.set_level(logging.DEBUG)
     mock_session = AsyncMock()
     mock_sessions = {
         "server1": {"session": mock_session, "connected": True},
@@ -540,16 +555,15 @@ async def test_get_prompt_with_react_agent_debug_logging():
         )
     )
 
-    with pytest.LogCaptureFixture() as log_capture:
-        content = await get_prompt_with_react_agent(  # noqa: F841
-            sessions=mock_sessions,
-            system_prompt="Test system prompt",
-            add_message_to_history=mock_add_message_to_history,
-            debug=True,
-            available_prompts={"server1": [{"name": "test-prompt"}]},
-            name="test-prompt",
-        )
-        assert "Debug test message" in str(log_capture)
+    content = await get_prompt_with_react_agent(  # noqa: F841
+        sessions=mock_sessions,
+        system_prompt="Test system prompt",
+        add_message_to_history=mock_add_message_to_history,
+        debug=True,
+        available_prompts={"server1": [{"name": "test-prompt"}]},
+        name="test-prompt",
+    )
+    assert "Debug test message" in caplog.text
 
 
 @pytest.mark.asyncio
