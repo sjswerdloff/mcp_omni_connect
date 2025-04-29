@@ -816,12 +816,19 @@ class McpServerAgent:
                     logger.error(f"Error in agent state context: {e}")
                     return None
 
-
+from mcpomni_connect.agents.react_agent import ReactAgent
+from mcpomni_connect.agents.types import AgentConfig
 class OrchestratorAgent:
     mcp_server_agent = McpServerAgent()
 
-    def __init__(self, agent_registry: dict[str, Any], debug: bool = False):
+    def __init__(
+        self,
+        agent_registry: dict[str, Any],
+        current_date_time: str,
+        debug: bool = False,
+    ):
         self.agent_registry = agent_registry
+        self.current_date_time = current_date_time
         self.orchestrator_messages = []
         self.max_steps = 20
         self.debug = debug
@@ -985,6 +992,7 @@ class OrchestratorAgent:
         agent_role = self.agent_registry[server_name]
         agent_system_prompt = generate_react_agent_prompt_template(
             agent_role_prompt=agent_role,
+            current_date_time=self.current_date_time,
         )
         return agent_system_prompt
 
@@ -1032,17 +1040,28 @@ class OrchestratorAgent:
                 agent_name=agent_name,
                 available_tools=available_tools,
             )
-            observation = await self.mcp_server_agent.run(
-                agent_name=agent_name,
-                sessions=sessions,
+            agent_config = AgentConfig(
+                        agent_name=agent_name,
+                        tool_call_timeout=30,
+                        max_steps=15,
+                        mcp_enabled=True,
+                    )
+            extra_kwargs = {
+                        "sessions": sessions,
+                        "available_tools": available_tools,
+                        "is_generic_agent": False
+                    }
+            react_agent = ReactAgent(config=agent_config)
+            observation = await react_agent._run(
                 system_prompt=agent_system_prompt,
                 query=task,
                 llm_connection=llm_connection,
-                available_tools=available_tools,
                 add_message_to_history=add_message_to_history,
                 message_history=message_history,
                 debug=self.debug,
+                **extra_kwargs
             )
+           
             # if the observation is empty return general error message
             if not observation:
                 observation = "No observation available right now. try again later. or try a different agent."
