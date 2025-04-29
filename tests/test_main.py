@@ -1,7 +1,7 @@
 import json
 import pytest
 from unittest.mock import AsyncMock, Mock, patch
-from mcpomni_connect.main import check_config_exists, async_main, main
+from mcpomni_connect.main import check_config_exists, async_main
 
 
 @pytest.fixture
@@ -146,10 +146,11 @@ async def test_async_main_error():
         mock_client.cleanup.assert_called_once()
 
 
+@pytest.mark.OpenAIIntegration
 def test_main():
     """Test main function"""
-    with patch(
-        "mcpomni_connect.main.async_main", new_callable=AsyncMock
-    ) as mock_async_main:
+    from mcpomni_connect.main import main
+
+    with patch("mcpomni_connect.main.async_main", new_callable=AsyncMock) as mock_async_main:
         main()
         mock_async_main.assert_called_once()
