@@ -58,7 +58,20 @@ include = [
     "README.md"
 ]
 
-
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "asyncio: marks tests that use asyncio",
+    "OpenAIIntegration: marks tests that require an OpenAI API key",
+]
 
 [tool.uv.sources]
 mcpomni_connect = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+    "pytest>=8.3.5",
+    "pytest-asyncio>=0.26.0",
+    "ruff>=0.11.7",
+]
