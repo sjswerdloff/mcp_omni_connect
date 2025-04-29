@@ -1,6 +1,5 @@
 import json
 import pytest
-from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 from mcpomni_connect.main import check_config_exists, async_main, main
 
@@ -13,9 +12,7 @@ def mock_config_path(tmp_path):
 
 def test_check_config_exists_new(mock_config_path):
     """Test creating a new config file when it doesn't exist"""
-    with patch(
-        "mcpomni_connect.main.Path.cwd", return_value=mock_config_path.parent
-    ):
+    with patch("mcpomni_connect.main.Path.cwd", return_value=mock_config_path.parent):
         config_path = check_config_exists()
 
         assert config_path == mock_config_path
@@ -58,9 +55,7 @@ def test_check_config_exists_existing(mock_config_path):
     with open(mock_config_path, "w") as f:
         json.dump(existing_config, f)
 
-    with patch(
-        "mcpomni_connect.main.Path.cwd", return_value=mock_config_path.parent
-    ):
+    with patch("mcpomni_connect.main.Path.cwd", return_value=mock_config_path.parent):
         config_path = check_config_exists()
 
         assert config_path == mock_config_path
@@ -90,7 +85,6 @@ async def test_async_main_success():
         ),
         patch("mcpomni_connect.main.MCPClientCLI", return_value=mock_cli),
     ):
-
         await async_main()
 
         mock_check_config.assert_called_once()
@@ -118,7 +112,6 @@ async def test_async_main_keyboard_interrupt():
         ),
         patch("mcpomni_connect.main.MCPClientCLI", return_value=mock_cli),
     ):
-
         await async_main()
 
         mock_check_config.assert_called_once()
@@ -146,7 +139,6 @@ async def test_async_main_error():
         ),
         patch("mcpomni_connect.main.MCPClientCLI", return_value=mock_cli),
     ):
-
         await async_main()
 
         mock_check_config.assert_called_once()

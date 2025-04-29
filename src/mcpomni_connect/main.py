@@ -53,6 +53,7 @@ async def async_main():
 
     try:
         config_path = check_config_exists()
+        logger.debug(f"Configuration read in from {config_path}")
         config = Configuration()
         client = MCPClient(config)
         llm_connection = LLMConnection(config)

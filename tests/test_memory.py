@@ -1,7 +1,6 @@
 import pytest
-import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 from mcpomni_connect.memory import (
     InMemoryShortTermMemory,
     RedisShortTermMemory,
@@ -10,7 +9,6 @@ from mcpomni_connect.memory import (
 
 @pytest.mark.asyncio
 class TestInMemoryShortTermMemory:
-
     # This fixture resets the class-level message history before each test
     @pytest.fixture(autouse=True)
     def reset_message_history(self):
@@ -48,7 +46,6 @@ class TestInMemoryShortTermMemory:
 
 @pytest.mark.asyncio
 class TestRedisShortTermMemory:
-
     @pytest.fixture
     def mock_redis(self):
         redis_mock = AsyncMock()
@@ -62,9 +59,7 @@ class TestRedisShortTermMemory:
 
     async def test_store_message(self, mock_redis):
         memory = RedisShortTermMemory(redis_client=mock_redis)
-        await memory.store_message(
-            "user", "hello", metadata={"intent": "greeting"}
-        )
+        await memory.store_message("user", "hello", metadata={"intent": "greeting"})
 
         assert mock_redis.zadd.called
         assert mock_redis.set.called
@@ -109,8 +104,6 @@ class TestRedisShortTermMemory:
             ),
         ]
         mock_redis.zrange.return_value = messages
-        memory = RedisShortTermMemory(
-            redis_client=mock_redis, max_context_tokens=100
-        )
+        memory = RedisShortTermMemory(redis_client=mock_redis, max_context_tokens=100)
         await memory.enforce_short_term_limit()
         assert mock_redis.zrem.called

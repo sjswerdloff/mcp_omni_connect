@@ -1,8 +1,6 @@
 from typing import Any, Callable, List, Dict
 
 from mcpomni_connect.constants import TOOL_ACCEPTING_PROVIDERS
-from mcpomni_connect.utils import logger
-import json
 
 # def generate_concise_prompt(
 #     available_tools: dict[str, list[dict[str, Any]]],
@@ -214,11 +212,11 @@ Available Tools by Server:
                 if params:
                     tool_desc += "\n  Parameters:"
                     for param_name, param_info in params.items():
-                        param_desc = param_info.get(
-                            "description", "No description"
-                        )
+                        param_desc = param_info.get("description", "No description")
                         param_type = param_info.get("type", "any")
-                        tool_desc += f"\n    - {param_name} ({param_type}): {param_desc}"
+                        tool_desc += (
+                            f"\n    - {param_name} ({param_type}): {param_desc}"
+                        )
             tools_section.append(tool_desc)
 
     interaction_guidelines = """
@@ -256,9 +254,7 @@ def generate_system_prompt(
 
     # Get current provider from LLM config
     if hasattr(llm_connection, "llm_config"):
-        current_provider = llm_connection.llm_config.get(
-            "provider", ""
-        ).lower()
+        current_provider = llm_connection.llm_config.get("provider", "").lower()
     else:
         current_provider = ""
 
@@ -284,9 +280,7 @@ TOOLS:
     for tool in server_tools:
         tool_name = str(tool.name)
         tool_description = (
-            str(tool.description)
-            if tool.description
-            else "No description available"
+            str(tool.description) if tool.description else "No description available"
         )
         prompt += f"\n- {tool_name}: {tool_description}"
 
@@ -895,9 +889,9 @@ STATE 1: Initial Analysis & First Delegation
 ```
 ### Planning
 Thought: [Breakdown analysis & first subtask choice]
-Action: { 
+Action: {
   "agent_name": "ExactAgentFromRegistry",
-  "task": "Specific first task" 
+  "task": "Specific first task"
 }
 ```
 
@@ -907,7 +901,7 @@ STATE 2: Intermediate Processing
 Thought: [Interpret result & next step decision]
 Action: {
   "agent_name": "NextExactAgent",
-  "task": "Next specific task" 
+  "task": "Next specific task"
 }
 ```
 
@@ -980,17 +974,17 @@ Final Answer: Weekly Lagos forecast saved to weather_report.md. Contains: [ACTUA
 
 User: Can you summarize this report and extract its action points?
 
-Assistant: This is the list of agents and their capabilities **AgentsRegistryObservation**  
+Assistant: This is the list of agents and their capabilities **AgentsRegistryObservation**
 Available agents:
-- SummarizerAgent: Summarizes text documents  
-- ExtractorAgent: Extracts action points from text  
+- SummarizerAgent: Summarizes text documents
+- ExtractorAgent: Extracts action points from text
 
 **Response 1 (STATE 1):**
 ```
 ### Planning
-Thought: The request involves two sequential subtasks:  
-1) Summarize the report  
-2) Extract action points from the summary  
+Thought: The request involves two sequential subtasks:
+1) Summarize the report
+2) Extract action points from the summary
 I'll start with summarizing the report using the SummarizerAgent.
 Action: {
   "agent_name": "SummarizerAgent",
@@ -1012,7 +1006,7 @@ Action: {
 ```
 ### Task Resolution
 Thought: All requested insights are complete.
-Final Answer: Summary: The report highlights three key themes...  
+Final Answer: Summary: The report highlights three key themes...
 Action Points: 1) Improve marketing budget, 2) Reassign sales reps...
 ```
 
@@ -1022,11 +1016,11 @@ Action Points: 1) Improve marketing budget, 2) Reassign sales reps...
 
 **User:** Can you analyze this dataset and provide insights?
 
-Assistant: This is the list of agents and their capabilities **AgentsRegistryObservation**  
+Assistant: This is the list of agents and their capabilities **AgentsRegistryObservation**
 Available agents:
-- `DataAnalyzerAgent`: Performs statistical analysis on datasets  
-- `PatternRecognizerAgent`: Detects patterns and anomalies in data  
-- `InsightsGeneratorAgent`: Generates business insights from data analysis  
+- `DataAnalyzerAgent`: Performs statistical analysis on datasets
+- `PatternRecognizerAgent`: Detects patterns and anomalies in data
+- `InsightsGeneratorAgent`: Generates business insights from data analysis
 
 ---
 
@@ -1080,9 +1074,9 @@ Action: {
 ### Task Resolution
 Thought: Insights successfully generated. All required subtasks are now complete.
 
-Final Answer:  
-The dataset shows a seasonal trend, with a notable dip in Q2 performance.  
-Actionable insight: Focus on improving operational consistency during Q2 through resource reallocation and staff retention.  
+Final Answer:
+The dataset shows a seasonal trend, with a notable dip in Q2 performance.
+Actionable insight: Focus on improving operational consistency during Q2 through resource reallocation and staff retention.
 This may mitigate recurring losses and improve annual stability.
 ```
 
@@ -1136,9 +1130,9 @@ Final Answer: [This will be provided after...]
 [FAILURE MODES MITIGATION]
 
 If any of the following occurs:
-1. Empty agent response  
-2. Malformed or irrelevant observation  
-3. Use of an unregistered agent name  
+1. Empty agent response
+2. Malformed or irrelevant observation
+3. Use of an unregistered agent name
 
 Then:
 
@@ -1506,7 +1500,7 @@ Final Answer: The weather in New York is currently 65°F with light rain. There'
      "parameters": {
        "param1": "value1"
      }
-   
+
    CORRECT: Action: {
      "tool": "tool_name",
      "parameters": {

@@ -1,10 +1,7 @@
-import pytest
 from unittest.mock import Mock
 from mcpomni_connect.system_prompts import (
     generate_concise_prompt,
-    generate_detailed_prompt,
     generate_system_prompt,
-    generate_react_agent_prompt,
 )
 
 # Mock data
@@ -121,12 +118,8 @@ def test_generate_system_prompt():
     assert "You are a helpful AI assistant" in prompt_tool  # Concise prompt
 
     # Test with non-tool-accepting provider
-    prompt_no_tool = generate_system_prompt(
-        MOCK_TOOLS, mock_llm_connection_no_tool
-    )
-    assert (
-        "You are an intelligent assistant" in prompt_no_tool
-    )  # Detailed prompt
+    prompt_no_tool = generate_system_prompt(MOCK_TOOLS, mock_llm_connection_no_tool)
+    assert "You are an intelligent assistant" in prompt_no_tool  # Detailed prompt
 
 
 # def test_generate_react_agent_prompt():

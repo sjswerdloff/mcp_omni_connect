@@ -1,6 +1,4 @@
 import json
-import logging
-import os
 import re
 import uuid
 from typing import Any, Callable, Dict, Optional
@@ -9,7 +7,6 @@ from mcpomni_connect.utils import (
     RobustLoopDetector,
     handle_stuck_state,
 )
-from datetime import datetime
 import asyncio
 from contextlib import asynccontextmanager
 from mcpomni_connect.types import AgentState
@@ -54,7 +51,6 @@ class ReActAgent:
         try:
             action_start = response.find("Action:")
             if action_start != -1:
-
                 action_text = response[action_start + len("Action:") :].strip()
 
                 # Find the start of the JSON object (the first "{")
@@ -91,14 +87,10 @@ class ReActAgent:
                         try:
                             action = json.loads(json_str)
                             tool_name = (
-                                action["tool"].lower()
-                                if "tool" in action
-                                else None
+                                action["tool"].lower() if "tool" in action else None
                             )
                             tool_args = (
-                                action["parameters"]
-                                if "parameters" in action
-                                else None
+                                action["parameters"] if "parameters" in action else None
                             )
                             # if tool_name is None or tool_args is None, return an error
                             if tool_name is None or tool_args is None:
@@ -113,9 +105,7 @@ class ReActAgent:
                                     server_name,
                                     tools,
                                 ) in available_tools.items():
-                                    tool_names = [
-                                        tool.name.lower() for tool in tools
-                                    ]
+                                    tool_names = [tool.name.lower() for tool in tools]
                                     if tool_name in tool_names:
                                         return {
                                             "action": True,
@@ -165,31 +155,23 @@ class ReActAgent:
             if "Action" in response:
                 if debug:
                     logger.info("Action found in response: %s", response)
-                json_match_result = self.parse_action(
-                    response, available_tools
-                )
+                json_match_result = self.parse_action(response, available_tools)
                 if json_match_result and json_match_result.get("action"):
                     return json_match_result
                 elif "error" in json_match_result:
                     return json_match_result["error"]
                 else:
-                    return {
-                        "error": "No valid action or answer found in response"
-                    }
+                    return {"error": "No valid action or answer found in response"}
             else:
                 # its a normal response
                 if debug:
-                    logger.info(
-                        "Normal response found in response: %s", response
-                    )
+                    logger.info("Normal response found in response: %s", response)
                 return {"answer": response}
         except Exception as e:
             logger.error("Error parsing response: %s", str(e), exc_info=True)
             return {"error": str(e)}
 
-        logger.warning(
-            "No valid action or answer found in response: %s", response
-        )
+        logger.warning("No valid action or answer found in response: %s", response)
         return {"error": "No valid action or answer found in response"}
 
     async def _execute_tool(
@@ -259,28 +241,21 @@ class ReActAgent:
             )
             return json.dumps(error_response)
 
-    async def update_llm_working_memory(
-        self, message_history: Callable[[], Any]
-    ):
+    async def update_llm_working_memory(self, message_history: Callable[[], Any]):
         """Update the LLM's working memory with the current message history"""
         short_term_memory_message_history = await message_history()
         # Process message history in order that will be sent to LLM
         for _, message in enumerate(short_term_memory_message_history):
             if message["role"] == "user":
                 # First flush any pending tool responses if needed
-                if (
-                    self.assistant_with_tool_calls
-                    and self.pending_tool_responses
-                ):
+                if self.assistant_with_tool_calls and self.pending_tool_responses:
                     self.messages.append(self.assistant_with_tool_calls)
                     self.messages.extend(self.pending_tool_responses)
                     self.assistant_with_tool_calls = None
                     self.pending_tool_responses = []
 
                 # append all the user messages in the message history to the messages that will be sent to LLM
-                self.messages.append(
-                    {"role": "user", "content": message["content"]}
-                )
+                self.messages.append({"role": "user", "content": message["content"]})
 
             elif message["role"] == "assistant":
                 # Check if the assistant has tool calls
@@ -322,18 +297,14 @@ class ReActAgent:
                         {
                             "role": "tool",
                             "content": message["content"],
-                            "tool_call_id": message["metadata"][
-                                "tool_call_id"
-                            ],
+                            "tool_call_id": message["metadata"]["tool_call_id"],
                         }
                     )
 
             elif message["role"] == "system":
                 # add only the system message to the messages that will be sent to LLM.
                 # it will be the first message sent to LLM and only one at all times
-                self.messages.append(
-                    {"role": "system", "content": message["content"]}
-                )
+                self.messages.append({"role": "system", "content": message["content"]})
 
     async def act(
         self,
@@ -524,11 +495,11 @@ class ReActAgent:
                         tool_desc += "| Name | Type | Description |\n"
                         tool_desc += "|------|------|-------------|\n"
                         for param_name, param_info in params.items():
-                            param_desc = param_info.get(
-                                "description", "No description"
-                            )
+                            param_desc = param_info.get("description", "No description")
                             param_type = param_info.get("type", "any")
-                            tool_desc += f"| `{param_name}` | `{param_type}` | {param_desc} |\n"
+                            tool_desc += (
+                                f"| `{param_name}` | `{param_type}` | {param_desc} |\n"
+                            )
                 tools_section.append(tool_desc)
 
         return tools_section
@@ -566,21 +537,14 @@ class ReActAgent:
             AgentState.STUCK,
             AgentState.ERROR,
         ]:
-            raise RuntimeError(
-                f"Agent is not in a valid state to run: {self.state}"
-            )
+            raise RuntimeError(f"Agent is not in a valid state to run: {self.state}")
 
         # set the agent state to running
         async with self.agent_state_context(AgentState.RUNNING):
             current_steps = 0
-            while (
-                self.state != AgentState.FINISHED
-                and current_steps < self.max_steps
-            ):
+            while self.state != AgentState.FINISHED and current_steps < self.max_steps:
                 if debug:
-                    logger.info(
-                        f"Sending {len(self.messages)} messages to LLM"
-                    )
+                    logger.info(f"Sending {len(self.messages)} messages to LLM")
                 current_steps += 1
                 try:
                     response = await llm_connection.llm_call(self.messages)
@@ -590,9 +554,7 @@ class ReActAgent:
                     logger.error("API error: %s", str(e))
                     return None
 
-                parsed_response = self.parse_response(
-                    response, available_tools, debug
-                )
+                parsed_response = self.parse_response(response, available_tools, debug)
                 if debug:
                     logger.info(f"current steps: {current_steps}")
                 # check for final answer
@@ -650,9 +612,7 @@ class ReActAgent:
                         "content": error_message,
                     }
                 )
-                await add_message_to_history(
-                    role="user", content=error_message
-                )
+                await add_message_to_history(role="user", content=error_message)
                 self.loop_detector.record_message(error_message, response)
                 if self.loop_detector.is_looping():
                     logger.warning("Loop detected")

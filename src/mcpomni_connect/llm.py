@@ -193,6 +193,7 @@ class LLMConnection:
 
         # Process remaining messages, ensuring recent messages are prioritized
         remaining_budget = TOTAL_LIMIT - total_tokens
+        logger.debug(f"Remaining Budget for tokens: {remaining_budget}")
         for i, msg in enumerate(messages[1:]):
             if total_tokens >= TOTAL_LIMIT:
                 break
@@ -213,9 +214,7 @@ class LLMConnection:
 
             # Ensure messages are added even if total budget is exceeded
             if total_tokens + msg_length > TOTAL_LIMIT:
-                msg["content"] = msg["content"][
-                    : max(0, TOTAL_LIMIT - total_tokens)
-                ]
+                msg["content"] = msg["content"][: max(0, TOTAL_LIMIT - total_tokens)]
                 if msg["content"]:  # Only add if there's remaining content
                     truncated_messages.append(msg)
                     total_tokens += len(msg["content"])
