@@ -13,5 +13,4 @@ async def list_tools(server_names: list[str], sessions: dict[str, dict[str, Any]
                 tools.extend(tools_response.tools)
             except Exception:
                 logger.info(f"{server_name} Does not support tools")
-    logger.info(f"total number of tools connected to the client: {len(tools)}")
     return tools

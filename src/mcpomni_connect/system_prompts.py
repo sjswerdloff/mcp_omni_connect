@@ -100,8 +100,10 @@ from mcpomni_connect.constants import TOOL_ACCEPTING_PROVIDERS
 
 
 def generate_concise_prompt(
+    current_date_time: str,
     available_tools: dict[str, list[dict[str, Any]]],
     episodic_memory: List[Dict[str, Any]] = None,
+    
 ) -> str:
     """Generate a concise system prompt for LLMs that accept tools in input"""
     prompt = """You are a helpful AI assistant with access to various tools to help users with their tasks.
@@ -158,7 +160,12 @@ You have access to the following tools grouped by server. Use them only when nec
 
 If a task involves using a tool or accessing sensitive data, describe the tool's purpose and behavior, and confirm with the user before proceeding. Always prioritize user consent, data privacy, and safety.
 """
-    return prompt
+ # Date and Time
+    date_time_format = f"""
+The current date and time is: {current_date_time}
+You do not need a tool to get the current Date and Time. Use the information available here.
+"""
+    return prompt + date_time_format
 
 
 def generate_detailed_prompt(
@@ -246,6 +253,7 @@ If a task involves using a tool or accessing sensitive data, describe the tool's
 
 
 def generate_system_prompt(
+    current_date_time: str,
     available_tools: dict[str, list[dict[str, Any]]],
     llm_connection: Callable[[], Any],
     episodic_memory: List[Dict[str, Any]] = None,
@@ -260,7 +268,11 @@ def generate_system_prompt(
 
     # Choose appropriate prompt based on provider
     if current_provider in TOOL_ACCEPTING_PROVIDERS:
-        return generate_concise_prompt(available_tools, episodic_memory)
+        return generate_concise_prompt(
+          current_date_time=current_date_time,
+          available_tools=available_tools, 
+          episodic_memory=episodic_memory
+          )
     else:
         return generate_detailed_prompt(available_tools, episodic_memory)
 
@@ -855,8 +867,8 @@ Now generate the agent role description below:
 #     return prompt
 
 
-def generate_orchestrator_prompt_template():
-    return """You are a MCPOmni-Connect Orchestrator Agent.
+def generate_orchestrator_prompt_template(current_date_time: str):
+    prompt = """You are a MCPOmni-Connect Orchestrator Agent.
 
 Your sole responsibility is to **delegate tasks** to specialized agents and **integrate their responses**. You must strictly follow the format and rules described below for every response.
 
@@ -1172,6 +1184,12 @@ When recovery is not possible, switch to the following structure:
 
 You MUST follow this format strictly. You are not a chatbot — you are a reasoning, planning, delegation engine.
 """
+    # Date and Time
+    date_time_format = f"""
+The current date and time is: {current_date_time}
+You do not need a tool to get the current Date and Time. Use the information available here.
+"""
+    return prompt + date_time_format
 
 
 # def generate_react_agent_prompt_template(
@@ -1394,6 +1412,7 @@ You MUST follow this format strictly. You are not a chatbot — you are a reason
 
 def generate_react_agent_prompt_template(
     agent_role_prompt: str,
+    current_date_time: str,
 ) -> str:
     """Generate prompt for ReAct agent"""
     prompt = f"""
@@ -1541,13 +1560,22 @@ Remember:
 - Always maintain a helpful and professional tone
 - Always focus on addressing the user's actual question
 """
-    return prompt
+    # Date and Time
+    date_time_format = f"""
+The current date and time is: {current_date_time}
+You do not need a tool to get the current Date and Time. Use the information available here.
+"""
+    return prompt + date_time_format
 
 
-def generate_react_agent_prompt() -> str:
+def generate_react_agent_prompt(current_date_time: str, instructions: str = None) -> str:
     """Generate prompt for ReAct agent"""
-    prompt = """You are an agent, designed to help with a variety of tasks, from answering questions to providing summaries to other types of analyses.
+    if instructions:
+      prompt = f"""{instructions}"""
+    else:
+      prompt = """You are an agent, designed to help with a variety of tasks, from answering questions to providing summaries to other types of analyses."""
 
+    prompt += """
 [UNDERSTANDING USER REQUESTS - CRITICAL]
 - FIRST, always carefully analyze the user's request to determine if you fully understand what they're asking
 - If the request is unclear, vague, or missing key information, DO NOT use any tools - instead, ask clarifying questions
@@ -1689,7 +1717,12 @@ Remember:
 - Always maintain a helpful and professional tone
 - Always focus on addressing the user's actual question
 """
-    return prompt + example + interaction_guidelines
+    # Date and Time
+    date_time_format = f"""
+The current date and time is: {current_date_time}
+You do not need a tool to get the current Date and Time. Use the information available here.
+"""
+    return prompt + example + interaction_guidelines + date_time_format
 
 
 EPISODIC_MEMORY_PROMPT = """

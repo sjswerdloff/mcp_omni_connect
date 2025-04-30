@@ -21,7 +21,11 @@ async def generate_react_agent_role_prompt_func(
     ]
     response = await llm_connection.llm_call(messages)
     if response:
-        return response.choices[0].message.content
+        if hasattr(response, "choices"):
+            response = response.choices[0].message.content.strip()
+        elif hasattr(response, "message"):
+            response = response.message.content.strip()
+        return response
     else:
         return ""
 

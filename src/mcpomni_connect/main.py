@@ -6,6 +6,11 @@ from mcpomni_connect.cli import MCPClientCLI
 from mcpomni_connect.client import Configuration, MCPClient
 from mcpomni_connect.llm import LLMConnection
 from mcpomni_connect.utils import logger
+import os
+from dotenv import load_dotenv
+
+
+load_dotenv()
 
 DEFAULT_CONFIG_NAME = "servers_config.json"
 
@@ -23,6 +28,12 @@ def check_config_exists():
         )
 
         default_config = {
+            "AgentConfig": {
+                "tool_call_timeout": 30,
+                "max_steps": 15,
+                "request_limit": 1000,
+                "total_tokens_limit": 100000
+            },
             "LLM": {
                 "provider": "openrouter",
                 "model": "qwen/qwq-32b:free",
@@ -52,6 +63,9 @@ async def async_main():
     client = None
 
     try:
+        api_key = os.getenv("LLM_API_KEY")
+        if not api_key:
+            raise RuntimeError("LLM_API_KEY environment variable is missing. Please set it in your environment or .env file.")
         config_path = check_config_exists()
         logger.debug(f"Configuration read in from {config_path}")
         config = Configuration()

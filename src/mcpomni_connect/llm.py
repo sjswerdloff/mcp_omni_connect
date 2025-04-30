@@ -3,7 +3,12 @@ from typing import Any
 from groq import Groq
 from openai import OpenAI
 from mcpomni_connect.utils import logger
+import ollama
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
+OLLAMA_HOST=os.getenv("OLLAMA_HOST")
 
 class LLMConnection:
     def __init__(self, config: dict[str, Any]):
@@ -23,6 +28,7 @@ class LLMConnection:
             base_url="https://api.deepseek.com",
             api_key=self.config.llm_api_key,
         )
+        self.ollama = None
         if not self.llm_config:
             logger.info("updating llm configuration")
             self.llm_configuration()
@@ -168,10 +174,49 @@ class LLMConnection:
                         messages=messages,
                     )
                 return response
+            elif self.llm_config["provider"].lower() == "ollama":
+                serialized_messages = self.serialize_messages(chat_payload=messages)
+                response = ollama.chat(
+                        model=self.llm_config["model"],
+                        messages=serialized_messages,
+                        stream=False,
+                        tools=tools or [],
+                    )
+                return response
         except Exception as e:
             logger.error(f"Error calling LLM: {e}")
             return None
 
+    def serialize_messages(self, chat_payload: list):
+        serialized_messages = []
+        for message in chat_payload:
+            try:
+                # Check if message is a dictionary or an object with 'role' and 'content'
+                if isinstance(message, dict):
+                    if 'role' in message and 'content' in message:
+                        role = message['role']
+                        content = message['content']
+                        msg = {'role': str(role), 'content': str(content)}
+                        serialized_messages.append(msg)
+                    else:
+                        logger.debug(f"Excluded message (missing keys): {message}")
+                elif hasattr(message, 'role') and hasattr(message, 'content'):
+                    
+                    role = message.role.value
+                    content = message.content
+                    msg = {'role': role, 'content': content}
+                    serialized_messages.append(msg)
+                else:
+                    # Exclude invalid message
+                    logger.debug(f"Excluded message (missing role/content): {message}")
+            except Exception as e:
+                logger.error(f"Error processing message: {e}")
+                continue
+        if not serialized_messages:
+            logger.warning("No valid messages found for serialization.")
+        # Return the serialized list of messages
+        return serialized_messages
+    
     def truncate_messages_for_groq(self, messages):
         """Truncate messages to stay within Groq's token limits (5000 total)."""
         if not messages:
@@ -228,3 +273,6 @@ class LLMConnection:
         )
         logger.info(f"Truncated messages: {truncated_messages}")
         return truncated_messages
+
+
+

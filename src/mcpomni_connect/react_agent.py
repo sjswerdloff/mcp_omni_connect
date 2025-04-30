@@ -544,7 +544,7 @@ class ReActAgent:
             current_steps = 0
             while self.state != AgentState.FINISHED and current_steps < self.max_steps:
                 if debug:
-                    logger.info(f"Sending {len(self.messages)} messages to LLM")
+                    logger.info(f"Sending {(self.messages)} messages to LLM")
                 current_steps += 1
                 try:
                     response = await llm_connection.llm_call(self.messages)
