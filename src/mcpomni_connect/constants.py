@@ -6,6 +6,7 @@ TOOL_ACCEPTING_PROVIDERS = {
     "openrouter",
     "gemini",
     "deepseek",
+    "ollama"
 }
 
 AGENTS_REGISTRY = {}

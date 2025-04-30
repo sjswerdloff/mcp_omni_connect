@@ -254,7 +254,11 @@ class ToolCallingAgent:
             error_message = f"Error processing query: {e}"
             return error_message
         # Process response and handle tool calls
-        assistant_message = response.choices[0].message
+        if hasattr(response, "choices"):
+            assistant_message = response.choices[0].message
+        elif hasattr(response, "message"):
+            assistant_message = response.message
+        
         initial_response = assistant_message.content or ""
         
         # Process tool calls
@@ -317,8 +321,10 @@ class ToolCallingAgent:
                 second_response = await llm_connection.llm_call(
                     messages=self.messages,
                 )
-                
-                final_assistant_message = second_response.choices[0].message
+                if hasattr(response, "choices"):
+                    final_assistant_message = second_response.choices[0].message
+                elif hasattr(response, "message"):
+                    final_assistant_message = second_response.message
                 response_content = final_assistant_message.content or ""
                 
                 await add_message_to_history(

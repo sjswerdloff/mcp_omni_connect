@@ -431,7 +431,9 @@
             messagesContainer.appendChild(messageDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
-
+        function generateChatId() {
+            return crypto.randomUUID(); // Use UUID for unique chat ID
+        }
         async function sendMessage() {
             const query = userInput.value.trim();
             if (!query) return;
@@ -442,14 +444,18 @@
             const loading = createLoadingDots();
             messagesContainer.appendChild(loading);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            const chatId = generateChatId();
 
             try {
                 const response = await fetch('http://localhost:8000/chat/agent_chat', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Content-Type': 'application/json',
                     },
-                    body: `query=${encodeURIComponent(query)}`
+                    body: JSON.stringify({
+                            query: query,
+                            chat_id: "cc1c9dbe-4344-4511-b98b-f563d2526d6a"
+                        })
                 });
 
                 const reader = response.body.getReader();

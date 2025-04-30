@@ -265,7 +265,10 @@ class OrchestratorAgent(BaseReactAgent):
                     self.orchestrator_messages
                 )
                 if response:
-                    response = response.choices[0].message.content.strip()
+                    if hasattr(response, "choices"):
+                        response = response.choices[0].message.content.strip()
+                    elif hasattr(response, "message"):
+                        response = response.message.content.strip()
             except Exception as e:
                 logger.error("API error: %s", str(e))
                 return None

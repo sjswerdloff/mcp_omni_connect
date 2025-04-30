@@ -26,6 +26,10 @@ class LLMToolSupport:
             "provider": "deepseek",
             "models": None,  # None means all models support tools
         },
+        "ollama": {
+            "provider": "ollama",
+            "models": None,  # None means all models support tools
+        },
     }
 
     @classmethod
