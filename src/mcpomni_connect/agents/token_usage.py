@@ -204,3 +204,4 @@ session_stats = {
     "response_tokens": 0,
     "total_tokens": 0,
 }
+usage = Usage()

@@ -28,10 +28,10 @@ from mcpomni_connect.agents.tools.tools_handler import (
     LocalToolHandler,
     ToolExecutor,
 )
-from mcpomni_connect.agents.token_usage import Usage, UsageLimits, UsageLimitExceeded, session_stats
+from mcpomni_connect.agents.token_usage import Usage, UsageLimits, UsageLimitExceeded, session_stats, usage
 
 
-usage = Usage()
+
 class BaseReactAgent:
     """Autonomous agent implementing the ReAct paradigm for task solving through iterative reasoning and tool usage."""
 
@@ -626,11 +626,13 @@ class BaseReactAgent:
                         elif hasattr(response, "message"):
                             response = response.message.content.strip()
                 except UsageLimitExceeded as e:
-                    logger.error("Usage limit error: %s", str(e))
-                    return None
+                    error_message = f"Usage limit error: {e}"
+                    logger.error(error_message)
+                    return error_message
                 except Exception as e:
-                    logger.error("API error: %s", str(e))
-                    return None
+                    error_message = f"API error: {e}"
+                    logger.error(error_message)
+                    return error_message
 
                 parsed_response = await self.extract_action_or_answer(
                     response=response, debug=debug

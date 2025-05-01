@@ -2,8 +2,7 @@ import json
 from typing import Any, Callable, Optional, Union, Dict
 from mcpomni_connect.utils import logger
 from mcpomni_connect.agents.types import MessageRole
-from mcpomni_connect.agents.token_usage import Usage, UsageLimits, UsageLimitExceeded, session_stats
-from mcpomni_connect.agents.base import usage
+from mcpomni_connect.agents.token_usage import Usage, UsageLimits, UsageLimitExceeded, session_stats, usage
 from mcpomni_connect.agents.types import AgentConfig
 class ToolCallingAgent:
     def __init__(
@@ -258,6 +257,7 @@ class ToolCallingAgent:
         try:
             # Initial LLM API call
             current_steps += 1
+            self.usage_limits.check_before_request(usage=usage)
             response = await llm_connection.llm_call(
                 messages=self.messages, tools=all_available_tools
             )

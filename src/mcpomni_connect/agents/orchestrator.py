@@ -1,4 +1,4 @@
-from mcpomni_connect.agents.base import BaseReactAgent, usage
+from mcpomni_connect.agents.base import BaseReactAgent
 from mcpomni_connect.agents.types import AgentConfig
 from mcpomni_connect.agents.types import ParsedResponse
 from mcpomni_connect.agents.react_agent import ReactAgent
@@ -10,7 +10,7 @@ from mcpomni_connect.utils import logger, CLIENT_MAC_ADDRESS
 from mcpomni_connect.system_prompts import generate_react_agent_prompt_template
 import time
 import uuid
-from mcpomni_connect.agents.token_usage import Usage, UsageLimits, UsageLimitExceeded, session_stats
+from mcpomni_connect.agents.token_usage import Usage, UsageLimits, UsageLimitExceeded, session_stats, usage
 
 
 class OrchestratorAgent(BaseReactAgent):
@@ -256,6 +256,7 @@ class OrchestratorAgent(BaseReactAgent):
         current_steps = 0
         while current_steps < self.max_steps:
             current_steps += 1
+            self.usage_limits.check_before_request(usage=usage)
             try:
                 if self.debug:
                     logger.info(
@@ -303,11 +304,13 @@ class OrchestratorAgent(BaseReactAgent):
                     elif hasattr(response, "message"):
                         response = response.message.content.strip()
             except UsageLimitExceeded as e:
-                logger.error("Usage limit error: %s", str(e))
-                return None
+                error_message = f"Usage limit error: {e}"
+                logger.error(error_message)
+                return error_message
             except Exception as e:
-                logger.error("API error: %s", str(e))
-                return None
+                error_message = f"API error: {e}"
+                logger.error(error_message)
+                return error_message
 
             parsed_response = await self.extract_action_or_answer(
                     response=response, debug=self.debug
