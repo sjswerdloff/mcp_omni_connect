@@ -2,24 +2,33 @@ import json
 from typing import Any, Callable, Optional, Union, Dict
 from mcpomni_connect.utils import logger
 from mcpomni_connect.agents.types import MessageRole
-
-
+from mcpomni_connect.agents.token_usage import Usage, UsageLimits, UsageLimitExceeded, session_stats
+from mcpomni_connect.agents.base import usage
+from mcpomni_connect.agents.types import AgentConfig
 class ToolCallingAgent:
-    def __init__(self, chat_id: str, agent_name: str = "Tool_calling_agent", debug: bool = False, mcp_enabled: bool = True):
-        self.chat_id = chat_id
-        self.agent_name = agent_name
+    def __init__(
+        self, 
+        config: AgentConfig,
+        debug: bool = False, 
+
+        ):
+        self.request_limit = config.request_limit
+        self.total_tokens_limit = config.total_tokens_limit
+        self.agent_name = config.agent_name
+        self.mcp_enabled = config.mcp_enabled
+
         self.debug = debug
-        self.mcp_enabled = mcp_enabled
         self.assistant_with_tool_calls = None
         self.pending_tool_responses = []
         self.messages = []
-
-    async def update_llm_working_memory(self, message_history: Callable[[], Any]):
+        self.usage_limits = UsageLimits(request_limit=self.request_limit, total_tokens_limit=self.total_tokens_limit)
+    
+    async def update_llm_working_memory(self, message_history: Callable[[], Any], chat_id: str):
         """Process message history and update working memory for LLM."""
         # Get message history from Redis or other storage
         short_term_memory_message_history = await message_history(
             agent_name=self.agent_name,
-            chat_id=self.chat_id
+            chat_id=chat_id
         )
         
         # Process message history in order
@@ -122,6 +131,7 @@ class ToolCallingAgent:
     
     async def execute_tool_call(
     self,
+    chat_id: str,
     tool_name: str,
     tool_args: Union[str, dict],
     tool_call: Any,
@@ -183,7 +193,7 @@ class ToolCallingAgent:
                     "tool": tool_name,
                     "args": tool_args,
                 },
-                chat_id=self.chat_id
+                chat_id=chat_id
             )
 
             return {"result": str(tool_content)}
@@ -208,7 +218,7 @@ class ToolCallingAgent:
                     "args": tool_args,
                     "error": True,
                 },
-                chat_id=self.chat_id
+                chat_id=chat_id
             )
 
             return {"error": error_message}
@@ -216,6 +226,7 @@ class ToolCallingAgent:
     async def run(
         self,
         query: str,
+        chat_id: str,
         system_prompt: str,
         llm_connection: Callable[[], Any],
         sessions: dict[str, Any],
@@ -231,27 +242,66 @@ class ToolCallingAgent:
         tool_results = []
         available_tools = available_tools if self.mcp_enabled else None
         tools_registry = tools_registry if not self.mcp_enabled else None
-
+        current_steps = 0
         # Initialize messages with system prompt
         self.messages = [{"role": "system", "content": system_prompt}]
         
         # Add user query to history
-        await add_message_to_history(agent_name=self.agent_name, role="user", content=query, chat_id=self.chat_id)
+        await add_message_to_history(agent_name=self.agent_name, role="user", content=query, chat_id=chat_id)
         
         # Update working memory with message history
-        await self.update_llm_working_memory(message_history=message_history)
+        await self.update_llm_working_memory(message_history=message_history, chat_id=chat_id)
     
         # Get available tools
         all_available_tools = await self.list_available_tools(available_tools=available_tools, tools_registry=tools_registry)
         
         try:
             # Initial LLM API call
+            current_steps += 1
             response = await llm_connection.llm_call(
                 messages=self.messages, tools=all_available_tools
             )
+            if response:
+                    # check if it has usage
+                    if hasattr(response, "usage"):
+                        request_usage = Usage(
+                            requests=current_steps,
+                            request_tokens=response.usage.prompt_tokens,
+                            response_tokens=response.usage.completion_tokens,
+                            total_tokens=response.usage.total_tokens
+                        )
+                        usage.incr(request_usage)
+                        # Check if we've exceeded token limits
+                        self.usage_limits.check_tokens(usage)
+                        # Show remaining resources
+                        remaining_tokens = self.usage_limits.remaining_tokens(usage)
+                        used_tokens = usage.total_tokens
+                        used_requests = usage.requests
+                        remaining_requests = self.request_limit - used_requests
+                        session_stats.update({
+                                "used_requests": used_requests,
+                                "used_tokens": used_tokens,
+                                "remaining_requests": remaining_requests,
+                                "remaining_tokens": remaining_tokens,
+                                "request_tokens": request_usage.request_tokens,
+                                "response_tokens": request_usage.response_tokens,
+                                "total_tokens": request_usage.total_tokens
+                            })
+                        if self.debug:
+                            logger.info(f"API Call Stats - Requests: {used_requests}/{self.request_limit}, "
+                                        f"Tokens: {used_tokens}/{self.usage_limits.total_tokens_limit}, "
+                                        f"Request Tokens: {request_usage.request_tokens}, "
+                                        f"Response Tokens: {request_usage.response_tokens}, "
+                                        f"Total Tokens: {request_usage.total_tokens}, "
+                                        f"Remaining Requests: {remaining_requests}, "
+                                        f"Remaining Tokens: {remaining_tokens}")
+        except UsageLimitExceeded as e:
+            error_message = f"Usage limit error: {e}"
+            logger.error(error_message)
+            return error_message
         except Exception as e:
-            logger.error(f"Error processing query: {e}")
             error_message = f"Error processing query: {e}"
+            logger.error(error_message)
             return error_message
         # Process response and handle tool calls
         if hasattr(response, "choices"):
@@ -291,7 +341,7 @@ class ToolCallingAgent:
                 role="assistant",
                 content=initial_response,
                 metadata=tool_calls_metadata,
-                chat_id=self.chat_id
+                chat_id=chat_id
             )
             
             final_text.append(initial_response)
@@ -301,6 +351,7 @@ class ToolCallingAgent:
                 tool_name = tool_call.function.name
                 tool_args = tool_call.function.arguments
                 execute_tool_result = await self.execute_tool_call(
+                    chat_id=chat_id,
                     tool_name=tool_name,
                     tool_args=tool_args,
                     tool_call=tool_call,
@@ -317,25 +368,63 @@ class ToolCallingAgent:
             try:
                 if self.debug:
                     logger.info("Getting final response from LLM with tool results")
-                    
+                current_steps += 1
                 second_response = await llm_connection.llm_call(
                     messages=self.messages,
                 )
-                if hasattr(response, "choices"):
-                    final_assistant_message = second_response.choices[0].message
-                elif hasattr(response, "message"):
-                    final_assistant_message = second_response.message
+                if second_response:
+                    # check if it has usage
+                    if hasattr(second_response, "usage"):
+                        request_usage = Usage(
+                            requests=current_steps,
+                            request_tokens=second_response.usage.prompt_tokens,
+                            response_tokens=second_response.usage.completion_tokens,
+                            total_tokens=second_response.usage.total_tokens
+                        )
+                        usage.incr(request_usage)
+                        # Check if we've exceeded token limits
+                        self.usage_limits.check_tokens(usage)
+                        # Show remaining resources
+                        remaining_tokens = self.usage_limits.remaining_tokens(usage)
+                        used_tokens = usage.total_tokens
+                        used_requests = usage.requests
+                        remaining_requests = self.request_limit - used_requests
+                        session_stats.update({
+                                "used_requests": used_requests,
+                                "used_tokens": used_tokens,
+                                "remaining_requests": remaining_requests,
+                                "remaining_tokens": remaining_tokens,
+                                "request_tokens": request_usage.request_tokens,
+                                "response_tokens": request_usage.response_tokens,
+                                "total_tokens": request_usage.total_tokens
+                            })
+                        if self.debug:
+                            logger.info(f"API Call Stats - Requests: {used_requests}/{self.request_limit}, "
+                                        f"Tokens: {used_tokens}/{self.usage_limits.total_tokens_limit}, "
+                                        f"Request Tokens: {request_usage.request_tokens}, "
+                                        f"Response Tokens: {request_usage.response_tokens}, "
+                                        f"Total Tokens: {request_usage.total_tokens}, "
+                                        f"Remaining Requests: {remaining_requests}, "
+                                        f"Remaining Tokens: {remaining_tokens}")
+        
+                    if hasattr(second_response, "choices"):
+                        final_assistant_message = second_response.choices[0].message
+                    elif hasattr(second_response, "message"):
+                        final_assistant_message = second_response.message
                 response_content = final_assistant_message.content or ""
                 
                 await add_message_to_history(
                     agent_name=self.agent_name, 
                     role="assistant", 
                     content=response_content,
-                    chat_id=self.chat_id
+                    chat_id=chat_id
                 )
                 
                 final_text.append(response_content)
-                
+            except UsageLimitExceeded as e:
+                error_message = f"Usage limit error: {e}"
+                logger.error(error_message)
+                return error_message  
             except Exception as e:
                 error_message = f"Error getting final response from LLM: {e}"
                 logger.error(error_message)
@@ -345,7 +434,7 @@ class ToolCallingAgent:
                     role="assistant",
                     content=error_message,
                     metadata={"error": True},
-                    chat_id=self.chat_id
+                    chat_id=chat_id
                 )
                 
                 final_text.append(f"\n[Error getting final response from LLM: {e}]")
@@ -355,9 +444,9 @@ class ToolCallingAgent:
                 agent_name=self.agent_name,
                 role="assistant",
                 content=initial_response,
-                chat_id=self.chat_id
+                chat_id=chat_id
             )
             
             final_text.append(initial_response)
-
+        current_steps = 0
         return "\n".join(final_text)

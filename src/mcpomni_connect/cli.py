@@ -799,9 +799,18 @@ class MCPClientCLI:
                         llm_connection=self.llm_connection,
                         # episodic_memory=episodic_query,
                     )
-                    tool_calling_agent = ToolCallingAgent(chat_id=CLIENT_MAC_ADDRESS, debug=self.client.debug)
+                    agent_config = AgentConfig(
+                        agent_name="tool_calling_agent",
+                        tool_call_timeout=self.agent_config.get("tool_call_timeout"),
+                        max_steps=self.agent_config.get("max_steps"),
+                        request_limit=self.agent_config.get("request_limit"),
+                        total_tokens_limit=self.agent_config.get("total_tokens_limit"),
+                        mcp_enabled=True,
+                    )
+                    tool_calling_agent = ToolCallingAgent(config=agent_config, debug=self.client.debug)
                     response = await tool_calling_agent.run(
                         query=query,
+                        chat_id=CLIENT_MAC_ADDRESS,
                         system_prompt=system_prompt,
                         llm_connection=self.llm_connection,
                         sessions=self.client.sessions,

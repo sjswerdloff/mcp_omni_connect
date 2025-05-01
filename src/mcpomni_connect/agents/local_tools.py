@@ -43,6 +43,7 @@ from typing import Callable, Dict, List, Optional, Any
 #     description=add_description,
 #     inputSchema=add_schema,
 # )
+# TODO still working on this
 from mcpomni_connect.agents.tools.local_tools_registry import ToolRegistry
 tool_registry = ToolRegistry()
 

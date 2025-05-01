@@ -586,45 +586,48 @@ class BaseReactAgent:
                     response = await llm_connection.llm_call(
                         self.messages[self.agent_name]
                     )
-                    
-                    # check if it has usage
-                    if hasattr(response, "usage"):
-                        request_usage = Usage(
-                            requests=current_steps,
-                            request_tokens=response.usage.prompt_tokens,
-                            response_tokens=response.usage.completion_tokens,
-                            total_tokens=response.usage.total_tokens
-                        )
-                        usage.incr(request_usage)
-                        # Check if we've exceeded token limits
-                        self.usage_limits.check_tokens(usage)
-                        # Show remaining resources
-                        remaining_tokens = self.usage_limits.remaining_tokens(usage)
-                        used_tokens = usage.total_tokens
-                        used_requests = usage.requests
-                        remaining_requests = self.request_limit - used_requests
-                        session_stats.update({
-                                "used_requests": used_requests,
-                                "used_tokens": used_tokens,
-                                "remaining_requests": remaining_requests,
-                                "remaining_tokens": remaining_tokens,
-                                "request_tokens": request_usage.request_tokens,
-                                "response_tokens": request_usage.response_tokens,
-                                "total_tokens": request_usage.total_tokens
-                            })
-                        if debug:
-                            logger.info(f"API Call Stats - Requests: {used_requests}/{self.request_limit}, "
-                                        f"Tokens: {used_tokens}/{self.usage_limits.total_tokens_limit}, "
-                                        f"Request Tokens: {request_usage.request_tokens}, "
-                                        f"Response Tokens: {request_usage.response_tokens}, "
-                                        f"Total Tokens: {request_usage.total_tokens}, "
-                                        f"Remaining Requests: {remaining_requests}, "
-                                        f"Remaining Tokens: {remaining_tokens}")
                     if response:
+                        # check if it has usage
+                        if hasattr(response, "usage"):
+                            request_usage = Usage(
+                                requests=current_steps,
+                                request_tokens=response.usage.prompt_tokens,
+                                response_tokens=response.usage.completion_tokens,
+                                total_tokens=response.usage.total_tokens
+                            )
+                            usage.incr(request_usage)
+                            # Check if we've exceeded token limits
+                            self.usage_limits.check_tokens(usage)
+                            # Show remaining resources
+                            remaining_tokens = self.usage_limits.remaining_tokens(usage)
+                            used_tokens = usage.total_tokens
+                            used_requests = usage.requests
+                            remaining_requests = self.request_limit - used_requests
+                            session_stats.update({
+                                    "used_requests": used_requests,
+                                    "used_tokens": used_tokens,
+                                    "remaining_requests": remaining_requests,
+                                    "remaining_tokens": remaining_tokens,
+                                    "request_tokens": request_usage.request_tokens,
+                                    "response_tokens": request_usage.response_tokens,
+                                    "total_tokens": request_usage.total_tokens
+                                })
+                            if debug:
+                                logger.info(f"API Call Stats - Requests: {used_requests}/{self.request_limit}, "
+                                            f"Tokens: {used_tokens}/{self.usage_limits.total_tokens_limit}, "
+                                            f"Request Tokens: {request_usage.request_tokens}, "
+                                            f"Response Tokens: {request_usage.response_tokens}, "
+                                            f"Total Tokens: {request_usage.total_tokens}, "
+                                            f"Remaining Requests: {remaining_requests}, "
+                                            f"Remaining Tokens: {remaining_tokens}")
+                        
                         if hasattr(response, "choices"):
                             response = response.choices[0].message.content.strip()
                         elif hasattr(response, "message"):
                             response = response.message.content.strip()
+                except UsageLimitExceeded as e:
+                    logger.error("Usage limit error: %s", str(e))
+                    return None
                 except Exception as e:
                     logger.error("API error: %s", str(e))
                     return None

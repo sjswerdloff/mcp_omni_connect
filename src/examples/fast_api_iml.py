@@ -39,7 +39,6 @@ class MCPClientConnect:
         self.MAX_CONTEXT_TOKENS = self.llm_connection.config.load_config(
             "servers_config.json"
         )["LLM"]["max_context_length"]
-        self.USE_MEMORY = {"redis": False, "in_memory": True}
         self.MODE = {"auto": True, "chat": False, "orchestrator": False}
         self.client.debug = True
         self.in_memory_short_term_memory = InMemoryShortTermMemory(max_context_tokens=self.MAX_CONTEXT_TOKENS)

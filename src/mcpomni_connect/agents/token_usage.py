@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, Union, Any
 from mcpomni_connect.utils import logger
 
-__all__ = 'Usage', 'UsageLimits'
 
 class UsageLimitExceeded(Exception):
     pass
@@ -77,15 +76,7 @@ class Usage:
         new_usage.incr(other)
         return new_usage
 
-session_stats = {
-    "used_requests": 0,
-    "used_tokens": 0,
-    "remaining_requests": 0,
-    "remaining_tokens": 0,
-    "request_tokens": 0,
-    "response_tokens": 0,
-    "total_tokens": 0,
-}
+
 
 @dataclass
 class UsageLimits:
@@ -201,3 +192,15 @@ class UsageLimits:
                 f'Exceeded the total_tokens_limit of {self.total_tokens_limit}. '
                 f'Current total tokens: {total_tokens}'
             )
+
+
+# to store the api stats
+session_stats = {
+    "used_requests": 0,
+    "used_tokens": 0,
+    "remaining_requests": 0,
+    "remaining_tokens": 0,
+    "request_tokens": 0,
+    "response_tokens": 0,
+    "total_tokens": 0,
+}

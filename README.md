@@ -229,7 +229,13 @@ tests/
 ### Server Configuration Examples
 
 ```json
-{
+{   
+    "AgentConfig": {
+        "tool_call_timeout": 30,
+        "max_steps": 15,
+        "request_limit": 1000,
+        "total_tokens_limit": 100000
+    },
     "LLM": {
         "provider": "openai",  // Supports: "openai", "openrouter", "groq"
         "model": "gpt-4",      // Any model from supported providers

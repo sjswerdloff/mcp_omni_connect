@@ -5,7 +5,7 @@ from mcpomni_connect.agents.types import AgentConfig
 from mcpomni_connect.system_prompts import generate_react_agent_prompt
 from mcpomni_connect.constants import date_time_func
 
-
+# TODO still working on this
 class SequentialAgent(BaseReactAgent):
     def __init__(self, config: AgentConfig):
         self.instructions = config.instructions

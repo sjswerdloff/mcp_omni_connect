@@ -12,4 +12,4 @@ wheels/
 servers_config.json
 *.log
 *.log.*
-./qdrant_data/
+qdrant_db/

@@ -174,15 +174,16 @@ class LLMConnection:
                         messages=messages,
                     )
                 return response
-            elif self.llm_config["provider"].lower() == "ollama":
-                serialized_messages = self.serialize_messages(chat_payload=messages)
-                response = ollama.chat(
-                        model=self.llm_config["model"],
-                        messages=serialized_messages,
-                        stream=False,
-                        tools=tools or [],
-                    )
-                return response
+            # TODO
+            # elif self.llm_config["provider"].lower() == "ollama":
+            #     serialized_messages = self.serialize_messages(chat_payload=messages)
+            #     response = ollama.chat(
+            #             model=self.llm_config["model"],
+            #             messages=serialized_messages,
+            #             stream=False,
+            #             tools=tools or [],
+            #         )
+            #     return response
         except Exception as e:
             logger.error(f"Error calling LLM: {e}")
             return None
