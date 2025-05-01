@@ -1,6 +1,6 @@
 # types.py
 from enum import Enum
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
 from uuid import UUID, uuid4
 
@@ -33,11 +33,11 @@ class MessageRole(str, Enum):
 
 class ToolFunction(BaseModel):
     name: str
-    arguments: str  # JSON string of arguments
+    arguments: str
 
 
 class ToolCall(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id: str = Field(default_factory=lambda: str(uuid4()))
     type: str = "function"
     function: ToolFunction
 
@@ -98,7 +98,7 @@ class ToolRegistryEntry(BaseModel):
 
 
 class ToolExecutorConfig(BaseModel):
-    handler: Union["MCPToolHandler", "LocalToolHandler"]
+    handler: Any  # ToolExecutor instance
     tool_data: Dict[str, any]
     available_tools: Dict[str, any]
 

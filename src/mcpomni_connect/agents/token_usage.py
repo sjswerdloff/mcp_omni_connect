@@ -2,8 +2,7 @@ from __future__ import annotations as _annotations
 
 from copy import copy
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Union, Any
-from mcpomni_connect.utils import logger
+from typing import Dict, Optional
 
 
 class UsageLimitExceeded(Exception):

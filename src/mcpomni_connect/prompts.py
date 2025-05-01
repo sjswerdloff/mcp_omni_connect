@@ -2,7 +2,6 @@ from typing import Any, Callable, Optional
 
 from mcpomni_connect.utils import logger
 
-
 async def list_prompts(server_names: list[str], sessions: dict[str, dict[str, Any]]):
     """List all prompts"""
     prompts = []
@@ -90,7 +89,11 @@ async def get_prompt(
             llm_response = await llm_call(
                 messages=messages,
             )
-            response_content = llm_response.choices[0].message.content or ""
+            if llm_response:
+                if hasattr(llm_response, "choices"):
+                    response_content = llm_response.choices[0].message 
+                elif hasattr(llm_response, "message"):
+                    response_content = llm_response.message
             # adding the message to history helps the llm to know when to use all available tools directly
             await add_message_to_history("assistant", response_content)
             return response_content
@@ -160,23 +163,6 @@ async def get_prompt_with_react_agent(
             if debug:
                 logger.info(f"LLM processing {user_role} prompt: {message_content}")
             return message_content
-            # messages = []
-            # logger.info(f"System prompt: {system_prompt}")
-            # messages.append({
-            #     "role": "system",
-            #     "content": system_prompt
-            # })
-            # messages.append({
-            #     "role": user_role,
-            #     "content": message_content
-            # })
-            # llm_response = await llm_call(
-            #     messages=messages,
-            # )
-            # response_content = llm_response.choices[0].message.content or ""
-            # # adding the message to history helps the llm to know when to use all available tools directly
-            # await add_message_to_history("assistant", response_content)
-            # return response_content
     except Exception as e:
         error_message = f"Error getting prompt: {e}"
         await add_message_to_history(

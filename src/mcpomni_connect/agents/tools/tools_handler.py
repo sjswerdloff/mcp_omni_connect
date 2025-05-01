@@ -2,8 +2,6 @@ from abc import ABC, abstractmethod
 import inspect
 from typing import Any, Callable, Dict, Optional, List
 import json
-from mcpomni_connect.agents.types import ToolCallMetadata
-from mcpomni_connect.utils import logger
 
 
 class BaseToolHandler(ABC):

@@ -1,6 +1,5 @@
 from typing import Callable, Optional, Any
 from mcpomni_connect.agents.base import BaseReactAgent
-from mcpomni_connect.utils import logger
 from mcpomni_connect.agents.types import AgentConfig
 
 

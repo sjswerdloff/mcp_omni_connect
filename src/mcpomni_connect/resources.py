@@ -1,7 +1,6 @@
 from typing import Any, Callable
 from mcpomni_connect.utils import logger
 
-
 # handle subscribe to resource change
 async def subscribe_resource(
     sessions: dict[str, dict[str, Any]],
@@ -112,9 +111,12 @@ async def read_resource(
                 {"role": "user", "content": str(resource_response)},
             ]
         )
-        response_content = llm_response.choices[0].message.content or ""
-        if not response_content:
-            response_content = "No content found for resource"
+        if llm_response:
+            if hasattr(llm_response, "choices"):
+                response_content = llm_response.choices[0].message 
+            elif hasattr(llm_response, "message"):
+                response_content = llm_response.message
+       
         # add the response from the LLM to the history
         await add_message_to_history("assistant", response_content)
         return response_content

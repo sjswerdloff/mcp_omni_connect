@@ -1,5 +1,5 @@
 import json
-from typing import Any, Callable, Optional, Union, Dict
+from typing import Any, Callable, Union
 from mcpomni_connect.utils import logger
 from mcpomni_connect.agents.types import MessageRole
 from mcpomni_connect.agents.token_usage import Usage, UsageLimits, UsageLimitExceeded, session_stats, usage
@@ -238,7 +238,6 @@ class ToolCallingAgent:
         ):
         """Run the agent with the given query and return the response."""
         final_text = []
-        tool_results = []
         available_tools = available_tools if self.mcp_enabled else None
         tools_registry = tools_registry if not self.mcp_enabled else None
         current_steps = 0
@@ -324,7 +323,7 @@ class ToolCallingAgent:
             # If the initial response is empty, set it to the tool call name for context
             if not initial_response:
                 if self.debug:
-                    logger.info(f"Initial response is empty, setting it to the tool call name")
+                    logger.info("Initial response is empty, setting it to the tool call name")
                 tool_name = assistant_message.tool_calls[0].function.name
                 initial_response = f"Tool called {tool_name}"
                 

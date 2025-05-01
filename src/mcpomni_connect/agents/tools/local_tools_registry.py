@@ -1,8 +1,5 @@
 from typing import Callable, Dict, Any, Optional
 import inspect
-from mcpomni_connect.utils import logger
-
-from typing import Callable, Dict, Any
 
 class Tool:
     def __init__(self, name: str, description: str, inputSchema: Dict[str, Any], function: Callable):
@@ -49,7 +46,6 @@ class ToolRegistry:
         return list(self.tools.values())
 
     def _infer_schema(self, func: Callable) -> Dict[str, Any]:
-        import inspect
         sig = inspect.signature(func)
         props = {}
         required = []

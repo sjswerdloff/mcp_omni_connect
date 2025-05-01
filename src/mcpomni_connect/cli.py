@@ -655,6 +655,21 @@ class MCPClientCLI:
                 )
             else:
                 # Use ReAct agent for LLMs without tool support
+                extra_kwargs = {
+                        "sessions": self.client.sessions,
+                        "available_tools": self.client.available_tools,
+                        "is_generic_agent": True,
+                        "chat_id": CLIENT_MAC_ADDRESS
+                    }
+                    
+                agent_config = AgentConfig(
+                    agent_name="react_agent",
+                    tool_call_timeout=self.agent_config.get("tool_call_timeout"),
+                    max_steps=self.agent_config.get("max_steps"),
+                    request_limit=self.agent_config.get("request_limit"),
+                    total_tokens_limit=self.agent_config.get("total_tokens_limit"),
+                    mcp_enabled=True,
+                )
                 react_agent_prompt = generate_react_agent_prompt()
                 initial_response = await get_prompt_with_react_agent(
                     sessions=self.client.sessions,
@@ -670,12 +685,11 @@ class MCPClientCLI:
                     arguments=arguments,
                 )
                 if initial_response:
-                    content = await ReActAgent().run(
-                        sessions=self.client.sessions,
+                    react_agent = ReactAgent(config=agent_config)
+                    content = await react_agent._run(
                         system_prompt=react_agent_prompt,
                         query=initial_response,
                         llm_connection=self.llm_connection,
-                        available_tools=self.client.available_tools,
                         add_message_to_history=(
                             self.redis_short_term_memory.store_message
                             if self.USE_MEMORY["redis"]
@@ -687,6 +701,7 @@ class MCPClientCLI:
                             else self.in_memory_short_term_memory.get_messages
                         ),
                         debug=self.client.debug,
+                        **extra_kwargs
                     )
                 else:
                     content = initial_response

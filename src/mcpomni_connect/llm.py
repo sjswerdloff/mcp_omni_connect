@@ -3,7 +3,6 @@ from typing import Any
 from groq import Groq
 from openai import OpenAI
 from mcpomni_connect.utils import logger
-import ollama
 from dotenv import load_dotenv
 import os
 load_dotenv()
