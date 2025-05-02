@@ -562,13 +562,10 @@ class MCPClientCLI:
                 uri=uri,
                 sessions=self.client.sessions,
                 available_resources=self.client.available_resources,
-                add_message_to_history=(
-                    self.redis_short_term_memory.store_message
-                    if self.USE_MEMORY["redis"]
-                    else self.in_memory_short_term_memory.store_message
-                ),
                 llm_call=self.llm_connection.llm_call,
                 debug=self.client.debug,
+                request_limit=self.agent_config["request_limit"],
+                total_tokens_limit=self.agent_config["total_tokens_limit"]
             )
 
         if content.startswith("```") or content.startswith("#"):
@@ -636,23 +633,63 @@ class MCPClientCLI:
             if supported_tools:
                 # Generate system prompt for tool-supporting LLMs
                 system_prompt = generate_system_prompt(
+                    current_date_time=date_time_func["format_date"](),
                     available_tools=self.client.available_tools,
                     llm_connection=self.llm_connection,
                 )
                 content = await get_prompt(
                     sessions=self.client.sessions,
                     system_prompt=system_prompt,
-                    add_message_to_history=(
-                        self.redis_short_term_memory.store_message
-                        if self.USE_MEMORY["redis"]
-                        else self.in_memory_short_term_memory.store_message
-                    ),
                     llm_call=self.llm_connection.llm_call,
+                    add_message_to_history=(
+                            self.redis_short_term_memory.store_message
+                            if self.USE_MEMORY["redis"]
+                            else self.in_memory_short_term_memory.store_message
+                        ),
                     debug=self.client.debug,
                     available_prompts=self.client.available_prompts,
                     name=name,
                     arguments=arguments,
+                    request_limit=self.agent_config["request_limit"],
+                    total_tokens_limit=self.agent_config["total_tokens_limit"],
+                    chat_id=CLIENT_MAC_ADDRESS
                 )
+                if content:
+                    # Get latest tools
+                    tools = await list_tools(
+                        server_names=self.client.server_names,
+                        sessions=self.client.sessions,
+                    )
+                    agent_config = AgentConfig(
+                        agent_name="tool_calling_agent",
+                        tool_call_timeout=self.agent_config.get("tool_call_timeout"),
+                        max_steps=self.agent_config.get("max_steps"),
+                        request_limit=self.agent_config.get("request_limit"),
+                        total_tokens_limit=self.agent_config.get("total_tokens_limit"),
+                        mcp_enabled=True,
+                    )
+                    tool_calling_agent = ToolCallingAgent(config=agent_config, debug=self.client.debug)
+                    response = await tool_calling_agent.run(
+                        query=content,
+                        chat_id=CLIENT_MAC_ADDRESS,
+                        system_prompt=system_prompt,
+                        llm_connection=self.llm_connection,
+                        sessions=self.client.sessions,
+                        server_names=self.client.server_names,
+                        tools_list=tools,
+                        available_tools=self.client.available_tools,
+                        add_message_to_history=(
+                            self.redis_short_term_memory.store_message
+                            if self.USE_MEMORY["redis"]
+                            else self.in_memory_short_term_memory.store_message
+                        ),
+                        message_history=(
+                            self.redis_short_term_memory.get_messages
+                            if self.USE_MEMORY["redis"]
+                            else self.in_memory_short_term_memory.get_messages
+                        )
+                    )
+                content = response
             else:
                 # Use ReAct agent for LLMs without tool support
                 extra_kwargs = {
@@ -670,7 +707,7 @@ class MCPClientCLI:
                     total_tokens_limit=self.agent_config.get("total_tokens_limit"),
                     mcp_enabled=True,
                 )
-                react_agent_prompt = generate_react_agent_prompt()
+                react_agent_prompt = generate_react_agent_prompt(current_date_time=date_time_func["format_date"]())
                 initial_response = await get_prompt_with_react_agent(
                     sessions=self.client.sessions,
                     system_prompt=react_agent_prompt,
@@ -683,6 +720,7 @@ class MCPClientCLI:
                     available_prompts=self.client.available_prompts,
                     name=name,
                     arguments=arguments,
+                    chat_id=CLIENT_MAC_ADDRESS
                 )
                 if initial_response:
                     react_agent = ReactAgent(config=agent_config)

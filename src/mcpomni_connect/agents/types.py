@@ -99,8 +99,8 @@ class ToolRegistryEntry(BaseModel):
 
 class ToolExecutorConfig(BaseModel):
     handler: Any  # ToolExecutor instance
-    tool_data: Dict[str, any]
-    available_tools: Dict[str, any]
+    tool_data: Dict[str, Any]
+    available_tools: Dict[str, Any]
 
 
 class LoopDetectorConfig(BaseModel):
