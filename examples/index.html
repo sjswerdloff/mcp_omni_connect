@@ -372,7 +372,7 @@
         const messagesContainer = document.getElementById('messages');
         const userInput = document.getElementById('userInput');
         const { ipcRenderer } = require('electron');
-        
+
         // Add welcome message
         window.onload = function() {
             setTimeout(() => {
@@ -394,38 +394,38 @@
         function formatMessage(content) {
             // Format price
             content = content.replace(/(\$?\d+\.\d+)\s*dollars/, '<div class="price-highlight">$1 USD</div>');
-            
+
             // Format headers
             content = content.replace(/###\s*(.*)/g, '<h3>$1</h3>');
-            
+
             // Format bold text
             content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-            
+
             // Format links
             content = content.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-            
+
             // Format numbered list items
-            content = content.replace(/(\d+)\.\s+\*\*(.*?)\*\*:(.*?)(?=\d+\.|$)/g, 
+            content = content.replace(/(\d+)\.\s+\*\*(.*?)\*\*:(.*?)(?=\d+\.|$)/g,
                 '<div class="news-item"><strong>$2</strong>$3</div>');
-            
+
             return content;
         }
 
         function addMessage(role, content) {
             const messageDiv = document.createElement('div');
             messageDiv.classList.add('message', `${role}-message`);
-            
+
             const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
             contentDiv.innerHTML = formatMessage(content);
-            
+
             const timestamp = document.createElement('div');
             timestamp.className = 'timestamp';
-            timestamp.textContent = new Date().toLocaleTimeString([], { 
-                hour: '2-digit', 
-                minute: '2-digit' 
+            timestamp.textContent = new Date().toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
             });
-            
+
             messageDiv.appendChild(contentDiv);
             messageDiv.appendChild(timestamp);
             messagesContainer.appendChild(messageDiv);
@@ -508,7 +508,7 @@
 
         // Offline detection
         const offlineIndicator = document.querySelector('.offline-indicator');
-        
+
         window.addEventListener('online', () => {
             offlineIndicator.style.display = 'none';
         });
@@ -519,7 +519,7 @@
 
         // Add auto-reconnect logic
         let reconnectInterval;
-        
+
         function checkConnection() {
             if (!navigator.onLine) {
                 offlineIndicator.style.display = 'block';

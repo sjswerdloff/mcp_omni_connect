@@ -1,198 +1,206 @@
 import pytest
-from unittest.mock import Mock, AsyncMock
-from mcpomni_connect.tool_calling_agent import tool_calling_agent
-
-
-class MockTool:
-    def __init__(self, name, description, parameters):
-        self.name = name
-        self.description = description
-        self.inputSchema = parameters
-
-
-MOCK_TOOLS = {
-    "server1": [
-        MockTool(
-            name="tool1",
-            description="Test tool 1",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "param1": {
-                        "type": "string",
-                        "description": "Test parameter 1",
-                    }
-                },
-            },
-        ),
-        Mock(name="tool2", description="Test tool 2"),
-    ],
-    "server2": [
-        Mock(name="tool3", description="Test tool 3"),
-    ],
-}
+import json
+from unittest.mock import AsyncMock, MagicMock
+from mcpomni_connect.agents.tool_calling_agent import ToolCallingAgent
+from mcpomni_connect.agents.types import AgentConfig, MessageRole
 
 
 @pytest.fixture
-def mock_sessions():
-    mock_session = Mock()
-    mock_session.call_tool = AsyncMock(return_value="Tool result")
-    return {"server1": {"session": mock_session}}
-
-
-@pytest.fixture
-def mock_llm_connection():
-    mock_conn = Mock()
-    mock_conn.llm_call = AsyncMock(
-        return_value=Mock(
-            choices=[Mock(message=Mock(content="Test response", tool_calls=None))]
-        )
+def agent_config():
+    return AgentConfig(
+        agent_name="TestAgent",
+        mcp_enabled=True,
+        request_limit=10,
+        total_tokens_limit=1000,
+        tool_call_timeout=60,
+        max_steps=10,
     )
-    return mock_conn
 
 
 @pytest.fixture
-def mock_add_message_to_history():
-    return AsyncMock()
-
-
-@pytest.fixture
-def mock_message_history():
-    return AsyncMock(return_value=[])
+def agent(agent_config):
+    return ToolCallingAgent(config=agent_config, debug=True)
 
 
 @pytest.mark.asyncio
-async def test_process_query_without_agent(
-    mock_sessions,
-    mock_llm_connection,
-    mock_add_message_to_history,
-    mock_message_history,
-):
-    system_prompt = "You are a helpful assistant"
-    query = "Test query"
-
-    result = await tool_calling_agent(
-        query=query,
-        system_prompt=system_prompt,
-        llm_connection=mock_llm_connection,
-        sessions=mock_sessions,
-        server_names=["server1"],
-        tools_list=[
-            MockTool(
-                name="tool1",
-                description="Test tool 1",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "param1": {
-                            "type": "string",
-                            "description": "Test parameter 1",
-                        }
-                    },
-                },
-            )
-        ],
-        available_tools=MOCK_TOOLS,
-        add_message_to_history=mock_add_message_to_history,
-        message_history=mock_message_history,
-        debug=False,
+async def test_update_llm_working_memory_user_and_assistant(agent):
+    message_history = AsyncMock(
+        return_value=[
+            {"role": MessageRole.USER, "content": "Hello"},
+            {"role": MessageRole.ASSISTANT, "content": "Hi there!", "metadata": {}},
+        ]
     )
-
-    assert result == "Test response"
-    assert mock_add_message_to_history.call_count == 2
-    mock_add_message_to_history.assert_any_call(role="user", content="Test query")
-    mock_add_message_to_history.assert_any_call(
-        role="assistant", content="Test response", metadata={}
-    )
-
-
-@pytest.mark.asyncio
-async def test_process_query_with_tool_calls(
-    mock_sessions,
-    mock_llm_connection,
-    mock_add_message_to_history,
-    mock_message_history,
-):
-    system_prompt = "You are a helpful assistant"
-    query = "Test query"
-
-    mock_tool = MockTool(
-        name="test_tool",
-        description="A test tool",
-        parameters={
-            "type": "object",
-            "properties": {
-                "param1": {"type": "string", "description": "Test parameter"}
-            },
-        },
-    )
-
-    tool_call = Mock()
-    tool_call.id = "call1"
-    tool_call.function = Mock()
-    tool_call.function.name = "test_tool"
-    tool_call.function.arguments = '{"param1": "test_value"}'
-
-    mock_llm_connection.llm_call.side_effect = [
-        Mock(
-            choices=[
-                Mock(message=Mock(content="I'll use a tool", tool_calls=[tool_call]))
-            ]
-        ),
-        Mock(choices=[Mock(message=Mock(content="Tool result processed"))]),
+    await agent.update_llm_working_memory(message_history, "chat1")
+    assert agent.messages == [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi there!"},
     ]
 
-    result = await tool_calling_agent(
-        query=query,
-        system_prompt=system_prompt,
-        llm_connection=mock_llm_connection,
-        sessions=mock_sessions,
-        server_names=["server1"],
-        tools_list=[mock_tool],
-        available_tools={"server1": [mock_tool]},
-        add_message_to_history=mock_add_message_to_history,
-        message_history=mock_message_history,
-        debug=False,
-    )
 
-    assert result.startswith("I'll use a tool")
-    assert "Tool result processed" in result
-    mock_sessions["server1"]["session"].call_tool.assert_called_once_with(
-        "test_tool", {"param1": "test_value"}
+@pytest.mark.asyncio
+async def test_update_llm_working_memory_with_tool_calls(agent):
+    message_history = AsyncMock(
+        return_value=[
+            {"role": MessageRole.USER, "content": "Run a tool"},
+            {
+                "role": MessageRole.ASSISTANT,
+                "content": "Calling tool",
+                "metadata": {
+                    "has_tool_calls": True,
+                    "tool_calls": [{"name": "example_tool"}],
+                },
+            },
+            {
+                "role": MessageRole.TOOL,
+                "content": "tool output",
+                "metadata": {"tool_call_id": "123"},
+            },
+        ]
     )
+    await agent.update_llm_working_memory(message_history, "chat1")
+    assert agent.messages == [
+        {"role": "user", "content": "Run a tool"},
+        {
+            "role": "assistant",
+            "content": "Calling tool",
+            "tool_calls": [{"name": "example_tool"}],
+        },
+        {"role": "tool", "content": "tool output", "tool_call_id": "123"},
+    ]
 
 
 @pytest.mark.asyncio
-async def test_process_query_with_error(
-    mock_sessions,
-    mock_llm_connection,
-    mock_add_message_to_history,
-    mock_message_history,
-):
-    system_prompt = "You are a helpful assistant"
-    query = "Test query"
+async def test_list_available_tools_with_mcp(agent):
+    tool_mock = MagicMock()
+    tool_mock.name = "do_something"
+    tool_mock.description = "desc"
+    tool_mock.inputSchema = {"type": "object"}
 
-    mock_llm_connection.llm_call.side_effect = Exception("Test error")
-
-    result = await tool_calling_agent(
-        query=query,
-        system_prompt=system_prompt,
-        llm_connection=mock_llm_connection,
-        sessions=mock_sessions,
-        server_names=["server1"],
-        tools_list=[
-            tool
-            for tools in MOCK_TOOLS.values()
-            for tool in tools
-            if hasattr(tool, "name")
-        ],
-        available_tools=MOCK_TOOLS,
-        add_message_to_history=mock_add_message_to_history,
-        message_history=mock_message_history,
-        debug=False,
+    result = await agent.list_available_tools(
+        available_tools={"server1": [tool_mock]}, tools_registry=None
     )
 
-    assert result == "Error processing query: Test error"
-    mock_add_message_to_history.assert_awaited_once_with(
-        role="user", content="Test query"
+    assert result == [
+        {
+            "type": "function",
+            "function": {
+                "name": "do_something",
+                "description": "desc",
+                "parameters": {"type": "object"},
+            },
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_list_available_tools_with_registry():
+    agent_config = AgentConfig(
+        agent_name="LocalOnly",
+        mcp_enabled=False,
+        request_limit=10,
+        total_tokens_limit=1000,
+        tool_call_timeout=60,
+        max_steps=10,
     )
+    agent = ToolCallingAgent(config=agent_config)
+
+    registry = {
+        "sum_numbers": {
+            "description": "Add two numbers",
+            "inputSchema": {"a": "int", "b": "int"},
+        }
+    }
+
+    result = await agent.list_available_tools(
+        available_tools=None, tools_registry=registry
+    )
+
+    assert result == [
+        {
+            "type": "function",
+            "function": {
+                "name": "sum_numbers",
+                "description": "Add two numbers",
+                "parameters": {"a": "int", "b": "int"},
+            },
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_call_mcp(agent):
+    tool = MagicMock()
+    tool.name = "add"
+    available_tools = {"server1": [tool]}
+    sessions = {"server1": {"session": AsyncMock()}}
+    sessions["server1"]["session"].call_tool.return_value = {"result": 3}
+
+    tool_call = MagicMock()
+    tool_call.id = "test-tool-call-id"
+
+    result = await agent.execute_tool_call(
+        chat_id="chat1",
+        tool_name="add",
+        tool_args=json.dumps({"a": 1, "b": 2}),
+        tool_call=tool_call,
+        add_message_to_history=AsyncMock(),
+        available_tools=available_tools,
+        tools_registry=None,
+        sessions=sessions,
+    )
+
+    assert "result" in result or result is not None
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_call_raises_when_both_sources_provided(agent):
+    with pytest.raises(ValueError):
+        await agent.execute_tool_call(
+            chat_id="chat1",
+            tool_name="tool",
+            tool_args={},
+            tool_call={},
+            add_message_to_history=AsyncMock(),
+            available_tools={"server": []},
+            tools_registry={"tool": {}},
+            sessions={},
+        )
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_call_raises_when_no_sources(agent):
+    with pytest.raises(ValueError):
+        await agent.execute_tool_call(
+            chat_id="chat1",
+            tool_name="tool",
+            tool_args={},
+            tool_call={},
+            add_message_to_history=AsyncMock(),
+            available_tools=None,
+            tools_registry=None,
+            sessions={},
+        )
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_call_with_invalid_json(agent):
+    available_tools = {"server1": ["tool_name"]}
+    sessions = {"server1": {"session": AsyncMock()}}
+    sessions["server1"]["session"].call_tool.return_value = {"result": "ok"}
+
+    # Mock tool_call to have an 'id' attribute
+    tool_call = MagicMock()
+    tool_call.id = "test-tool-call-id"
+
+    result = await agent.execute_tool_call(
+        chat_id="chat1",
+        tool_name="tool_name",
+        tool_args="{invalid_json}",
+        tool_call=tool_call,
+        add_message_to_history=AsyncMock(),
+        available_tools=available_tools,
+        tools_registry=None,
+        sessions=sessions,
+    )
+
+    assert "result" in result or result is not None

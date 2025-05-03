@@ -10,4 +10,4 @@ hatch build
 twine check dist/*
 
 echo "Build complete! To publish to PyPI, run:"
-echo "twine upload dist/*" 
+echo "twine upload dist/*"
