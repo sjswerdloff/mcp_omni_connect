@@ -229,7 +229,7 @@ tests/
 ### Server Configuration Examples
 
 ```json
-{   
+{
     "AgentConfig": {
         "tool_call_timeout": 30,
         "max_steps": 15,

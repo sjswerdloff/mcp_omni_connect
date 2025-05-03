@@ -139,4 +139,4 @@ All notable changes to this project will be documented in this file.
 - Initial release
 - Basic MCP server integration
 - OpenAI model support
-- Core CLI functionality 
+- Core CLI functionality

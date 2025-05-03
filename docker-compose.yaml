@@ -10,7 +10,7 @@ services:
     volumes:
       - mcpomni_connect_redis_data:/data
     restart: unless-stopped
-  
+
   mcpomni_connect_qdrant:
     container_name: mcpomni_connect_qdrant
     image: qdrant/qdrant
