@@ -1,24 +1,29 @@
 import json
 from contextlib import asynccontextmanager
-from mcpomni_connect.client import Configuration, MCPClient
-from mcpomni_connect.llm import LLMConnection
+from src.mcpomni_connect.client import Configuration, MCPClient
+from src.mcpomni_connect.llm import LLMConnection
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uuid
 import datetime
-from mcpomni_connect.constants import AGENTS_REGISTRY, date_time_func, logger
-from mcpomni_connect.memory import (
+from src.mcpomni_connect.constants import AGENTS_REGISTRY, date_time_func
+from src.mcpomni_connect.memory import (
     InMemoryShortTermMemory,
 )
-from mcpomni_connect.system_prompts import (
+from src.mcpomni_connect.system_prompts import (
     generate_orchestrator_prompt_template,
     generate_react_agent_prompt,
+    generate_react_agent_role_prompt,
 )
 from pydantic import BaseModel
-from mcpomni_connect.agents.orchestrator import OrchestratorAgent
-from mcpomni_connect.agents.react_agent import ReactAgent
-from mcpomni_connect.agents.types import AgentConfig
+from src.mcpomni_connect.agents.orchestrator import OrchestratorAgent
+from src.mcpomni_connect.agents.react_agent import ReactAgent
+from src.mcpomni_connect.agents.types import AgentConfig
+from src.mcpomni_connect.utils import logger
+from src.mcpomni_connect.refresh_server_capabilities import (
+    generate_react_agent_role_prompt_func,
+)
 
 
 class MCPClientConnect:
@@ -28,11 +33,21 @@ class MCPClientConnect:
         self.MAX_CONTEXT_TOKENS = self.llm_connection.config.load_config(
             "servers_config.json"
         )["LLM"]["max_context_length"]
-        self.MODE = {"auto": True, "chat": False, "orchestrator": False}
+        self.MODE = {"auto": False, "orchestrator": True}
         self.client.debug = True
         self.in_memory_short_term_memory = InMemoryShortTermMemory(
             max_context_tokens=self.MAX_CONTEXT_TOKENS
         )
+
+    async def add_agent_registry(self):
+        for server_name in self.client.server_names:
+            react_agent_role_prompt = await generate_react_agent_role_prompt_func(
+                available_tools=self.client.available_tools,
+                server_name=server_name,
+                llm_connection=self.llm_connection,
+                generate_react_agent_role_prompt=generate_react_agent_role_prompt,
+            )
+            AGENTS_REGISTRY[server_name] = react_agent_role_prompt
 
     async def handle_query(self, query: str, chat_id: str = None):
         agent_config = AgentConfig(
@@ -111,7 +126,8 @@ async def lifespan(app: FastAPI):
 
     # Connect to servers
     await app.state.client.connect_to_servers()
-
+    # add the agent registry incase to use orchestrator mode
+    await app.state.client_connection.add_agent_registry()
     logger.info("MCP client initialized successfully")
 
     yield  # The application runs here

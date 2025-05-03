@@ -1,18 +1,23 @@
 import asyncio
-from mcpomni_connect.client import Configuration, MCPClient
-from mcpomni_connect.llm import LLMConnection
-from mcpomni_connect.system_prompts import (
+from src.mcpomni_connect.client import Configuration, MCPClient
+from src.mcpomni_connect.llm import LLMConnection
+from src.mcpomni_connect.system_prompts import (
     generate_orchestrator_prompt_template,
     generate_react_agent_prompt,
+    generate_react_agent_role_prompt,
 )
-from mcpomni_connect.agents.orchestrator import OrchestratorAgent
-from mcpomni_connect.constants import AGENTS_REGISTRY, date_time_func, logger
-from mcpomni_connect.memory import (
+from src.mcpomni_connect.agents.orchestrator import OrchestratorAgent
+from src.mcpomni_connect.constants import AGENTS_REGISTRY, date_time_func
+from src.mcpomni_connect.memory import (
     InMemoryShortTermMemory,
 )
-from mcpomni_connect.agents.react_agent import ReactAgent
-from mcpomni_connect.agents.types import AgentConfig
+from src.mcpomni_connect.agents.react_agent import ReactAgent
+from src.mcpomni_connect.agents.types import AgentConfig
+from src.mcpomni_connect.utils import logger
 from uuid import uuid4
+from src.mcpomni_connect.refresh_server_capabilities import (
+    generate_react_agent_role_prompt_func,
+)
 
 
 class MCPClientConnect:
@@ -27,6 +32,16 @@ class MCPClientConnect:
         self.in_memory_short_term_memory = InMemoryShortTermMemory(
             max_context_tokens=self.MAX_CONTEXT_TOKENS
         )
+
+    async def add_agent_registry(self):
+        for server_name in self.client.server_names:
+            react_agent_role_prompt = await generate_react_agent_role_prompt_func(
+                available_tools=self.client.available_tools,
+                server_name=server_name,
+                llm_connection=self.llm_connection,
+                generate_react_agent_role_prompt=generate_react_agent_role_prompt,
+            )
+            AGENTS_REGISTRY[server_name] = react_agent_role_prompt
 
     async def handle_query(self, query: str):
         chat_id = str(uuid4())
@@ -64,7 +79,6 @@ class MCPClientConnect:
             orchestrator_agent_prompt = generate_orchestrator_prompt_template(
                 current_date_time=date_time_func["format_date"]()
             )
-
             orchestrator_agent = OrchestratorAgent(
                 config=agent_config,
                 agents_registry=AGENTS_REGISTRY,
@@ -100,6 +114,7 @@ client_connection = MCPClientConnect(client=client, llm_connection=llm_connectio
 
 async def chat_loop():
     await client.connect_to_servers()
+    await client_connection.add_agent_registry()
     while True:
         user_input = input("Enter your query: ")
         if user_input.lower() in ("quit", "exit"):

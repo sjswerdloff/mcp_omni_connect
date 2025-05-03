@@ -195,28 +195,33 @@ class OrchestratorAgent(BaseReactAgent):
         """
         This function is used to create a tool that will return the agent registry
         """
-        agent_registries = []
-        for server_name, tools in available_tools.items():
-            agent_entry = {
-                "agent_name": server_name,
-                "agent_description": self.agents_registry[server_name],
-                "capabilities": [],
-            }
-            for tool in tools:
-                name = str(tool.name) if tool.name else "No Name available"
-                agent_entry["capabilities"].append(name)
-            agent_registries.append(agent_entry)
-        return "\n".join(
-            [
-                "### Agent Registry",
-                "| Agent Name     | Description                         | Capabilities                     |",
-                "|----------------|-------------------------------------|----------------------------------|",
-                *[
-                    f"| {entry['agent_name']} | {entry['agent_description']} | {', '.join(entry['capabilities'])} |"
-                    for entry in agent_registries
-                ],
-            ]
-        )
+        try:
+            agent_registries = []
+            for server_name, tools in available_tools.items():
+                agent_entry = {
+                    "agent_name": server_name,
+                    "agent_description": self.agents_registry[server_name],
+                    "capabilities": [],
+                }
+                for tool in tools:
+                    name = str(tool.name) if tool.name else "No Name available"
+                    agent_entry["capabilities"].append(name)
+                agent_registries.append(agent_entry)
+            return "\n".join(
+                [
+                    "### Agent Registry",
+                    "| Agent Name     | Description                         | Capabilities                     |",
+                    "|----------------|-------------------------------------|----------------------------------|",
+                    *[
+                        f"| {entry['agent_name']} | {entry['agent_description']} | {', '.join(entry['capabilities'])} |"
+                        for entry in agent_registries
+                    ],
+                ]
+            )
+        except Exception as e:
+            logger.info(f"Agent registry error: {e}")
+            # return None
+            raise e
 
     async def run(
         self,
