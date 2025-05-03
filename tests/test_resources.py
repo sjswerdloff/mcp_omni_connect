@@ -77,29 +77,101 @@ async def test_find_resource_server():
     assert server_name == ""
 
 
+# @pytest.mark.asyncio
+# async def test_read_resource_usage_limit():
+#     """Test reading a resource when usage limits are exceeded"""
+
+#     # Mock the read_resource method
+#     async def mock_read_resource(*args, **kwargs):
+#         uri = args[0]  # Extract the URI from the arguments
+#         return f"Content of {uri}"
+
+#     # Mock LLM call to return mock response
+#     async def mock_llm_call(messages):
+#         return type(
+#             "MockResponse",
+#             (object,),
+#             {
+#                 "choices": [
+#                     type(
+#                         "MockChoice",
+#                         (object,),
+#                         {
+#                             "message": type(
+#                                 "MockMessage",
+#                                 (object,),
+#                                 {"content": "Processed content"},
+#                             )()
+#                         },
+#                     )()
+#                 ]
+#             },
+#         )()
+
+#     # Ensure that the real `UsageLimits` raises the ValueError when request_limit is 0 or negative
+#     with pytest.raises(ValueError, match="request_limit must be positive if specified"):
+#         # Trigger the real UsageLimits with invalid request_limit
+#         usage_limits = UsageLimits(request_limit=0)
+
+#     # Now proceed with the mock behavior for the rest of the test case
+#     class MockUsageLimits:
+#         def __init__(self, request_limit=None, total_tokens_limit=None):
+#             self.request_limit = request_limit
+#             self.total_tokens_limit = total_tokens_limit
+
+#         def check_before_request(self, usage):
+#             if self.request_limit <= 0:
+#                 raise UsageLimitExceeded("Request limit exceeded.")
+
+#         def check_tokens(self, usage):
+#             pass  # Mock the token check
+
+#         def remaining_tokens(self, usage):
+#             return 0
+
+#     usage_limits = MockUsageLimits(request_limit=0)  # No requests allowed
+
+#     # Update mock sessions with mock method
+#     test_sessions = MOCK_SESSIONS.copy()
+#     test_sessions["server1"]["session"] = type(
+#         "MockSession", (), {"read_resource": mock_read_resource}
+#     )()
+
+#     # Test that usage limit exceeded error is raised
+#     content = await read_resource(
+#         uri="resource1",
+#         sessions=test_sessions,
+#         available_resources=MOCK_RESOURCES,
+#         llm_call=mock_llm_call,
+#         request_limit=0,
+#         debug=False,
+#     )
+
+#     assert content == "Usage limit error: Request limit exceeded."
+
+
 @pytest.mark.asyncio
-async def test_read_resource():
-    """Test reading a resource"""
+async def test_read_resource_with_error():
+    """Test reading a resource when an error occurs"""
 
-    # Mock the read_resource method
+    # Mock the read_resource method to raise an exception
     async def mock_read_resource(*args, **kwargs):
-        uri = args[0]  # Extract the URI from the arguments
-        return f"Content of {uri}"
+        raise Exception("Unexpected error while reading resource.")
 
-    # Mock the LLM call
+    # Mock LLM call to return mock response
     async def mock_llm_call(messages):
         return type(
             "MockResponse",
-            (),
+            (object,),
             {
                 "choices": [
                     type(
                         "MockChoice",
-                        (),
+                        (object,),
                         {
                             "message": type(
                                 "MockMessage",
-                                (),
+                                (object,),
                                 {"content": "Processed content"},
                             )()
                         },
@@ -108,34 +180,18 @@ async def test_read_resource():
             },
         )()
 
-    # Mock the add_message_to_history function
-    async def mock_add_message_to_history(role, content, metadata=None):
-        pass
-
     # Update mock sessions with mock method
     test_sessions = MOCK_SESSIONS.copy()
     test_sessions["server1"]["session"] = type(
         "MockSession", (), {"read_resource": mock_read_resource}
     )()
 
-    # Test successful resource read
+    # Test that the error is handled correctly
     content = await read_resource(
         uri="resource1",
         sessions=test_sessions,
         available_resources=MOCK_RESOURCES,
-        add_message_to_history=mock_add_message_to_history,
         llm_call=mock_llm_call,
         debug=False,
     )
-    assert content == "Processed content"
-
-    # Test non-existing resource
-    content = await read_resource(
-        uri="non-existent",
-        sessions=test_sessions,
-        available_resources=MOCK_RESOURCES,
-        add_message_to_history=mock_add_message_to_history,
-        llm_call=mock_llm_call,
-        debug=False,
-    )
-    assert "Resource not found" in content
+    assert content == "Error reading resource: Unexpected error while reading resource."

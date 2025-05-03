@@ -104,11 +104,6 @@ async def get_prompt(
 
             if debug:
                 logger.info(f"LLM processing {user_role} prompt: {message_content}")
-            # message_histories = await message_history(agent_name=agent_name, chat_id=chat_id)
-            # logger.info(f"message history: {message_histories}")
-            # messages = [
-            #     {"role": "system", "content": system_prompt},
-            # ]
             return message_content
     except Exception as e:
         error_message = f"Error getting prompt: {e}"
@@ -121,75 +116,6 @@ async def get_prompt(
         )
         logger.error(error_message)
         return error_message
-        # TODO PARSING THE PROMPT DIRECTLY TO TOOL CALLING AGENT TO PERFORM THE PROMPT
-        # REQUEST WORKS BETTER
-    #         messages.extend(message_histories)
-    #         messages.append({"role": user_role, "content": message_content})
-    #         logger.info(f"messages to be send: {messages}")
-    #         llm_response = await llm_call(
-    #             messages=messages,
-    #         )
-    #         if llm_response:
-    #             if hasattr(llm_response, "usage"):
-    #                 request_usage = Usage(
-    #                     requests=1,
-    #                     request_tokens=llm_response.usage.prompt_tokens,
-    #                     response_tokens=llm_response.usage.completion_tokens,
-    #                     total_tokens=llm_response.usage.total_tokens
-    #                 )
-    #                 usage.incr(request_usage)
-    #                 # Check if we've exceeded token limits
-    #                 usage_limits.check_tokens(usage)
-    #                 # Show remaining resources
-    #                 remaining_tokens = usage_limits.remaining_tokens(usage)
-    #                 used_tokens = usage.total_tokens
-    #                 used_requests = usage.requests
-    #                 remaining_requests = request_limit - used_requests
-    #                 session_stats.update({
-    #                         "used_requests": used_requests,
-    #                         "used_tokens": used_tokens,
-    #                         "remaining_requests": remaining_requests,
-    #                         "remaining_tokens": remaining_tokens,
-    #                         "request_tokens": request_usage.request_tokens,
-    #                         "response_tokens": request_usage.response_tokens,
-    #                         "total_tokens": request_usage.total_tokens
-    #                     })
-    #                 if debug:
-    #                         logger.info(f"API Call Stats - Requests: {used_requests}/{request_limit}, "
-    #                                     f"Tokens: {used_tokens}/{usage_limits.total_tokens_limit}, "
-    #                                     f"Request Tokens: {request_usage.request_tokens}, "
-    #                                     f"Response Tokens: {request_usage.response_tokens}, "
-    #                                     f"Total Tokens: {request_usage.total_tokens}, "
-    #                                     f"Remaining Requests: {remaining_requests}, "
-    #                                     f"Remaining Tokens: {remaining_tokens}")
-
-    #             if hasattr(llm_response, "choices"):
-    #                 response_content = llm_response.choices[0].message.content
-    #             elif hasattr(llm_response, "message"):
-    #                 response_content = llm_response.message
-    #     # adding the message to history helps the llm to know when to use all available tools directly
-    #     await add_message_to_history(
-    #             agent_name=agent_name,
-    #             role="assistant",
-    #             content=response_content,
-    #             chat_id=chat_id
-    #         )
-    #     return response_content
-    # except UsageLimitExceeded as e:
-    #     error_message = f"Usage limit error: {e}"
-    #     logger.error(error_message)
-    #     return error_message
-    # except Exception as e:
-    #     error_message = f"Error getting prompt: {e}"
-    #     await add_message_to_history(
-    #                 agent_name=agent_name,
-    #                 role="user",
-    #                 content=error_message,
-    #                 metadata={"prompt_name": name, "error": True},
-    #                 chat_id=chat_id
-    #             )
-    #     logger.error(error_message)
-    #     return error_message
 
 
 async def get_prompt_with_react_agent(
