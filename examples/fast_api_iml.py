@@ -1,27 +1,27 @@
 import json
 from contextlib import asynccontextmanager
-from src.mcpomni_connect.client import Configuration, MCPClient
-from src.mcpomni_connect.llm import LLMConnection
+from mcpomni_connect.client import Configuration, MCPClient
+from mcpomni_connect.llm import LLMConnection
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uuid
 import datetime
-from src.mcpomni_connect.constants import AGENTS_REGISTRY, date_time_func
-from src.mcpomni_connect.memory import (
+from mcpomni_connect.constants import AGENTS_REGISTRY, date_time_func
+from mcpomni_connect.memory import (
     InMemoryShortTermMemory,
 )
-from src.mcpomni_connect.system_prompts import (
+from mcpomni_connect.system_prompts import (
     generate_orchestrator_prompt_template,
     generate_react_agent_prompt,
     generate_react_agent_role_prompt,
 )
 from pydantic import BaseModel
-from src.mcpomni_connect.agents.orchestrator import OrchestratorAgent
-from src.mcpomni_connect.agents.react_agent import ReactAgent
-from src.mcpomni_connect.agents.types import AgentConfig
-from src.mcpomni_connect.utils import logger
-from src.mcpomni_connect.refresh_server_capabilities import (
+from mcpomni_connect.agents.orchestrator import OrchestratorAgent
+from mcpomni_connect.agents.react_agent import ReactAgent
+from mcpomni_connect.agents.types import AgentConfig
+from mcpomni_connect.utils import logger
+from mcpomni_connect.refresh_server_capabilities import (
     generate_react_agent_role_prompt_func,
 )
 
