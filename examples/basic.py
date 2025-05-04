@@ -1,23 +1,23 @@
 import asyncio
-from src.mcpomni_connect.client import Configuration, MCPClient
-from src.mcpomni_connect.llm import LLMConnection
-from src.mcpomni_connect.system_prompts import (
+from dotenv import load_dotenv
+from uuid import uuid4
+
+from mcpomni_connect.agents.orchestrator import OrchestratorAgent
+from mcpomni_connect.agents.react_agent import ReactAgent
+from mcpomni_connect.agents.types import AgentConfig
+from mcpomni_connect.client import Configuration, MCPClient
+from mcpomni_connect.constants import AGENTS_REGISTRY, date_time_func
+from mcpomni_connect.llm import LLMConnection
+from mcpomni_connect.memory import InMemoryShortTermMemory
+from mcpomni_connect.refresh_server_capabilities import (
+    generate_react_agent_role_prompt_func,
+)
+from mcpomni_connect.system_prompts import (
     generate_orchestrator_prompt_template,
     generate_react_agent_prompt,
     generate_react_agent_role_prompt,
 )
-from src.mcpomni_connect.agents.orchestrator import OrchestratorAgent
-from src.mcpomni_connect.constants import AGENTS_REGISTRY, date_time_func
-from src.mcpomni_connect.memory import (
-    InMemoryShortTermMemory,
-)
-from src.mcpomni_connect.agents.react_agent import ReactAgent
-from src.mcpomni_connect.agents.types import AgentConfig
-from src.mcpomni_connect.utils import logger
-from uuid import uuid4
-from src.mcpomni_connect.refresh_server_capabilities import (
-    generate_react_agent_role_prompt_func,
-)
+from mcpomni_connect.utils import logger
 
 
 class MCPClientConnect:
@@ -103,6 +103,7 @@ class MCPClientConnect:
 
 
 logger.info("Initializing MCP client...")
+load_dotenv()
 config = Configuration()
 client = MCPClient(config)
 client.debug = True
