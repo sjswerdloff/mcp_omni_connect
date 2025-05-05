@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.15] - 2025-05-05
+
+### Added
+- Token & Usage Management:
+  - `/api_stats` command to view total tokens used, total requests, response tokens, and number of requests
+  - Ability to set limits for total requests and total token usage; agent will automatically stop when limits are reached
+  - Configurable tool call timeout and max steps; agent will terminate if these thresholds are exceeded
+- Developer Integration Enhancements:
+  - Expanded documentation and examples for using MCPOmni Connect as a backend Python library
+  - FastAPI example for building custom API servers with support for both ReAct Agent and Orchestrator Agent modes
+  - Minimal code snippets for custom MCP client integration in Python projects
+- FastAPI API Documentation:
+  - Documented `/chat/agent_chat` endpoint with request/response examples
+  - Added web client usage instructions for `examples/index.html`
+- Environment Variables Reference:
+  - Added table of supported environment variables and their descriptions in the README
+- Typos and Documentation Improvements:
+  - Fixed typos and improved clarity throughout the README
+  - Clarified configuration options and usage instructions
+
+### Changed
+- Updated server configuration examples to clarify usage of `tool_call_timeout`, `max_steps`, `request_limit`, and `total_tokens_limit`
+- Improved README structure with new "Examples", "Developer Integration", "Token & Usage Management", and "FastAPI API Endpoints" sections
+- Enhanced error handling and documentation for agent termination on reaching usage limits
+
+### Fixed
+- Corrected typos in documentation and configuration comments
+- Improved consistency in code examples and documentation formatting
+
+
+
 ## [0.1.14] - 2025-04-18
 
 ### Added

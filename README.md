@@ -168,10 +168,18 @@ echo "REDIS_PORT=6379" >> .env
 echo "REDIS_DB=0" >> .env"
 # Configure your servers in servers_config.json
 ```
+### Environment Variables
+
+| Variable        | Description                        | Example                |
+|-----------------|------------------------------------|------------------------|
+| LLM_API_KEY     | API key for LLM provider           | sk-...                 |
+| REDIS_HOST      | Redis server hostname (optional)   | localhost              |
+| REDIS_PORT      | Redis server port (optional)       | 6379                   |
+| REDIS_DB        | Redis database number (optional)   | 0                      |
 
 ### Start CLI
 ```bash
-# start the cli running the command ensure your api key is export or create .env
+# start the cli running the command ensure your api key is exported or create .env
 mcpomni_connect
 ```
 
@@ -226,22 +234,141 @@ tests/
    python run.py
    ```
 
+## 🧑‍💻 Examples
+
+### Basic CLI Example
+
+You can run the basic CLI example to interact with MCPOmni Connect directly from the terminal.
+
+**Using [uv](https://github.com/astral-sh/uv) (recommended):**
+```bash
+uv run examples/basic.py
+```
+
+**Or using Python directly:**
+```bash
+python examples/basic.py
+```
+
+---
+
+### FastAPI Server Example
+
+You can also run MCPOmni Connect as a FastAPI server for web or API-based interaction.
+
+**Using [uv](https://github.com/astral-sh/uv):**
+```bash
+uv run examples/fast_api_iml.py
+```
+
+**Or using Python directly:**
+```bash
+python examples/fast_api_iml.py
+```
+### Web Client
+
+A simple web client is provided in `examples/index.html`.  
+- Open it in your browser after starting the FastAPI server.
+- It connects to `http://localhost:8000` and provides a chat interface.
+- The FastAPI server will start on `http://localhost:8000` by default.
+- You can interact with the API (see `examples/index.html` for a simple web client).
+
+### FastAPI API Endpoints
+
+#### `/chat/agent_chat` (POST)
+
+- **Description:** Send a chat query to the agent and receive a streamed response.
+- **Request:**
+  ```json
+  {
+    "query": "Your question here",
+    "chat_id": "unique-chat-id"
+  }
+  ```
+- **Response:** Streamed JSON lines, each like:
+  ```json
+  {
+    "message_id": "...",
+    "usid": "...",
+    "role": "assistant",
+    "content": "Response text",
+    "meta": [],
+    "likeordislike": null,
+    "time": "2024-06-10 12:34:56"
+  }
+  ```
+
+## 🛠️ Developer Integration
+
+MCPOmni Connect is not just a CLI tool—it's also a powerful Python library that you can use to build your own backend services, custom clients, or API servers.
+
+### Build Your Own MCP Client
+
+You can import MCPOmni Connect in your Python project to:
+- Connect to one or more MCP servers
+- Choose between **ReAct Agent** mode (autonomous tool use) or **Orchestrator Agent** mode (multi-step, multi-server planning)
+- Manage memory, context, and tool orchestration
+- Expose your own API endpoints (e.g., with FastAPI, Flask, etc.)
+
+#### Example: Custom Backend with FastAPI
+
+See [`examples/fast_api_iml.py`](examples/fast_api_iml.py) for a full-featured example.
+
+**Minimal Example:**
+
+```python
+from mcpomni_connect.client import Configuration, MCPClient
+from mcpomni_connect.llm import LLMConnection
+from mcpomni_connect.agents.react_agent import ReactAgent
+from mcpomni_connect.agents.orchestrator import OrchestratorAgent
+
+config = Configuration()
+client = MCPClient(config)
+llm_connection = LLMConnection(config)
+
+# Choose agent mode
+agent = ReactAgent(...)  # or OrchestratorAgent(...)
+
+# Use in your API endpoint
+response = await agent.run(
+    query="Your user query",
+    sessions=client.sessions,
+    llm_connection=llm_connection,
+    # ...other arguments...
+)
+```
+
+#### FastAPI Integration
+
+You can easily expose your MCP client as an API using FastAPI.  
+See the [FastAPI example](examples/fast_api_iml.py) for:
+- Async server startup and shutdown
+- Handling chat requests with different agent modes
+- Streaming responses to clients
+
+**Key Features for Developers:**
+- Full control over agent configuration and limits
+- Support for both chat and autonomous agentic modes
+- Easy integration with any Python web framework
+
+---
+
 ### Server Configuration Examples
 
 ```json
 {
     "AgentConfig": {
-        "tool_call_timeout": 30,
-        "max_steps": 15,
-        "request_limit": 1000,
-        "total_tokens_limit": 100000
+        "tool_call_timeout": 30, // tool call timeout
+        "max_steps": 15, // number of steps before it terminates
+        "request_limit": 1000, // number of request limits
+        "total_tokens_limit": 100000 // max number of token usage
     },
     "LLM": {
         "provider": "openai",  // Supports: "openai", "openrouter", "groq"
         "model": "gpt-4",      // Any model from supported providers
         "temperature": 0.5,
         "max_tokens": 5000,
-        "max_context_length": 30000, // Maximu of the model context length
+        "max_context_length": 30000, // Maximum of the model context length
         "top_p": 0
     },
     "mcpServers": {
@@ -399,6 +526,60 @@ The client intelligently:
   - Dynamic tool execution based on model capabilities
   - Intelligent fallback mechanisms
 
+### Token & Usage Management
+
+MCPOmni Connect now provides advanced controls and visibility over your API usage and resource limits.
+
+#### View API Usage Stats
+
+Use the `/api_stats` command to see your current usage:
+
+```bash
+/api_stats
+```
+
+This will display:
+- **Total tokens used**
+- **Total requests made**
+- **Total response tokens**
+- **Number of requests**
+
+#### Set Usage Limits
+
+You can set limits to automatically stop execution when thresholds are reached:
+
+- **Total Request Limit:**  
+  Set the maximum number of requests allowed in a session.
+- **Total Token Usage Limit:**  
+  Set the maximum number of tokens that can be used.
+- **Tool Call Timeout:**  
+  Set the maximum time (in seconds) a tool call can take before being terminated.
+- **Max Steps:**  
+  Set the maximum number of steps the agent can take before stopping.
+
+You can configure these in your `servers_config.json` under the `AgentConfig` section:
+
+```json
+"AgentConfig": {
+    "tool_call_timeout": 30,        // Tool call timeout in seconds
+    "max_steps": 15,                // Max number of steps before termination
+    "request_limit": 1000,          // Max number of requests allowed
+    "total_tokens_limit": 100000    // Max number of tokens allowed
+}
+```
+
+- When any of these limits are reached, the agent will automatically stop running and notify you.
+
+#### Example Commands
+
+```bash
+# Check your current API usage and limits
+/api_stats
+
+# Set a new request limit (example)
+# (This can be done by editing servers_config.json or via future CLI commands)
+```
+
 ## 🔧 Advanced Features
 
 ### Tool Orchestration
@@ -487,7 +668,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📬 Contact & Support
 
 - **Author**: Abiola Adeshina
-- **Email**: abioladedayo1993@gmail.com
+- **Email**: abiolaadedayo1993@gmail.com
 - **GitHub Issues**: [Report a bug](https://github.com/Abiorh001/mcp_omni_connect/issues)
 
 ---

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mcpomni_connect"
-version = "0.1.14"
+version = "0.1.15"
 description = "Universal MCP Client with multi-transport support and LLM-powered tool routing"
 readme = "README.md"
 authors = [{ name = "Abiola Adeshina", email = "abiolaadedayo1993@gmail.com" }]
@@ -40,6 +40,7 @@ dependencies = [
     "fastapi>=0.115.12",
     "python-multipart>=0.0.20",
     "ollama>=0.4.8",
+   
 ]
 
 [project.scripts]
