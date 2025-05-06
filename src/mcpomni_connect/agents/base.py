@@ -6,7 +6,7 @@ from mcpomni_connect.utils import (
     logger,
     RobustLoopDetector,
     handle_stuck_state,
-    strip_json_comments
+    strip_json_comments,
 )
 import asyncio
 from contextlib import asynccontextmanager
@@ -106,7 +106,7 @@ class BaseReactAgent:
 
             json_str = json_text[:json_end_pos]
 
-             # Clean up LLM quirks safely
+            # Clean up LLM quirks safely
             json_str = strip_json_comments(json_str)
             json_str = re.sub(r",\s*([\]}])", r"\1", json_str)
 
@@ -289,9 +289,8 @@ class BaseReactAgent:
 
         if not tool_data.get("action"):
             return ToolError(
-                observation=tool_data.get("error"),
-                tool_name=tool_data.get("tool_name")
-                )
+                observation=tool_data.get("error"), tool_name=tool_data.get("tool_name")
+            )
 
         return ToolCallResult(
             tool_executor=tool_executor,
@@ -317,13 +316,13 @@ class BaseReactAgent:
             sessions=sessions,
             tools_registry=tools_registry,
         )
-        #tool_name_to_used = None
+        # tool_name_to_used = None
         # Early exit on tool validation failure
         if isinstance(tool_call_result, ToolError):
             observation = tool_call_result.observation
-            #tool_name_to_used = tool_call_result.tool_name
+            # tool_name_to_used = tool_call_result.tool_name
             logger.info(f"error observation: {observation}")
-            
+
         else:
             # Create proper tool call metadata
             tool_call_id = str(uuid.uuid4())

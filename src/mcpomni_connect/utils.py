@@ -446,14 +446,16 @@ def strip_json_comments(text: str) -> str:
     Removes // and /* */ style comments from JSON-like text,
     but only if they're outside of double-quoted strings.
     """
+
     def replacer(match):
         s = match.group(0)
         if s.startswith('"'):
             return s  # keep strings intact
-        return ''     # remove comments
+        return ""  # remove comments
 
-    pattern = r'"(?:\\.|[^"\\])*"' + r'|//.*?$|/\*.*?\*/'
+    pattern = r'"(?:\\.|[^"\\])*"' + r"|//.*?$|/\*.*?\*/"
     return re.sub(pattern, replacer, text, flags=re.DOTALL | re.MULTILINE)
+
 
 # # Initialize the model once at module level
 # EMBEDDING_MODEL = SentenceTransformer('BAAI/bge-large-en-v1.5')
