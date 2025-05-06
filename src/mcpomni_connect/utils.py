@@ -8,7 +8,7 @@ import uuid
 from collections import deque
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
-
+import re
 import colorlog
 from decouple import config
 from openai import OpenAI
@@ -439,6 +439,22 @@ def embed_text(text: str) -> List[float]:
     client = OpenAI(api_key=config("OPENAI_API_KEY"))
     response = client.embeddings.create(input=text, model="text-embedding-ada-002")
     return response.data[0].embedding
+
+
+def strip_json_comments(text: str) -> str:
+    """
+    Removes // and /* */ style comments from JSON-like text,
+    but only if they're outside of double-quoted strings.
+    """
+
+    def replacer(match):
+        s = match.group(0)
+        if s.startswith('"'):
+            return s  # keep strings intact
+        return ""  # remove comments
+
+    pattern = r'"(?:\\.|[^"\\])*"' + r"|//.*?$|/\*.*?\*/"
+    return re.sub(pattern, replacer, text, flags=re.DOTALL | re.MULTILINE)
 
 
 # # Initialize the model once at module level
