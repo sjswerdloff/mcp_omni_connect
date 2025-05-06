@@ -71,6 +71,7 @@ class ToolCallResult(BaseModel):
 
 class ToolError(BaseModel):
     observation: str
+    tool_name: str
 
 
 class ToolData(BaseModel):

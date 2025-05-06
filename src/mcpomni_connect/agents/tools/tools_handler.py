@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import inspect
 from typing import Any, Callable, Dict, Optional, List
 import json
-
+from mcpomni_connect.utils import logger
 
 class BaseToolHandler(ABC):
     @abstractmethod
@@ -58,8 +58,9 @@ class MCPToolHandler(BaseToolHandler):
             # if tool_name is None or tool_args is None, return an error
             if tool_name is None or tool_args is None:
                 return {
-                    "error": "Invalid JSON format",
+                    "error": "Invalid JSON format. check the action format again.",
                     "action": False,
+                    "tool_name": tool_name
                 }
 
             # Validate JSON structure and tool exists
@@ -86,11 +87,13 @@ class MCPToolHandler(BaseToolHandler):
             return {
                 "action": False,
                 "error": error_message,
+                "tool_name": tool_name
             }
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             return {
-                "error": "Invalid JSON format",
+                "error": f"Json decode error: Invalid JSON format: {e}",
                 "action": False,
+                "tool_name": "N/A"
             }
 
     async def call(self, tool_name: str, tool_args: Dict[str, Any]) -> Any:
@@ -116,6 +119,7 @@ class LocalToolHandler(BaseToolHandler):
                 return {
                     "error": "Missing 'tool' name or 'parameters' in the request.",
                     "action": False,
+                    "tool_name": tool_name
                 }
 
             # Normalize available tool names
@@ -136,12 +140,13 @@ class LocalToolHandler(BaseToolHandler):
                 "If an alternative method or tool is available to fulfill the request, I’ll try that now. "
                 "Otherwise, I’ll respond directly based on what I know."
             )
-            return {"action": False, "error": error_message}
+            return {"action": False, "error": error_message, "tool_name": tool_name}
 
         except json.JSONDecodeError:
             return {
                 "error": "Invalid JSON format",
                 "action": False,
+                "tool_name": "N/A"
             }
 
     async def call(self, tool_name: str, tool_args: Dict[str, Any]) -> Any:
