@@ -1,6 +1,8 @@
-import pytest
 import json
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
 from mcpomni_connect.agents.tool_calling_agent import ToolCallingAgent
 from mcpomni_connect.agents.types import AgentConfig, MessageRole
 

@@ -1,5 +1,7 @@
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+
 from mcpomni_connect.llm import LLMConnection
 
 # Mock configuration

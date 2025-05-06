@@ -3,7 +3,7 @@ import contextlib
 import json
 import os
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 
 from dotenv import load_dotenv
 from groq import Groq
@@ -137,7 +137,7 @@ class samplingCallback:
 
     async def load_model(self):
         config_path = Path("servers_config.json")
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             config = json.load(f)
             llm_config = config.get("LLM", {})
             # Get available models for the provider
@@ -149,7 +149,7 @@ class samplingCallback:
             provider = llm_config.get("provider").lower()
         return available_models, provider
 
-    async def _select_model(self, preferences, available_models: List[str]) -> str:
+    async def _select_model(self, preferences, available_models: list[str]) -> str:
         """Select the best model based on preferences and available models."""
 
         if not preferences or not preferences.hints:
@@ -178,7 +178,7 @@ class samplingCallback:
 
     async def _get_context(
         self,
-        include_context: Optional[ContextInclusion],
+        include_context: ContextInclusion | None,
         server_name: str = None,
     ) -> str:
         """Get relevant context based on inclusion type."""

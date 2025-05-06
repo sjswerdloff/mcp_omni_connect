@@ -1,7 +1,16 @@
 import os
 from unittest.mock import AsyncMock, Mock, patch
-from dotenv import load_dotenv
+
+from mcpomni_connect.client import Configuration  # noqa: E402
+from mcpomni_connect.llm import LLMConnection  # noqa: E402
+from mcpomni_connect.refresh_server_capabilities import (
+    refresh_capabilities,  # noqa: E402
+)
+from mcpomni_connect.system_prompts import (
+    generate_react_agent_role_prompt,  # noqa: E402
+)
 import pytest
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -13,11 +22,6 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 if not openai_api_key:
     os.environ["OPENAI_API_KEY"] = "SKU456"
 
-
-from mcpomni_connect.client import Configuration  # noqa: E402
-from mcpomni_connect.llm import LLMConnection  # noqa: E402
-from mcpomni_connect.refresh_server_capabilities import refresh_capabilities  # noqa: E402
-from mcpomni_connect.system_prompts import generate_react_agent_role_prompt  # noqa: E402
 
 MOCK_LLM_CONFIG = Configuration()
 

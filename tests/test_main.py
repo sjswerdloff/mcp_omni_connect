@@ -1,7 +1,9 @@
 import json
-import pytest
 from unittest.mock import AsyncMock, Mock, patch
-from mcpomni_connect.main import check_config_exists, async_main
+
+import pytest
+
+from mcpomni_connect.main import async_main, check_config_exists
 
 
 @pytest.fixture

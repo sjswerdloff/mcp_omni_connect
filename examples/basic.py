@@ -1,6 +1,7 @@
 import asyncio
-from dotenv import load_dotenv
 from uuid import uuid4
+
+from dotenv import load_dotenv
 
 from mcpomni_connect.agents.orchestrator import OrchestratorAgent
 from mcpomni_connect.agents.react_agent import ReactAgent

@@ -2,21 +2,23 @@ import asyncio
 import json
 import os
 from contextlib import AsyncExitStack
+from dataclasses import dataclass, field
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
+
 from dotenv import load_dotenv
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.client.websocket import websocket_client
-from dataclasses import dataclass, field
-from mcpomni_connect.refresh_server_capabilities import refresh_capabilities
-from mcpomni_connect.notifications import handle_notifications
+
 from mcpomni_connect.llm import LLMConnection
+from mcpomni_connect.notifications import handle_notifications
+from mcpomni_connect.refresh_server_capabilities import refresh_capabilities
+from mcpomni_connect.sampling import samplingCallback
 from mcpomni_connect.system_prompts import generate_react_agent_role_prompt
 from mcpomni_connect.utils import logger
-from datetime import timedelta
-from mcpomni_connect.sampling import samplingCallback
 
 
 @dataclass
@@ -46,7 +48,7 @@ class Configuration:
             raise FileNotFoundError(
                 f"Configuration file not found: {config_path}, it should be 'servers_config.json'"
             )
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             return json.load(f)
 
 

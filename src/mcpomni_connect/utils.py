@@ -2,13 +2,14 @@ import hashlib
 import json
 import logging
 import platform
+import re
 import subprocess
 import sys
 import uuid
 from collections import deque
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
-import re
+from typing import Any
+
 import colorlog
 from decouple import config
 from openai import OpenAI
@@ -133,7 +134,7 @@ class RobustLoopDetector:
         self.max_pattern_length = max_pattern_length
 
         # Cache for performance optimization
-        self._cache: Dict[str, Any] = {}
+        self._cache: dict[str, Any] = {}
         self._interaction_count = 0
 
     def record_tool_call(
@@ -210,7 +211,7 @@ class RobustLoopDetector:
         self._cache = {}
         self._interaction_count = 0
 
-    def _get_unique_inputs(self) -> Set[str]:
+    def _get_unique_inputs(self) -> set[str]:
         """Get set of unique inputs (cached)."""
         if "unique_inputs" not in self._cache:
             self._cache["unique_inputs"] = set(
@@ -218,7 +219,7 @@ class RobustLoopDetector:
             )
         return self._cache["unique_inputs"]
 
-    def _get_unique_outputs(self) -> Set[str]:
+    def _get_unique_outputs(self) -> set[str]:
         """Get set of unique outputs (cached)."""
         if "unique_outputs" not in self._cache:
             self._cache["unique_outputs"] = set(
@@ -226,7 +227,7 @@ class RobustLoopDetector:
             )
         return self._cache["unique_outputs"]
 
-    def _get_unique_signatures(self) -> Set[Tuple]:
+    def _get_unique_signatures(self) -> set[tuple]:
         """Get set of unique full signatures (cached)."""
         if "unique_signatures" not in self._cache:
             self._cache["unique_signatures"] = set(self.recent_interactions)
@@ -284,7 +285,7 @@ class RobustLoopDetector:
         last_interactions = recent_interactions[-self.full_dup_threshold :]
         return len(set(last_interactions)) == 1
 
-    def find_repeating_pattern(self) -> Optional[List[Tuple]]:
+    def find_repeating_pattern(self) -> list[tuple] | None:
         """Find a repeating pattern in the interaction history.
 
         Returns:
@@ -322,7 +323,7 @@ class RobustLoopDetector:
             or self.has_pattern_loop()
         )
 
-    def get_loop_type(self) -> List[str]:
+    def get_loop_type(self) -> list[str]:
         """Get detailed information about the type of loop detected.
 
         Returns:
@@ -345,7 +346,7 @@ class RobustLoopDetector:
 
         return loop_types
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get statistics about the current state.
 
         Returns:
@@ -370,7 +371,7 @@ class RobustLoopDetector:
             "repeating_pattern": self.find_repeating_pattern() is not None,
         }
 
-    def get_interaction_types(self) -> Dict[str, int]:
+    def get_interaction_types(self) -> dict[str, int]:
         """Get counts of each interaction type in the history.
 
         Returns:
@@ -434,7 +435,7 @@ def handle_stuck_state(original_system_prompt: str, message_stuck_prompt: bool =
     return modified_system_prompt
 
 
-def embed_text(text: str) -> List[float]:
+def embed_text(text: str) -> list[float]:
     """Embed text using OpenAI's embedding API."""
     client = OpenAI(api_key=config("OPENAI_API_KEY"))
     response = client.embeddings.create(input=text, model="text-embedding-ada-002")

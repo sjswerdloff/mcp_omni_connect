@@ -1,5 +1,6 @@
-from typing import Callable, Dict, Any, Optional
 import inspect
+from collections.abc import Callable
+from typing import Any
 
 
 class Tool:
@@ -7,7 +8,7 @@ class Tool:
         self,
         name: str,
         description: str,
-        inputSchema: Dict[str, Any],
+        inputSchema: dict[str, Any],
         function: Callable,
     ):
         self.name = name
@@ -15,7 +16,7 @@ class Tool:
         self.inputSchema = inputSchema
         self.function = function
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
@@ -29,12 +30,12 @@ class Tool:
 
 class ToolRegistry:
     def __init__(self):
-        self.tools: Dict[str, Tool] = {}
+        self.tools: dict[str, Tool] = {}
 
     def register(
         self,
-        name: Optional[str] = None,
-        inputSchema: Optional[Dict[str, Any]] = None,
+        name: str | None = None,
+        inputSchema: dict[str, Any] | None = None,
         description: str = "",
     ):
         def decorator(func: Callable):
@@ -53,13 +54,13 @@ class ToolRegistry:
 
         return decorator
 
-    def get_tool(self, name: str) -> Optional[Tool]:
+    def get_tool(self, name: str) -> Tool | None:
         return self.tools.get(name.lower())
 
     def list_tools(self) -> list:
         return list(self.tools.values())
 
-    def _infer_schema(self, func: Callable) -> Dict[str, Any]:
+    def _infer_schema(self, func: Callable) -> dict[str, Any]:
         sig = inspect.signature(func)
         props = {}
         required = []

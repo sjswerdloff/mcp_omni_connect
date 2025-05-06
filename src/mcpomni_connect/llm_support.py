@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class LLMToolSupport:
@@ -34,7 +34,7 @@ class LLMToolSupport:
     }
 
     @classmethod
-    def check_tool_support(cls, llm_config: Dict[str, Any]) -> bool:
+    def check_tool_support(cls, llm_config: dict[str, Any]) -> bool:
         """Check if the current LLM configuration supports tools.
 
         Args:
@@ -62,7 +62,7 @@ class LLMToolSupport:
         return False
 
     @classmethod
-    def get_supported_models(cls, provider: str) -> Optional[List[str]]:
+    def get_supported_models(cls, provider: str) -> list[str] | None:
         """Get list of supported models for a provider.
 
         Args:

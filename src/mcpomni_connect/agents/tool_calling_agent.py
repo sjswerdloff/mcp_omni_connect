@@ -1,15 +1,16 @@
 import json
-from typing import Any, Callable, Union
-from mcpomni_connect.utils import logger
-from mcpomni_connect.agents.types import MessageRole
+from collections.abc import Callable
+from typing import Any
+
 from mcpomni_connect.agents.token_usage import (
     Usage,
-    UsageLimits,
     UsageLimitExceeded,
+    UsageLimits,
     session_stats,
     usage,
 )
-from mcpomni_connect.agents.types import AgentConfig
+from mcpomni_connect.agents.types import AgentConfig, MessageRole
+from mcpomni_connect.utils import logger
 
 
 class ToolCallingAgent:
@@ -150,7 +151,7 @@ class ToolCallingAgent:
         self,
         chat_id: str,
         tool_name: str,
-        tool_args: Union[str, dict],
+        tool_args: str | dict,
         tool_call: Any,
         add_message_to_history: Callable[..., Any],
         available_tools: dict[str, Any] = None,

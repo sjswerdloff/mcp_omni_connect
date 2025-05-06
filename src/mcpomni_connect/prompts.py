@@ -1,6 +1,7 @@
-from typing import Any, Callable, Optional
-from mcpomni_connect.agents.token_usage import UsageLimits, usage
+from collections.abc import Callable
+from typing import Any
 
+from mcpomni_connect.agents.token_usage import UsageLimits, usage
 from mcpomni_connect.utils import logger
 
 
@@ -44,7 +45,7 @@ async def get_prompt(
     debug: bool,
     available_prompts: dict[str, list[str]],
     name: str,
-    arguments: Optional[dict] = None,
+    arguments: dict | None = None,
     request_limit: int = None,
     total_tokens_limit: int = None,
     chat_id: str = None,
@@ -125,7 +126,7 @@ async def get_prompt_with_react_agent(
     debug: bool,
     available_prompts: dict[str, list[str]],
     name: str,
-    arguments: Optional[dict] = None,
+    arguments: dict | None = None,
     chat_id: str = None,
 ):
     """Get a prompt with the react agent"""

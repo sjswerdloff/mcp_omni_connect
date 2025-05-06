@@ -1,10 +1,11 @@
+import os
 from typing import Any
 
+from dotenv import load_dotenv
 from groq import Groq
 from openai import OpenAI
+
 from mcpomni_connect.utils import logger
-from dotenv import load_dotenv
-import os
 
 load_dotenv()
 

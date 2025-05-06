@@ -1,10 +1,12 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
 from mcpomni_connect.prompts import (
-    list_prompts,
     find_prompt_server,
     get_prompt,
     get_prompt_with_react_agent,
+    list_prompts,
 )
 
 

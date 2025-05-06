@@ -1,13 +1,15 @@
-import json
-from mcpomni_connect.utils import (
-    logger,
-    CLIENT_MAC_ADDRESS,
-)
-import redis.asyncio as redis
-import time
-from typing import Optional, List, Dict, Any
-from decouple import config
 import asyncio
+import json
+import time
+from typing import Any
+
+import redis.asyncio as redis
+from decouple import config
+
+from mcpomni_connect.utils import (
+    CLIENT_MAC_ADDRESS,
+    logger,
+)
 
 # TODO: Add QDRANT DB episodic memory
 # from qdrant_client import QdrantClient
@@ -32,11 +34,11 @@ class InMemoryShortTermMemory:
         self.max_context_tokens = max_context_tokens
         self.debug = debug
         self.short_term_limit = int(0.7 * max_context_tokens)
-        self.agents_history: Dict[str, List[Dict[str, Any]]] = {}
+        self.agents_history: dict[str, list[dict[str, Any]]] = {}
 
     async def truncate_message_history(
         self, agent_name: str, chat_id: str = None
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Truncate message history to stay within token limits.
 
         Args:
@@ -73,7 +75,7 @@ class InMemoryShortTermMemory:
         agent_name: str,
         role: str,
         content: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
         chat_id: str = None,
     ) -> None:
         """Store a message in memory.
@@ -102,7 +104,7 @@ class InMemoryShortTermMemory:
 
     async def get_messages(
         self, agent_name: str, chat_id: str = None
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get messages from memory.
 
         Args:
@@ -199,7 +201,7 @@ class InMemoryShortTermMemory:
             agent_name: Name of agent (if specified, only load messages for this agent)
         """
         try:
-            with open(file_path, "r") as f:
+            with open(file_path) as f:
                 content = f.read()
 
                 if "Agent:" in content:
@@ -238,7 +240,7 @@ class RedisShortTermMemory:
 
     def __init__(
         self,
-        redis_client: Optional[redis.Redis] = None,
+        redis_client: redis.Redis | None = None,
         max_context_tokens: int = 30000,
     ) -> None:
         """Initialize."""

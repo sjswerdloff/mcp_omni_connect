@@ -1,4 +1,6 @@
-from typing import Callable, Optional, Any
+from collections.abc import Callable
+from typing import Any
+
 from mcpomni_connect.agents.base import BaseReactAgent
 from mcpomni_connect.agents.types import AgentConfig
 
@@ -19,7 +21,7 @@ class ReactAgent(BaseReactAgent):
         system_prompt: str,
         query: str,
         llm_connection: Callable,
-        add_message_to_history: Callable[[str, str, Optional[dict]], Any],
+        add_message_to_history: Callable[[str, str, dict | None], Any],
         message_history: Callable[[], Any],
         debug: bool = False,
         **kwargs,

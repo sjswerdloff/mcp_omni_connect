@@ -1,8 +1,10 @@
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
+
 from mcpomni_connect.resources import (
-    list_resources,
     find_resource_server,
+    list_resources,
     read_resource,
 )
 

@@ -1,20 +1,21 @@
-from abc import ABC, abstractmethod
 import inspect
-from typing import Any, Callable, Dict, Optional, List
 import json
+from abc import ABC, abstractmethod
+from collections.abc import Callable
+from typing import Any
 
 
 class BaseToolHandler(ABC):
     @abstractmethod
     async def validate_tool_call_request(
         self,
-        tool_data: Dict[str, Any],
-        available_tools: Dict[str, Any] | List[str],
+        tool_data: dict[str, Any],
+        available_tools: dict[str, Any] | list[str],
     ) -> Any:
         pass
 
     @abstractmethod
-    async def call(self, tool_name: str, tool_args: Dict[str, Any]) -> Any:
+    async def call(self, tool_name: str, tool_args: dict[str, Any]) -> Any:
         pass
 
 
@@ -35,7 +36,7 @@ class MCPToolHandler(BaseToolHandler):
 
     def _infer_server_name(
         self, tool_data: str, available_tools: dict[str, Any]
-    ) -> Optional[str]:
+    ) -> str | None:
         try:
             action = json.loads(tool_data)
             tool_name = action.get("tool", "").lower()
@@ -49,7 +50,7 @@ class MCPToolHandler(BaseToolHandler):
         return None
 
     async def validate_tool_call_request(
-        self, tool_data: Dict[str, Any], available_tools: Dict[str, Any]
+        self, tool_data: dict[str, Any], available_tools: dict[str, Any]
     ) -> dict:
         try:
             action = json.loads(tool_data)
@@ -92,20 +93,20 @@ class MCPToolHandler(BaseToolHandler):
                 "tool_name": "N/A",
             }
 
-    async def call(self, tool_name: str, tool_args: Dict[str, Any]) -> Any:
+    async def call(self, tool_name: str, tool_args: dict[str, Any]) -> Any:
         session = self.sessions[self.server_name]["session"]
         return await session.call_tool(tool_name, tool_args)
 
 
 class LocalToolHandler(BaseToolHandler):
-    def __init__(self, tools_registry: Dict[str, Any]):
+    def __init__(self, tools_registry: dict[str, Any]):
         self.tools_registry = tools_registry
 
     async def validate_tool_call_request(
         self,
-        tool_data: Dict[str, Any],
-        available_tools: Dict[str, Any],  # tool registry
-    ) -> Dict[str, Any]:
+        tool_data: dict[str, Any],
+        available_tools: dict[str, Any],  # tool registry
+    ) -> dict[str, Any]:
         try:
             action = json.loads(tool_data)
             tool_name = action.get("tool", "").strip().lower()
@@ -141,7 +142,7 @@ class LocalToolHandler(BaseToolHandler):
         except json.JSONDecodeError:
             return {"error": "Invalid JSON format", "action": False, "tool_name": "N/A"}
 
-    async def call(self, tool_name: str, tool_args: Dict[str, Any]) -> Any:
+    async def call(self, tool_name: str, tool_args: dict[str, Any]) -> Any:
         tool_name = tool_name.strip().lower()
         tool_args = tool_args or {}
 
@@ -168,9 +169,9 @@ class ToolExecutor:
         self,
         agent_name: str,
         tool_name: str,
-        tool_args: Dict[str, Any],
+        tool_args: dict[str, Any],
         tool_call_id: str,
-        add_message_to_history: Callable[[str, str, Optional[dict]], Any],
+        add_message_to_history: Callable[[str, str, dict | None], Any],
         chat_id: str = None,
     ) -> str:
         try:

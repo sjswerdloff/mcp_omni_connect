@@ -2,7 +2,6 @@ from __future__ import annotations as _annotations
 
 from copy import copy
 from dataclasses import dataclass, field
-from typing import Dict, Optional
 
 
 class UsageLimitExceeded(Exception):
@@ -20,13 +19,13 @@ class Usage:
 
     requests: int = 0
     """Number of requests made to the LLM API."""
-    request_tokens: Optional[int] = None
+    request_tokens: int | None = None
     """Tokens used in processing requests."""
-    response_tokens: Optional[int] = None
+    response_tokens: int | None = None
     """Tokens used in generating responses."""
-    total_tokens: Optional[int] = None
+    total_tokens: int | None = None
     """Total tokens used in the whole run, should generally be equal to `request_tokens + response_tokens`."""
-    details: Optional[Dict[str, int]] = field(default_factory=dict)
+    details: dict[str, int] | None = field(default_factory=dict)
     """Any extra details returned by the model."""
 
     def __post_init__(self) -> None:
@@ -90,13 +89,13 @@ class UsageLimits:
     Each of the limits can be set to `None` to disable that limit.
     """
 
-    request_limit: Optional[int] = 50
+    request_limit: int | None = 50
     """The maximum number of requests allowed to the model."""
-    request_tokens_limit: Optional[int] = None
+    request_tokens_limit: int | None = None
     """The maximum number of tokens allowed in requests to the model."""
-    response_tokens_limit: Optional[int] = None
+    response_tokens_limit: int | None = None
     """The maximum number of tokens allowed in responses from the model."""
-    total_tokens_limit: Optional[int] = None
+    total_tokens_limit: int | None = None
     """The maximum number of tokens allowed in requests and responses combined."""
 
     def __post_init__(self) -> None:
@@ -130,7 +129,7 @@ class UsageLimits:
             )
         )
 
-    def remaining_tokens(self, usage: Usage) -> Dict[str, Optional[int]]:
+    def remaining_tokens(self, usage: Usage) -> dict[str, int | None]:
         """Calculate remaining tokens for each limit.
 
         Args:

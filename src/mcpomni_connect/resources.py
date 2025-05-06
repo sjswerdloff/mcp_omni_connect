@@ -1,12 +1,14 @@
-from typing import Any, Callable
-from mcpomni_connect.utils import logger
+from collections.abc import Callable
+from typing import Any
+
 from mcpomni_connect.agents.token_usage import (
     Usage,
-    UsageLimits,
     UsageLimitExceeded,
+    UsageLimits,
     session_stats,
     usage,
 )
+from mcpomni_connect.utils import logger
 
 
 # handle subscribe to resource change

@@ -1,9 +1,11 @@
+import asyncio
 import json
 import os
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+
 from mcpomni_connect.client import Configuration, MCPClient
-import asyncio
 
 # Mock data for testing
 MOCK_SERVER_CONFIG = {

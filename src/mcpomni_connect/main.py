@@ -1,14 +1,14 @@
 import asyncio
 import json
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 from mcpomni_connect.cli import MCPClientCLI
 from mcpomni_connect.client import Configuration, MCPClient
 from mcpomni_connect.llm import LLMConnection
 from mcpomni_connect.utils import logger
-import os
-from dotenv import load_dotenv
-
 
 load_dotenv()
 

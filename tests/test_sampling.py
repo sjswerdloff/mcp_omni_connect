@@ -1,8 +1,10 @@
-import pytest
+import json
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from mcpomni_connect.sampling import samplingCallback
 from mcpomni_connect.types import ContextInclusion
-import json
 
 
 @pytest.mark.asyncio

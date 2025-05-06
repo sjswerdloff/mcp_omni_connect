@@ -1,18 +1,19 @@
-from mcpomni_connect.agents.base import BaseReactAgent
-from mcpomni_connect.agents.types import AgentConfig
-from mcpomni_connect.agents.types import ParsedResponse
-from mcpomni_connect.agents.react_agent import ReactAgent
-from mcpomni_connect.constants import AGENTS_REGISTRY
-from typing import Any, Callable, Optional
 import json
-from mcpomni_connect.utils import logger
-from mcpomni_connect.system_prompts import generate_react_agent_prompt_template
+from collections.abc import Callable
+from typing import Any
+
+from mcpomni_connect.agents.base import BaseReactAgent
+from mcpomni_connect.agents.react_agent import ReactAgent
 from mcpomni_connect.agents.token_usage import (
     Usage,
     UsageLimitExceeded,
     session_stats,
     usage,
 )
+from mcpomni_connect.agents.types import AgentConfig, ParsedResponse
+from mcpomni_connect.constants import AGENTS_REGISTRY
+from mcpomni_connect.system_prompts import generate_react_agent_prompt_template
+from mcpomni_connect.utils import logger
 
 
 class OrchestratorAgent(BaseReactAgent):
@@ -129,7 +130,7 @@ class OrchestratorAgent(BaseReactAgent):
         sessions: dict,
         agent_name: str,
         task: str,
-        add_message_to_history: Callable[[str, str, Optional[dict]], Any],
+        add_message_to_history: Callable[[str, str, dict | None], Any],
         llm_connection: Callable,
         available_tools: dict[str, Any],
         message_history: Callable[[], Any],
@@ -227,7 +228,7 @@ class OrchestratorAgent(BaseReactAgent):
         self,
         sessions: dict,
         query: str,
-        add_message_to_history: Callable[[str, str, Optional[dict]], Any],
+        add_message_to_history: Callable[[str, str, dict | None], Any],
         llm_connection: Callable,
         available_tools: dict[str, Any],
         message_history: Callable[[], Any],
@@ -236,7 +237,7 @@ class OrchestratorAgent(BaseReactAgent):
         max_steps: int,
         request_limit: int,
         total_tokens_limit: int,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Execute ReAct loop with JSON communication"""
         # Initialize messages with system prompt
         self.orchestrator_messages = [

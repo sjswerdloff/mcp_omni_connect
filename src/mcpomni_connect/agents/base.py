@@ -1,37 +1,39 @@
+import asyncio
 import json
 import re
 import uuid
-from typing import Any, Callable, Dict, Optional, Union, List
-from mcpomni_connect.utils import (
-    logger,
-    RobustLoopDetector,
-    handle_stuck_state,
-    strip_json_comments,
-)
-import asyncio
+from collections.abc import Callable
 from contextlib import asynccontextmanager
+from typing import Any
+
+from mcpomni_connect.agents.token_usage import (
+    Usage,
+    UsageLimitExceeded,
+    UsageLimits,
+    session_stats,
+    usage,
+)
+from mcpomni_connect.agents.tools.tools_handler import (
+    LocalToolHandler,
+    MCPToolHandler,
+    ToolExecutor,
+)
 from mcpomni_connect.agents.types import (
     AgentState,
     Message,
-    ParsedResponse,
     MessageRole,
+    ParsedResponse,
+    ToolCall,
     ToolCallMetadata,
     ToolCallResult,
-    ToolFunction,
-    ToolCall,
     ToolError,
+    ToolFunction,
 )
-from mcpomni_connect.agents.tools.tools_handler import (
-    MCPToolHandler,
-    LocalToolHandler,
-    ToolExecutor,
-)
-from mcpomni_connect.agents.token_usage import (
-    Usage,
-    UsageLimits,
-    UsageLimitExceeded,
-    session_stats,
-    usage,
+from mcpomni_connect.utils import (
+    RobustLoopDetector,
+    handle_stuck_state,
+    logger,
+    strip_json_comments,
 )
 
 
@@ -53,7 +55,7 @@ class BaseReactAgent:
         self.request_limit = request_limit
         self.total_tokens_limit = total_tokens_limit
         self.mcp_enabled = mcp_enabled
-        self.messages: Dict[str, List[Message]] = {}
+        self.messages: dict[str, list[Message]] = {}
         self.state = AgentState.IDLE
 
         self.loop_detector = RobustLoopDetector()
@@ -63,7 +65,7 @@ class BaseReactAgent:
             request_limit=self.request_limit, total_tokens_limit=self.total_tokens_limit
         )
 
-    async def extract_action_json(self, response: str) -> Dict[str, Any]:
+    async def extract_action_json(self, response: str) -> dict[str, Any]:
         """
         Extract a JSON-formatted action from a model response string.
         Returns a dictionary with the parsed content or an error structure.
@@ -267,7 +269,7 @@ class BaseReactAgent:
         sessions: dict,
         available_tools: dict,
         tools_registry: dict,
-    ) -> Union[ToolError, ToolCallResult]:
+    ) -> ToolError | ToolCallResult:
         if self.mcp_enabled:
             mcp_tool_handler = MCPToolHandler(
                 sessions=sessions,
@@ -302,7 +304,7 @@ class BaseReactAgent:
         self,
         parsed_response: ParsedResponse,
         response: str,
-        add_message_to_history: Callable[[str, str, Optional[dict]], Any],
+        add_message_to_history: Callable[[str, str, dict | None], Any],
         system_prompt: str,
         debug: bool = False,
         sessions: dict = None,
@@ -531,7 +533,7 @@ class BaseReactAgent:
         system_prompt: str,
         query: str,
         llm_connection: Callable,
-        add_message_to_history: Callable[[str, str, Optional[dict]], Any],
+        add_message_to_history: Callable[[str, str, dict | None], Any],
         message_history: Callable[[], Any],
         debug: bool = False,
         sessions: dict = None,
@@ -539,7 +541,7 @@ class BaseReactAgent:
         tools_registry: dict = None,
         is_generic_agent: bool = True,
         chat_id: str = None,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Execute ReAct loop with JSON communication
         kwargs: if mcp is enbale then it will be sessions and availables_tools else it will be tools_registry
         """

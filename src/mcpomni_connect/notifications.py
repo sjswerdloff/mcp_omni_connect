@@ -1,13 +1,16 @@
-from mcp.types import (
-    ResourceUpdatedNotification,
-    ResourceListChangedNotification,
-    ToolListChangedNotification,
-    PromptListChangedNotification,
-    ProgressNotification,
-)
-from mcpomni_connect.utils import logger
 import asyncio
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
+
+from mcp.types import (
+    ProgressNotification,
+    PromptListChangedNotification,
+    ResourceListChangedNotification,
+    ResourceUpdatedNotification,
+    ToolListChangedNotification,
+)
+
+from mcpomni_connect.utils import logger
 
 
 async def handle_notifications(

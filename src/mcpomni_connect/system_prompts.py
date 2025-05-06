@@ -1,4 +1,5 @@
-from typing import Any, Callable, List, Dict
+from collections.abc import Callable
+from typing import Any
 
 from mcpomni_connect.constants import TOOL_ACCEPTING_PROVIDERS
 
@@ -102,7 +103,7 @@ from mcpomni_connect.constants import TOOL_ACCEPTING_PROVIDERS
 def generate_concise_prompt(
     current_date_time: str,
     available_tools: dict[str, list[dict[str, Any]]],
-    episodic_memory: List[Dict[str, Any]] = None,
+    episodic_memory: list[dict[str, Any]] = None,
 ) -> str:
     """Generate a concise system prompt for LLMs that accept tools in input"""
     prompt = """You are a helpful AI assistant with access to various tools to help users with their tasks.
@@ -169,7 +170,7 @@ You do not need a tool to get the current Date and Time. Use the information ava
 
 def generate_detailed_prompt(
     available_tools: dict[str, list[dict[str, Any]]],
-    episodic_memory: List[Dict[str, Any]] = None,
+    episodic_memory: list[dict[str, Any]] = None,
 ) -> str:
     """Generate a detailed prompt for LLMs that don't accept tools in input"""
     base_prompt = """You are an intelligent assistant with access to various tools and resources through the Model Context Protocol (MCP).
@@ -255,7 +256,7 @@ def generate_system_prompt(
     current_date_time: str,
     available_tools: dict[str, list[dict[str, Any]]],
     llm_connection: Callable[[], Any],
-    episodic_memory: List[Dict[str, Any]] = None,
+    episodic_memory: list[dict[str, Any]] = None,
 ) -> str:
     """Generate a dynamic system prompt based on available tools and capabilities"""
 

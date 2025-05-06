@@ -1,6 +1,6 @@
 import json
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 
 from rich import box
 from rich.console import Console
@@ -10,16 +10,23 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Prompt
 from rich.table import Table
 
+from mcpomni_connect.agents.orchestrator import OrchestratorAgent
+from mcpomni_connect.agents.react_agent import ReactAgent
+from mcpomni_connect.agents.tool_calling_agent import ToolCallingAgent
+from mcpomni_connect.agents.types import AgentConfig
 from mcpomni_connect.client import MCPClient
+from mcpomni_connect.constants import AGENTS_REGISTRY, date_time_func
 from mcpomni_connect.llm import LLMConnection
 from mcpomni_connect.llm_support import LLMToolSupport
-from mcpomni_connect.agents.tool_calling_agent import ToolCallingAgent
+from mcpomni_connect.memory import (
+    InMemoryShortTermMemory,
+    RedisShortTermMemory,
+)
 from mcpomni_connect.prompts import (
     get_prompt,
     get_prompt_with_react_agent,
     list_prompts,
 )
-from mcpomni_connect.agents.react_agent import ReactAgent
 from mcpomni_connect.refresh_server_capabilities import refresh_capabilities
 from mcpomni_connect.resources import (
     list_resources,
@@ -28,20 +35,13 @@ from mcpomni_connect.resources import (
     unsubscribe_resource,
 )
 from mcpomni_connect.system_prompts import (
-    generate_system_prompt,
     generate_orchestrator_prompt_template,
     generate_react_agent_prompt,
     generate_react_agent_role_prompt,
+    generate_system_prompt,
 )
 from mcpomni_connect.tools import list_tools
-from mcpomni_connect.utils import logger, CLIENT_MAC_ADDRESS
-from mcpomni_connect.memory import (
-    RedisShortTermMemory,
-    InMemoryShortTermMemory,
-)
-from mcpomni_connect.agents.types import AgentConfig
-from mcpomni_connect.agents.orchestrator import OrchestratorAgent
-from mcpomni_connect.constants import AGENTS_REGISTRY, date_time_func
+from mcpomni_connect.utils import CLIENT_MAC_ADDRESS, logger
 
 # TODO: add episodic memory
 # from mcpomni_connect.memory import EpisodicMemory
@@ -76,7 +76,7 @@ class CommandHelp:
     """Help documentation for CLI commands"""
 
     @staticmethod
-    def get_command_help(command_type: str) -> Dict[str, Any]:
+    def get_command_help(command_type: str) -> dict[str, Any]:
         """Get detailed help for a specific command type"""
         help_docs = {
             "mode": {
@@ -419,7 +419,7 @@ class MCPClientCLI:
             )
         self.console.print("[green]Capabilities refreshed successfully[/]")
 
-    async def handle_help_command(self, command_type: Optional[str] = None):
+    async def handle_help_command(self, command_type: str | None = None):
         """Show help information for commands"""
         if command_type:
             # Show specific command help
@@ -756,7 +756,7 @@ class MCPClientCLI:
         else:
             self.console.print(Panel(content, title=name, border_style="blue"))
 
-    def parse_prompt_command(self, input_text: str) -> tuple[str, Optional[dict]]:
+    def parse_prompt_command(self, input_text: str) -> tuple[str, dict | None]:
         """Parse prompt command to determine name and arguments.
 
         Supports multiple formats:

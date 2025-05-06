@@ -1,11 +1,12 @@
-from typing import Any, Dict, List, Callable
+from collections.abc import Callable
+from typing import Any
 
-from mcpomni_connect.utils import logger
 from mcpomni_connect.constants import AGENTS_REGISTRY
+from mcpomni_connect.utils import logger
 
 
 async def generate_react_agent_role_prompt_func(
-    available_tools: Dict[str, Any],
+    available_tools: dict[str, Any],
     server_name: str,
     llm_connection: Callable,
     generate_react_agent_role_prompt: Callable,
@@ -31,11 +32,11 @@ async def generate_react_agent_role_prompt_func(
 
 
 async def refresh_capabilities(
-    sessions: Dict[str, Any],
-    server_names: List[str],
-    available_tools: Dict[str, Any],
-    available_resources: Dict[str, Any],
-    available_prompts: Dict[str, Any],
+    sessions: dict[str, Any],
+    server_names: list[str],
+    available_tools: dict[str, Any],
+    available_resources: dict[str, Any],
+    available_prompts: dict[str, Any],
     debug: bool,
     llm_connection: Callable,
     generate_react_agent_role_prompt: Callable,

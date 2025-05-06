@@ -1,6 +1,8 @@
-import pytest
-import tempfile
 import os
+import tempfile
+
+import pytest
+
 from mcpomni_connect.memory import (
     InMemoryShortTermMemory,
 )
@@ -90,7 +92,7 @@ class TestInMemoryShortTermMemory:
         await memory.store_message("agent1", "assistant", "New message")
         await memory.save_message_history_to_file(temp_file)
 
-        with open(temp_file, "r") as f:
+        with open(temp_file) as f:
             contents = f.read()
 
         assert "Initial message" in contents

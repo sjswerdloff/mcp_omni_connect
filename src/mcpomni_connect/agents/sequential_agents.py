@@ -1,9 +1,11 @@
-from typing import Callable, Optional, Any, List
+from collections.abc import Callable
+from typing import Any
+
 from mcpomni_connect.agents.base import BaseReactAgent
-from mcpomni_connect.utils import logger
 from mcpomni_connect.agents.types import AgentConfig
-from mcpomni_connect.system_prompts import generate_react_agent_prompt
 from mcpomni_connect.constants import date_time_func
+from mcpomni_connect.system_prompts import generate_react_agent_prompt
+from mcpomni_connect.utils import logger
 
 
 # TODO still working on this
@@ -23,7 +25,7 @@ class SequentialAgent(BaseReactAgent):
         self,
         query: str,
         llm_connection: Callable,
-        add_message_to_history: Callable[[str, str, Optional[dict]], Any],
+        add_message_to_history: Callable[[str, str, dict | None], Any],
         message_history: Callable[[], Any],
         debug: bool = False,
         **kwargs,
@@ -48,14 +50,14 @@ class SequentialAgent(BaseReactAgent):
 
 
 class SequentialAgentRunner:
-    def __init__(self, agent_configs: List[AgentConfig]):
+    def __init__(self, agent_configs: list[AgentConfig]):
         self.agents = [SequentialAgent(config) for config in agent_configs]
 
     async def run_all(
         self,
         initial_query: str,
         llm_connection: Callable,
-        add_message_to_history: Callable[[str, str, Optional[dict]], Any],
+        add_message_to_history: Callable[[str, str, dict | None], Any],
         message_history: Callable[[], Any],
         debug: bool = False,
         **kwargs,

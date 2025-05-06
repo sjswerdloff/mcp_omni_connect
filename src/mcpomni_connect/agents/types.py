@@ -1,8 +1,9 @@
 # types.py
 from enum import Enum
-from typing import Dict, List, Optional, Any
-from pydantic import BaseModel, Field
+from typing import Any
 from uuid import UUID, uuid4
+
+from pydantic import BaseModel, Field
 
 
 class AgentConfig(BaseModel):
@@ -44,8 +45,8 @@ class ToolCall(BaseModel):
 
 class ToolCallMetadata(BaseModel):
     has_tool_calls: bool = False
-    tool_calls: List[ToolCall] = []
-    tool_call_id: Optional[UUID] = None
+    tool_calls: list[ToolCall] = []
+    tool_call_id: UUID | None = None
 
 
 class Message(BaseModel):
@@ -53,20 +54,20 @@ class Message(BaseModel):
     content: str
     tool_call_id: str = None
     tool_calls: str = None
-    metadata: Optional[ToolCallMetadata] = None
+    metadata: ToolCallMetadata | None = None
 
 
 class ParsedResponse(BaseModel):
-    action: Optional[bool] = None
-    data: Optional[str] = None
-    error: Optional[str] = None
-    answer: Optional[str] = None
+    action: bool | None = None
+    data: str | None = None
+    error: str | None = None
+    answer: str | None = None
 
 
 class ToolCallResult(BaseModel):
     tool_executor: Any  # ToolExecutor instance
     tool_name: str
-    tool_args: Dict
+    tool_args: dict
 
 
 class ToolError(BaseModel):
@@ -76,9 +77,9 @@ class ToolError(BaseModel):
 
 class ToolData(BaseModel):
     action: bool
-    tool_name: Optional[str] = None
-    tool_args: Optional[Dict] = None
-    error: Optional[str] = None
+    tool_name: str | None = None
+    tool_args: dict | None = None
+    error: str | None = None
 
 
 class ToolCallRecord(BaseModel):
@@ -95,13 +96,13 @@ class ToolParameter(BaseModel):
 class ToolRegistryEntry(BaseModel):
     name: str
     description: str
-    parameters: List[ToolParameter] = []
+    parameters: list[ToolParameter] = []
 
 
 class ToolExecutorConfig(BaseModel):
     handler: Any  # ToolExecutor instance
-    tool_data: Dict[str, Any]
-    available_tools: Dict[str, Any]
+    tool_data: dict[str, Any]
+    available_tools: dict[str, Any]
 
 
 class LoopDetectorConfig(BaseModel):
