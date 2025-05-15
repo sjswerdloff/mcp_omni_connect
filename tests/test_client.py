@@ -19,13 +19,13 @@ MOCK_SERVER_CONFIG = {
     },
     "mcpServers": {
         "server1": {
-            "type": "stdio",
+            "connection_type": "stdio",
             "command": "mock_command",
             "args": ["arg1", "arg2"],
             "env": {"TEST_ENV": "test"},
         },
         "server2": {
-            "type": "sse",
+            "connection_type": "sse",
             "url": "http://test.com",
             "headers": {"Authorization": "Bearer test"},
             "timeout": 5,
@@ -138,7 +138,7 @@ class TestMCPClient:
             assert mock_client.server_names == [
                 "test_server"
             ]  # Check for the actual server name
-            assert mock_client.sessions["test_server"]["type"] == "stdio"
+            assert mock_client.sessions["test_server"]["connection_type"] == "stdio"
 
     @pytest.mark.asyncio
     async def test_connect_to_single_server_sse(self, mock_client, mock_session):
@@ -238,7 +238,7 @@ class TestMCPClient:
                 "read_stream": mock_read_stream,
                 "write_stream": mock_write_stream,
                 "connected": True,
-                "type": "stdio",
+                "connection_type": "stdio",
             }
         }
 

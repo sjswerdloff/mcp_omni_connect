@@ -199,7 +199,7 @@ class MCPClient:
                 "write_stream": write_stream,
                 "connected": True,
                 "capabilities": capabilities,
-                "type": connection_type,
+                "connection_type": connection_type,
             }
 
             if self.debug:
