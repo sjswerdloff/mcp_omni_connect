@@ -1467,6 +1467,10 @@ Action: {
   }
 }
 
+[STOP HERE AND WAIT FOR REAL SYSTEM OBSERVATION]
+
+After receiving actual system observation:
+
 Observation: {
   "status": "success",
   "data": 1000
@@ -1498,6 +1502,11 @@ Action: {
   }
 }
 
+[STOP HERE AND WAIT FOR REAL SYSTEM OBSERVATION]
+
+
+After receiving actual system observation:
+
 Observation: {
   "status": "success",
   "data": {
@@ -1513,19 +1522,44 @@ Final Answer: The weather in New York is currently 65°F with light rain. There'
 
 [COMMON ERROR SCENARIOS TO AVOID]
 1. Incorrect JSON formatting:
-   WRONG: **Action**: {
-   WRONG: Action: {
+   ### ❌ INCORRECT (DO NOT DO THIS):
+   **Action**: {
      "tool": "tool_name",
      "parameters": {
        "param1": "value1"
      }
 
+    ### ✅ CORRECT APPROACH:
    CORRECT: Action: {
      "tool": "tool_name",
      "parameters": {
        "param1": "value1"
      }
    }
+
+    ### ❌ INCORRECT (DO NOT DO THIS):
+    Action: {
+  "tool": "fetch_mcp_webcam_documentation",
+  "parameters": {}
+}
+
+Observation: {
+  "status": "success",
+  "data": {
+    "repository": "evalstate/mcp-webcam",
+    "documentation": "This is the documentation for the MCP Webcam project. It includes installation instructions, usage guidelines, API references, and examples of how to use the webcam functionalities. For installation, clone the repository and run the setup script. The API allows for capturing images, streaming video, and configuring webcam settings. Examples include capturing a single image, starting a video stream, and adjusting resolution settings."
+  }
+
+  ### ✅ CORRECT APPROACH:
+  Action: {
+  "tool": "fetch_mcp_webcam_documentation",
+  "parameters": {}
+}
+
+  [STOP HERE AND WAIT FOR REAL SYSTEM OBSERVATION]
+
+  After receiving actual system observation:
+  Final Answer: [Your analysis based on the actual observation]
 
 2. Using markdown/styling:
    WRONG: **Thought**: I need to check...
@@ -1625,6 +1659,10 @@ Action: {
   }
 }
 
+[STOP HERE AND WAIT FOR REAL SYSTEM OBSERVATION]
+
+The real observation gotten from the system:
+
 Observation: {
   "status": "success",
   "data": 1000
@@ -1656,6 +1694,9 @@ Action: {
   }
 }
 
+[STOP HERE AND WAIT FOR REAL SYSTEM OBSERVATION]
+
+The real observation gotten from the system:
 Observation: {
   "status": "success",
   "data": {
@@ -1671,20 +1712,46 @@ Final Answer: The weather in New York is currently 65°F with light rain. There'
 
     interaction_guidelines = """
 [COMMON ERROR SCENARIOS TO AVOID]
+[COMMON ERROR SCENARIOS TO AVOID]
 1. Incorrect JSON formatting:
-   WRONG: **Action**: {
-   WRONG: Action: {
+   ### ❌ INCORRECT (DO NOT DO THIS):
+   **Action**: {
      "tool": "tool_name",
      "parameters": {
        "param1": "value1"
      }
 
+    ### ✅ CORRECT APPROACH:
    CORRECT: Action: {
      "tool": "tool_name",
      "parameters": {
        "param1": "value1"
      }
    }
+
+    ### ❌ INCORRECT (DO NOT DO THIS):
+    Action: {
+  "tool": "fetch_mcp_webcam_documentation",
+  "parameters": {}
+}
+
+Observation: {
+  "status": "success",
+  "data": {
+    "repository": "evalstate/mcp-webcam",
+    "documentation": "This is the documentation for the MCP Webcam project. It includes installation instructions, usage guidelines, API references, and examples of how to use the webcam functionalities. For installation, clone the repository and run the setup script. The API allows for capturing images, streaming video, and configuring webcam settings. Examples include capturing a single image, starting a video stream, and adjusting resolution settings."
+  }
+
+  ### ✅ CORRECT APPROACH:
+  Action: {
+  "tool": "fetch_mcp_webcam_documentation",
+  "parameters": {}
+}
+
+  [STOP HERE AND WAIT FOR REAL SYSTEM OBSERVATION]
+
+  After receiving actual system observation:
+  Final Answer: [Your analysis based on the actual observation]
 
 2. Using markdown/styling:
    WRONG: **Thought**: I need to check...

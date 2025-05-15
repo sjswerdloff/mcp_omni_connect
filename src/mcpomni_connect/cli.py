@@ -1,7 +1,8 @@
 import json
 from enum import Enum
 from typing import Any
-
+from pprint import pformat
+from pathlib import Path
 from rich import box
 from rich.console import Console
 from rich.markdown import Markdown
@@ -70,6 +71,8 @@ class CommandType(Enum):
     MODE = "mode"
     QUIT = "quit"
     API_STATS = "api_stats"
+    ADD_SERVERS = "add_servers"
+    REMOVE_SERVER = "remove_server"
 
 
 class CommandHelp:
@@ -79,6 +82,31 @@ class CommandHelp:
     def get_command_help(command_type: str) -> dict[str, Any]:
         """Get detailed help for a specific command type"""
         help_docs = {
+             "add_servers": {
+                "description": "Add one or more MCP servers from a JSON config file",
+                "usage": "/add_servers:<path_to_config.json>",
+                "examples": [
+                    "/add_servers:config.json  # Add servers from config",
+                    "/add_servers:/etc/mcp/servers.json",
+                ],
+                "subcommands": {},
+                "tips": [
+                    "Make sure the config JSON has valid MCP server definitions",
+                    "Supports adding multiple servers at once",
+                ],
+            },
+            "remove_server": {
+                "description": "Remove and disconnect a specific MCP server",
+                "usage": "/remove_server:<server_name>",
+                "examples": [
+                    "/remove_server:mcp-yahoo-finance  # Remove a specific server",
+                ],
+                "subcommands": {},
+                "tips": [
+                    "Only remove servers you're not actively using",
+                    "This disconnects the session and frees up resources",
+                ],
+            },
             "mode": {
                 "description": "Toggle between auto and chat mode",
                 "usage": "/mode:<auto|chat|orchestrator>",
@@ -323,6 +351,10 @@ class MCPClientCLI:
             return CommandType.MEMORY, ""
         elif input_text.startswith("/mode:"):
             return CommandType.MODE, input_text[6:].strip()
+        elif input_text.startswith("/add_servers:"):
+            return CommandType.ADD_SERVERS, input_text[13:].strip()
+        elif input_text.startswith("/remove_server:"):
+            return CommandType.REMOVE_SERVER, input_text[15:].strip()
         elif input_text == "/api_stats":
             return CommandType.API_STATS, ""
         else:
@@ -339,6 +371,45 @@ class MCPClientCLI:
             f"{'enabled' if self.client.debug else 'disabled'}[/]"
         )
 
+    async def handle_add_servers(self, input_text: str):
+        """Handle add new server or list of servers"""
+        config_path = Path(input_text.strip()).expanduser().resolve()
+        if not config_path.exists() or not config_path.is_file():
+            self.console.print(f"[red]Config file not found: {config_path}[/red]")
+            return
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task("Adding Servers...", total=None)
+            try:
+                response = await self.client.add_servers(config_file=config_path)
+            except Exception as e:
+                self.console.print(f"[red]Failed to add servers: {e}[/red]")
+                return
+        if not response:
+            self.console.print("[yellow]No response from server addition process.[/yellow]")
+            return
+        if isinstance(response, (list, dict)):
+            self.console.print(Panel(pformat(response), border_style="blue"))
+        else:
+            self.console.print(Panel(str(response), border_style="blue"))    
+
+    async def handle_remove_server(self, input_text: str):
+        """Handle remove server"""
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task("Removing Server...", total=None)
+            response = await self.client.remove_server(name=input_text)
+        if not response:
+            self.console.print("[yellow]No response from server removing process.[/yellow]")
+            return
+        self.console.print(Panel(str(response), border_style="blue"))  
+    
     async def handle_api_stats(self, input_text: str = ""):
         """handle api stats"""
         from mcpomni_connect.agents.token_usage import session_stats
@@ -1084,6 +1155,8 @@ class MCPClientCLI:
             CommandType.MODE: self.handle_mode_command,
             CommandType.LOAD_HISTORY: self.handle_load_history_command,
             CommandType.API_STATS: self.handle_api_stats,
+            CommandType.ADD_SERVERS: self.handle_add_servers,
+            CommandType.REMOVE_SERVER: self.handle_remove_server,
         }
 
         while True:
@@ -1170,6 +1243,8 @@ class MCPClientCLI:
         commands_table.add_column("[bold yellow]Example[/]", style="yellow")
 
         commands = [
+            ("/add_servers:<path>", "Add one or more MCP servers from a JSON config file", ""),
+            ("/remove_server:<name>", "Remove and disconnect a specific MCP server", ""),
             ("/api_stats", "Retrieve API usage stats for the current session 📊", ""),
             (
                 "/memory",

@@ -10,8 +10,8 @@ class AgentConfig(BaseModel):
     agent_name: str
     request_limit: int
     total_tokens_limit: int
-    max_steps: int = Field(gt=0, le=20)
-    tool_call_timeout: int = Field(gt=1, le=60)
+    max_steps: int = Field(gt=0, le=1000)
+    tool_call_timeout: int = Field(gt=1, le=1000)
     mcp_enabled: bool = False
 
 
