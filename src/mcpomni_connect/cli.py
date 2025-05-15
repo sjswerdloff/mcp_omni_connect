@@ -82,7 +82,7 @@ class CommandHelp:
     def get_command_help(command_type: str) -> dict[str, Any]:
         """Get detailed help for a specific command type"""
         help_docs = {
-             "add_servers": {
+            "add_servers": {
                 "description": "Add one or more MCP servers from a JSON config file",
                 "usage": "/add_servers:<path_to_config.json>",
                 "examples": [
@@ -389,12 +389,14 @@ class MCPClientCLI:
                 self.console.print(f"[red]Failed to add servers: {e}[/red]")
                 return
         if not response:
-            self.console.print("[yellow]No response from server addition process.[/yellow]")
+            self.console.print(
+                "[yellow]No response from server addition process.[/yellow]"
+            )
             return
         if isinstance(response, (list, dict)):
             self.console.print(Panel(pformat(response), border_style="blue"))
         else:
-            self.console.print(Panel(str(response), border_style="blue"))    
+            self.console.print(Panel(str(response), border_style="blue"))
 
     async def handle_remove_server(self, input_text: str):
         """Handle remove server"""
@@ -406,10 +408,12 @@ class MCPClientCLI:
             progress.add_task("Removing Server...", total=None)
             response = await self.client.remove_server(name=input_text)
         if not response:
-            self.console.print("[yellow]No response from server removing process.[/yellow]")
+            self.console.print(
+                "[yellow]No response from server removing process.[/yellow]"
+            )
             return
-        self.console.print(Panel(str(response), border_style="blue"))  
-    
+        self.console.print(Panel(str(response), border_style="blue"))
+
     async def handle_api_stats(self, input_text: str = ""):
         """handle api stats"""
         from mcpomni_connect.agents.token_usage import session_stats
@@ -1243,8 +1247,16 @@ class MCPClientCLI:
         commands_table.add_column("[bold yellow]Example[/]", style="yellow")
 
         commands = [
-            ("/add_servers:<path>", "Add one or more MCP servers from a JSON config file", ""),
-            ("/remove_server:<name>", "Remove and disconnect a specific MCP server", ""),
+            (
+                "/add_servers:<path>",
+                "Add one or more MCP servers from a JSON config file",
+                "",
+            ),
+            (
+                "/remove_server:<name>",
+                "Remove and disconnect a specific MCP server",
+                "",
+            ),
             ("/api_stats", "Retrieve API usage stats for the current session 📊", ""),
             (
                 "/memory",
