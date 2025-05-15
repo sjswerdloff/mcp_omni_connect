@@ -1230,7 +1230,7 @@ class MCPClientCLI:
             Panel(
                 content,
                 title="[bold blue]⚡ MCPOmni Connect ⚡[/]",
-                subtitle="[bold cyan]v0.1.15[/]",
+                subtitle="[bold cyan]v0.1.16[/]",
                 border_style="blue",
                 box=box.DOUBLE_EDGE,
             )
@@ -1250,12 +1250,12 @@ class MCPClientCLI:
             (
                 "/add_servers:<path>",
                 "Add one or more MCP servers from a JSON config file",
-                "",
+                "/add_servers:<config.json>",
             ),
             (
                 "/remove_server:<name>",
                 "Remove and disconnect a specific MCP server",
-                "",
+                "/remove_server:<server_name>",
             ),
             ("/api_stats", "Retrieve API usage stats for the current session 📊", ""),
             (

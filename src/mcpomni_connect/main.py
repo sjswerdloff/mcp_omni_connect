@@ -43,12 +43,26 @@ def check_config_exists():
                 "top_p": 0,
             },
             "mcpServers": {
-                "server_name": {
-                    "connection_type": "stdio",
+                "server_name1": {
+                    "transport_type": "stdio",
                     "command": "mcp-server",
                     "args": [],
                     "env": {},
-                }
+                },
+                "server_name2": {
+                    "transport_type": "sse",
+                    "url": "https://example.com/sse",
+                    "headers": {},
+                    "timeout": 60,
+                    "sse_read_timeout": 120,
+                },
+                "server_name3": {
+                    "transport_type": "streamable_http",
+                    "url": "https://example.com/mcp",
+                    "headers": {},
+                    "timeout": 60,
+                    "sse_read_timeout": 120,
+                },
             },
         }
         with open(config_path, "w") as f:
@@ -79,10 +93,8 @@ async def async_main():
         await cli.chat_loop()
     except KeyboardInterrupt:
         logger.info("Shutting down client...")
-        # await client.cleanup()
     except Exception as e:
         logger.error(f"Error: {e}")
-        # await client.cleanup()
     finally:
         logger.info("Shutting down client...")
         if client:

@@ -15,7 +15,8 @@ MCPOmni Connect is a powerful, universal command-line interface (CLI) that serve
 ### 🔌 Universal Connectivity
 - **Multi-Protocol Support**
   - Native support for stdio transport
-  - Server-Sent Events (SSE) for real-time communication
+  - Server-Sent Events (SSE) transport for real-time communication
+  - Streamable HTTP transport for efficient data streaming
   - Docker container integration
   - NPX package execution
   - Extensible transport layer for future protocols
@@ -380,11 +381,22 @@ See the [FastAPI example](examples/fast_api_iml.py) for:
             ]
         },
         "sse-server": {
-            "type": "sse",
+            "transport_type": "sse",
+            "url": "http://localhost:3000/sse",
+            "headers": {
+                "Authorization": "Bearer token"
+            },
+            "timeout": 60, 
+            "sse_read_timeout": 120
+        },
+        "streamable_http-server": {
+            "transport_type": "streamable_http",
             "url": "http://localhost:3000/mcp",
             "headers": {
                 "Authorization": "Bearer token"
             },
+            "timeout": 60, 
+            "sse_read_timeout": 120
         },
         "docker-server": {
             "command": "docker",
@@ -407,6 +419,8 @@ See the [FastAPI example](examples/fast_api_iml.py) for:
 - `/memory` - Toggle Redis memory persistence (on/off)
 - `/mode:auto` - Switch to autonomous agentic mode
 - `/mode:chat` - Switch back to interactive chat mode
+- `/add_servers:<config.json>` - Add one or more servers from a configuration file
+- `/remove_server:<server_name>` - Remove a server by its name
 
 ### Memory and Chat History
 ```bash

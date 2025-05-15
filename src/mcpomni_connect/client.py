@@ -105,14 +105,14 @@ class MCPClient:
         try:
             # create AsyncExitStack per mcp server to ensure we can remove it safely without cancelling all tasks
             stack = AsyncExitStack()
-            connection_type = server["srv_config"].get("connection_type", "stdio")
+            transport_type = server["srv_config"].get("transport_type", "stdio")
             read_stream = None
             write_stream = None
             url = server["srv_config"].get("url", "")
             headers = server["srv_config"].get("headers", {})
             timeout = server["srv_config"].get("timeout", 60)
             sse_read_timeout = server["srv_config"].get("sse_read_timeout", 120)
-            if connection_type.lower() == "sse":
+            if transport_type.lower() == "sse":
                 if self.debug:
                     logger.info(f"SSE connection to {url} with timeout {timeout}")
                 transport = await stack.enter_async_context(
@@ -124,7 +124,7 @@ class MCPClient:
                     )
                 )
                 read_stream, write_stream = transport
-            elif connection_type.lower() == "streamable_http":
+            elif transport_type.lower() == "streamable_http":
                 if self.debug:
                     logger.info(
                         f"Streamable HTTP connection to {url} with timeout {timeout}"
@@ -184,12 +184,12 @@ class MCPClient:
                 "write_stream": write_stream,
                 "connected": True,
                 "capabilities": capabilities,
-                "connection_type": connection_type,
+                "transport_type": transport_type,
                 "stack": stack,
             }
             if self.debug:
                 logger.info(
-                    f"Successfully connected to {server_name} via {connection_type}"
+                    f"Successfully connected to {server_name} via {transport_type}"
                 )
             # refresh capabilities to ensure we have the latest tools, resources, and prompts
             await refresh_capabilities(

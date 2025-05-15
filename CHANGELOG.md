@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.16] - 2025-05-16
+
+### Added
+- New Streamable HTTP Transport:
+  - Added support for streamable HTTP transport protocol
+  - Efficient data streaming capabilities
+  - Configurable timeout and read timeout settings
+  - Header support for authentication and custom configurations
+- Dynamic Server Management:
+  - New `/add_servers:<config.json>` command to add one or more servers
+  - New `/remove_server:<server_name>` command to remove servers
+  - Support for adding multiple servers from a single configuration file
+  - Real-time server capability updates after adding/removing servers
+- Enhanced Server Configuration:
+  - Added streamable HTTP server configuration examples
+  - Updated documentation for new transport type
+  - Improved server management commands documentation
+
+### Changed
+- Updated README with new server management commands
+- Enhanced server configuration examples to include streamable HTTP
+- Improved documentation for transport protocols
+- Updated interactive commands section with new server management features
+
+### Fixed
+- Improved server connection handling
+- Enhanced error messages for server management commands
+- Updated documentation formatting for consistency
+
 ## [0.1.15] - 2025-05-05
 
 ### Added
@@ -30,8 +59,6 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - Corrected typos in documentation and configuration comments
 - Improved consistency in code examples and documentation formatting
-
-
 
 ## [0.1.14] - 2025-04-18
 

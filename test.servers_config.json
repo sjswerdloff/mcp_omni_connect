@@ -22,7 +22,7 @@
             ]
         },
         "sse-server": {
-            "connection_type": "sse",
+            "transport_type": "sse",
             "url": "http://localhost:3000/mcp",
             "headers": {
                 "Authorization": "Bearer token"
