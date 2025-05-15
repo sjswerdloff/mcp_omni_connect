@@ -29,7 +29,7 @@ def test_check_config_exists_new(mock_config_path):
             assert config["LLM"]["temperature"] == 0.5
             assert config["LLM"]["max_tokens"] == 5000
             assert config["LLM"]["top_p"] == 0
-            assert "server_name" in config["mcpServers"]
+            assert "server_name1" in config["mcpServers"]
 
 
 def test_check_config_exists_existing(mock_config_path):
@@ -46,7 +46,7 @@ def test_check_config_exists_existing(mock_config_path):
         },
         "mcpServers": {
             "custom_server": {
-                "type": "stdio",
+                "transport_type": "stdio",
                 "command": "custom-command",
                 "args": ["arg1", "arg2"],
                 "env": {"KEY": "value"},
