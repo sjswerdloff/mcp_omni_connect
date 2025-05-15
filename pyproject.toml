@@ -47,7 +47,7 @@ dependencies = [
     "fastapi>=0.115.12",
     "python-multipart>=0.0.20",
     "ollama>=0.4.8",
-    "mcp[cli]>=1.7.1",
+    "mcp[cli]>=1.8.1",
 ]
 
 [project.scripts]
