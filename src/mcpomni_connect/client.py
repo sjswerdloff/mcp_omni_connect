@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
-from mcp.client.websocket import websocket_client
+
 
 from mcpomni_connect.llm import LLMConnection
 from mcpomni_connect.notifications import handle_notifications
@@ -19,6 +19,7 @@ from mcpomni_connect.refresh_server_capabilities import refresh_capabilities
 from mcpomni_connect.sampling import samplingCallback
 from mcpomni_connect.system_prompts import generate_react_agent_role_prompt
 from mcpomni_connect.utils import logger
+from mcp.client.streamable_http import streamablehttp_client
 
 
 @dataclass
@@ -123,38 +124,19 @@ class MCPClient:
         )
         return successful_connections
 
-    def _validate_and_convert_url(self, url: str, connection_type: str) -> str:
-        """Validate and convert URL based on connection type."""
-        if connection_type == "sse":
-            if not url.startswith(("http://", "https://")):
-                raise ValueError(
-                    f"Invalid SSE URL: {url}. Must start with http:// or https://"
-                )
-            return url
-        elif connection_type == "websocket":
-            if not url.startswith(("ws://", "wss://")):
-                raise ValueError(
-                    f"Invalid WebSocket URL: {url}. Must start with ws:// or wss://"
-                )
-            return url
-        else:
-            raise ValueError(
-                f"Invalid connection type: {connection_type}. Must be sse or websocket"
-            )
-
     async def _connect_to_single_server(self, server):
         try:
-            connection_type = server["srv_config"].get("type", "stdio")
+            connection_type = server["srv_config"].get("connection_type", "stdio")
+            read_stream = None
+            write_stream = None
+            url = server["srv_config"].get("url", "")
+            headers = server["srv_config"].get("headers", {})
+            timeout = server["srv_config"].get("timeout", 60)
+            sse_read_timeout = server["srv_config"].get("sse_read_timeout", 120)
             logger.info(f"connection_type: {connection_type}")
-            if connection_type == "sse":
-                url = self._validate_and_convert_url(server["srv_config"]["url"], "sse")
-                headers = server["srv_config"].get("headers", {})
-                timeout = server["srv_config"].get("timeout", 5)
-                sse_read_timeout = server["srv_config"].get("sse_read_timeout", 300)
-
+            if connection_type.lower() == "sse":
                 if self.debug:
                     logger.info(f"SSE connection to {url} with timeout {timeout}")
-
                 transport = await self.exit_stack.enter_async_context(
                     sse_client(
                         url,
@@ -163,18 +145,23 @@ class MCPClient:
                         sse_read_timeout=sse_read_timeout,
                     )
                 )
-
-            elif connection_type == "websocket":
-                url = self._validate_and_convert_url(
-                    server["srv_config"]["url"], "websocket"
-                )
-                logger.info(f"WebSocket connection to {url}")
+                read_stream, write_stream = transport
+            elif connection_type.lower() == "streamable_http":
                 if self.debug:
-                    logger.info(f"WebSocket connection to {url}")
-
+                    logger.info(
+                        f"Streamable HTTP connection to {url} with timeout {timeout}"
+                    )
+                timeout = timedelta(seconds=int(timeout))
+                sse_read_timeout = timedelta(seconds=int(sse_read_timeout))
                 transport = await self.exit_stack.enter_async_context(
-                    websocket_client(url)
+                    streamablehttp_client(
+                        url=url,
+                        headers=headers,
+                        timeout=timeout,
+                        sse_read_timeout=sse_read_timeout,
+                    )
                 )
+                read_stream, write_stream, _ = transport
 
             else:
                 # stdio connection (default)
@@ -188,12 +175,10 @@ class MCPClient:
                 server_params = StdioServerParameters(
                     command=command, args=args, env=env
                 )
-
                 transport = await self.exit_stack.enter_async_context(
                     stdio_client(server_params)
                 )
-
-            read_stream, write_stream = transport
+                read_stream, write_stream = transport
 
             session = await self.exit_stack.enter_async_context(
                 ClientSession(
@@ -214,7 +199,7 @@ class MCPClient:
                 "write_stream": write_stream,
                 "connected": True,
                 "capabilities": capabilities,
-                "type": connection_type,
+                "connection_type": connection_type,
             }
 
             if self.debug:

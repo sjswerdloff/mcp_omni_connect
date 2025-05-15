@@ -19,19 +19,19 @@ MOCK_SERVER_CONFIG = {
     },
     "mcpServers": {
         "server1": {
-            "type": "stdio",
+            "connection_type": "stdio",
             "command": "mock_command",
             "args": ["arg1", "arg2"],
             "env": {"TEST_ENV": "test"},
         },
         "server2": {
-            "type": "sse",
+            "connection_type": "sse",
             "url": "http://test.com",
             "headers": {"Authorization": "Bearer test"},
             "timeout": 5,
             "sse_read_timeout": 300,
         },
-        "server3": {"type": "websocket", "url": "ws://test.com"},
+       
     },
 }
 
@@ -138,7 +138,7 @@ class TestMCPClient:
             assert mock_client.server_names == [
                 "test_server"
             ]  # Check for the actual server name
-            assert mock_client.sessions["test_server"]["type"] == "stdio"
+            assert mock_client.sessions["test_server"]["connection_type"] == "stdio"
 
     @pytest.mark.asyncio
     async def test_connect_to_single_server_sse(self, mock_client, mock_session):
@@ -162,31 +162,9 @@ class TestMCPClient:
             assert mock_client.server_names == [
                 "test_server"
             ]  # Check for the actual server name
-            assert mock_client.sessions["test_server"]["type"] == "sse"
+            assert mock_client.sessions["test_server"]["connection_type"] == "sse"
 
-    @pytest.mark.asyncio
-    async def test_connect_to_single_server_websocket(self, mock_client, mock_session):
-        """Test connecting to a WebSocket server"""
-        with patch("mcpomni_connect.client.websocket_client") as mock_ws_client:
-            mock_transport = (AsyncMock(), AsyncMock())
-            mock_ws_client.return_value.__aenter__.return_value = mock_transport
-
-            mock_client.exit_stack.enter_async_context = AsyncMock()
-            mock_client.exit_stack.enter_async_context.side_effect = [
-                mock_transport,
-                mock_session,
-            ]
-
-            server_info = {
-                "name": "server3",
-                "srv_config": MOCK_SERVER_CONFIG["mcpServers"]["server3"],
-            }
-            await mock_client._connect_to_single_server(server_info)
-
-            assert mock_client.server_names == [
-                "test_server"
-            ]  # Check for the actual server name
-            assert mock_client.sessions["test_server"]["type"] == "websocket"
+    
 
     @pytest.mark.asyncio
     async def test_clean_up_server(self, mock_client):
@@ -260,7 +238,7 @@ class TestMCPClient:
                 "read_stream": mock_read_stream,
                 "write_stream": mock_write_stream,
                 "connected": True,
-                "type": "stdio",
+                "connection_type": "stdio",
             }
         }
 
@@ -325,25 +303,3 @@ class TestMCPClient:
         # Verify the server is marked as disconnected despite errors
         assert not mock_client.sessions["test_server"]["connected"]
         assert mock_client.sessions["test_server"]["session"] is None
-
-    def test_validate_and_convert_url(self, mock_client):
-        """Test URL validation and conversion"""
-        # Test SSE URL
-        url = mock_client._validate_and_convert_url("http://test.com", "sse")
-        assert url == "http://test.com"
-
-        # Test WebSocket URL
-        url = mock_client._validate_and_convert_url("ws://test.com", "websocket")
-        assert url == "ws://test.com"
-
-        # Test invalid SSE URL
-        with pytest.raises(ValueError):
-            mock_client._validate_and_convert_url("invalid", "sse")
-
-        # Test invalid WebSocket URL
-        with pytest.raises(ValueError):
-            mock_client._validate_and_convert_url("invalid", "websocket")
-
-        # Test invalid connection type
-        with pytest.raises(ValueError):
-            mock_client._validate_and_convert_url("http://test.com", "invalid")
