@@ -44,7 +44,7 @@ def check_config_exists():
             },
             "mcpServers": {
                 "server_name": {
-                    "type": "stdio",
+                    "connection_type": "stdio",
                     "command": "mcp-server",
                     "args": [],
                     "env": {},
