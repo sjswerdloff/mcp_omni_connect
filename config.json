@@ -1,0 +1,49 @@
+{
+    "mcpServers": {
+      "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/home/abiorh/Desktop",
+        "/home/abiorh/ai/"
+      ]
+    },
+    
+        "mysql": {
+          "command": "uv",
+          "args": [
+            "--directory", 
+            "/home/abiorh/ai/mcp_servers/mysql_mcp_server",
+            "run",
+            "mysql_mcp_server"
+          ],
+          "env": {
+            "MYSQL_HOST": "localhost",
+            "MYSQL_PORT": "3306",
+            "MYSQL_USER": "root",
+            "MYSQL_PASSWORD": "Lucifer_001",
+            "MYSQL_DATABASE": "mcp_learning"
+          }
+        },
+        "mcp-pinecone": {
+          "command": "uv",
+          "args": [
+            "--directory",
+            "/home/abiorh/ai/mcp_servers/mcp-pinecone",
+            "run",
+            "mcp-pinecone"
+          ],
+          "env": {
+            "PINECONE_API_KEY": "pcsk_6E2ypu_3ELFuS57dowpDY59PJvjfNyJnwRCiPkniKFvbN6QjXbBkT1GVe1k29EF4ZNK8r2",
+            "PINECONE_INDEX_NAME": "ocpp-index"
+          }
+        }
+    
+
+
+  
+     
+    }
+  }
+  

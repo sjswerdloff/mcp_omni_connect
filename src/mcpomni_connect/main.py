@@ -79,8 +79,10 @@ async def async_main():
         await cli.chat_loop()
     except KeyboardInterrupt:
         logger.info("Shutting down client...")
+        # await client.cleanup()
     except Exception as e:
         logger.error(f"Error: {e}")
+        # await client.cleanup()
     finally:
         logger.info("Shutting down client...")
         if client:

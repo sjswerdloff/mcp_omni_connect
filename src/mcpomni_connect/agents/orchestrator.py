@@ -199,6 +199,9 @@ class OrchestratorAgent(BaseReactAgent):
         try:
             agent_registries = []
             for server_name, tools in available_tools.items():
+                if server_name not in self.agents_registry:
+                    logger.warning(f"No agent registry entry for {server_name}")
+                    continue
                 agent_entry = {
                     "agent_name": server_name,
                     "agent_description": self.agents_registry[server_name],
@@ -221,8 +224,7 @@ class OrchestratorAgent(BaseReactAgent):
             )
         except Exception as e:
             logger.info(f"Agent registry error: {e}")
-            # return None
-            raise e
+            return e
 
     async def run(
         self,

@@ -348,11 +348,14 @@ class ToolCallingAgent:
             logger.error(error_message)
             return error_message
         # Process response and handle tool calls
-        if hasattr(response, "choices"):
-            assistant_message = response.choices[0].message
-        elif hasattr(response, "message"):
-            assistant_message = response.message
-
+        assistant_message = None
+        if response:
+            if hasattr(response, "choices"):
+                assistant_message = response.choices[0].message
+            elif hasattr(response, "message"):
+                assistant_message = response.message
+        else:
+            return "Error processing query"
         initial_response = assistant_message.content or ""
 
         # Process tool calls
