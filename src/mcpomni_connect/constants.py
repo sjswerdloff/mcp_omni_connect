@@ -6,7 +6,7 @@ TOOL_ACCEPTING_PROVIDERS = {
     "openrouter",
     "gemini",
     "deepseek",
-    # "ollama" # TODO
+    "azureopenai",
 }
 
 AGENTS_REGISTRY = {}

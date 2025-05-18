@@ -4,12 +4,12 @@ from typing import Any
 from dotenv import load_dotenv
 from groq import Groq
 from openai import OpenAI, AzureOpenAI
-
-from mcpomni_connect.utils import logger
+from mcpomni_connect.utils import logger, dict_to_namespace
+import requests
 
 load_dotenv()
 
-OLLAMA_HOST = os.getenv("OLLAMA_HOST")
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
 
 class LLMConnection:
@@ -31,6 +31,7 @@ class LLMConnection:
             api_key=self.config.llm_api_key,
         )
         self.ollama = None
+        self.ollama_host = OLLAMA_HOST
         self.azure_openai = None
         if not self.llm_config:
             logger.info("updating llm configuration")
@@ -92,6 +93,10 @@ class LLMConnection:
                         "azure_deployment": azure_deployment,
                     }
                 )
+            # Add Ollama specific configuration if provider is ollama
+            if provider.lower() == "ollama":
+                ollama_host = llm_config.get("ollama_host", OLLAMA_HOST)
+                self.llm_config["ollama_host"] = ollama_host
 
             return self.llm_config
         except Exception as e:
@@ -247,16 +252,87 @@ class LLMConnection:
                         messages=messages,
                     )
                 return response
-            # TODO
-            # elif self.llm_config["provider"].lower() == "ollama":
-            #     serialized_messages = self.serialize_messages(chat_payload=messages)
-            #     response = ollama.chat(
-            #             model=self.llm_config["model"],
-            #             messages=serialized_messages,
-            #             stream=False,
-            #             tools=tools or [],
-            #         )
-            #     return response
+            elif self.llm_config["provider"].lower() == "ollama":
+                serialized_messages = self.serialize_messages(chat_payload=messages)
+                ollama_host = self.llm_config.get("ollama_host", self.ollama_host)
+
+                if not ollama_host:
+                    logger.error("Ollama host not specified")
+                    return None
+
+                # Normalize host
+                if not ollama_host.startswith("http"):
+                    ollama_host = f"http://{ollama_host}"
+                ollama_host = ollama_host.rstrip("/")  # no trailing slash
+
+                # # Confirm server is running
+                # try:
+                #     models_response = requests.get(f"{ollama_host}/api/tags", timeout=5)
+                #     models_response.raise_for_status()
+                #     logger.debug(f"Ollama models: {models_response.json()}")
+                # except Exception as e:
+                #     logger.error(f"Failed to connect to Ollama server at {ollama_host}: {e}")
+                #     return None
+
+                # Convert messages to prompt
+                def messages_to_prompt(messages):
+                    return "\n".join(
+                        f"{m['role'].capitalize()}: {m['content']}" for m in messages
+                    )
+
+                # Use /api/generate (prompt-based models)
+                payload = {
+                    "model": self.llm_config["model"],
+                    "prompt": messages_to_prompt(serialized_messages),
+                    "stream": False,
+                    "options": {
+                        "temperature": self.llm_config["temperature"],
+                        "num_predict": self.llm_config["max_tokens"],
+                        "top_p": self.llm_config["top_p"],
+                    },
+                }
+
+                # Add tools if supported (Ollama doesn't yet)
+                if tools:
+                    payload["tools"] = tools  # ignored by Ollama right now
+
+                try:
+                    response = requests.post(
+                        f"{ollama_host}/api/generate", json=payload, timeout=120
+                    )
+                    response.raise_for_status()
+                    ollama_data = response.json()
+                except Exception as e:
+                    logger.error(f"Error calling Ollama API: {e}")
+                    return None
+
+                formatted_response = {
+                    "id": ollama_data.get("id", ""),
+                    "object": "chat.completion",
+                    "created": ollama_data.get("created_at", 0),
+                    "model": self.llm_config["model"],
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": ollama_data.get("response", ""),
+                                "tool_calls": ollama_data.get("message", {}).get(
+                                    "tool_calls", []
+                                ),
+                            },
+                            "finish_reason": "stop",
+                        }
+                    ],
+                    "usage": {
+                        "prompt_tokens": ollama_data.get("prompt_eval_count", 0),
+                        "completion_tokens": ollama_data.get("eval_count", 0),
+                        "total_tokens": ollama_data.get("prompt_eval_count", 0)
+                        + ollama_data.get("eval_count", 0),
+                    },
+                }
+                # Convert to OpenAI SDK-like structure
+                return dict_to_namespace(formatted_response)
         except Exception as e:
             logger.error(f"Error calling LLM: {e}")
             return None

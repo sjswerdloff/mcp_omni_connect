@@ -175,6 +175,17 @@ class OrchestratorAgent(BaseReactAgent):
             # if the observation is empty return general error message
             if not observation:
                 observation = "No observation available right now. try again later. or try a different agent."
+            # # Log final tool interaction using TOOL_RESPONSE_LOG_MESSAGE
+            # REMOTE_AGENT_RESPONSE_LOG_MESSAGE = (
+            #     f"\n{'-' * 30}\n"
+            #     f"{AGENT_LOG_PREFIX}\n"
+            #     f"{Fore.WHITE}Calling Remote Agent: {tool_call_result.tool_name}\n"
+            #     f"{Fore.YELLOW}Tool's input: {json.dumps(tool_call_result.tool_args, indent=2)}\n"
+            #     f"{Fore.CYAN}Tool's response:\n{observation}"
+            #     f"{Fore.RESET}\n{'-' * 30}"
+            # )
+            # if self.debug:
+            #     logger.info(REMOTE_AGENT_RESPONSE_LOG_MESSAGE)
             # add the observation to the orchestrator messages and the message history
             self.orchestrator_messages.append(
                 {
@@ -213,11 +224,10 @@ class OrchestratorAgent(BaseReactAgent):
                 agent_registries.append(agent_entry)
             return "\n".join(
                 [
-                    "### Agent Registry",
                     "| Agent Name     | Description                         | Capabilities                     |",
                     "|----------------|-------------------------------------|----------------------------------|",
                     *[
-                        f"| {entry['agent_name']} | {entry['agent_description']} | {', '.join(entry['capabilities'])} |"
+                        f"| {entry['agent_name']} | {entry['agent_description']} | {', '.join(entry['capabilities'])} |\n\n"
                         for entry in agent_registries
                     ],
                 ]
@@ -242,8 +252,13 @@ class OrchestratorAgent(BaseReactAgent):
     ) -> str | None:
         """Execute ReAct loop with JSON communication"""
         # Initialize messages with system prompt
+        agent_registry_output = await self.agent_registry_tool(available_tools)
+        updated_systm_prompt = (
+            orchestrator_system_prompt
+            + f"[AVAILABLE AGENTS REGISTRY]\n\n{agent_registry_output}"
+        )
         self.orchestrator_messages = [
-            {"role": "system", "content": orchestrator_system_prompt}
+            {"role": "system", "content": updated_systm_prompt}
         ]
 
         # Add initial user message to message history
@@ -251,13 +266,13 @@ class OrchestratorAgent(BaseReactAgent):
             agent_name="orchestrator", role="user", content=query, chat_id=self.chat_id
         )
         await self.update_llm_working_memory(message_history)
-        agent_registry_output = await self.agent_registry_tool(available_tools)
-        self.orchestrator_messages.append(
-            {
-                "role": "assistant",
-                "content": f"This is the list of agents and their capabilities **AgentsRegistryObservation**:\n\n{agent_registry_output}",
-            }
-        )
+
+        # self.orchestrator_messages.append(
+        #     {
+        #         "role": "assistant",
+        #         "content": f"This is the list of agents and their capabilities **AgentsRegistryObservation**:\n\n{agent_registry_output}",
+        #     }
+        # )
         current_steps = 0
         while current_steps < self.max_steps:
             current_steps += 1
