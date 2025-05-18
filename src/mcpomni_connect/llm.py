@@ -3,7 +3,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 from groq import Groq
-from openai import OpenAI
+from openai import OpenAI, AzureOpenAI
 
 from mcpomni_connect.utils import logger
 
@@ -31,10 +31,26 @@ class LLMConnection:
             api_key=self.config.llm_api_key,
         )
         self.ollama = None
+        self.azure_openai = None
         if not self.llm_config:
             logger.info("updating llm configuration")
             self.llm_configuration()
             logger.info(f"LLM configuration: {self.llm_config}")
+
+            if self.llm_config and self.llm_config["provider"].lower() == "azureopenai":
+                azure_endpoint = self.llm_config.get("azure_endpoint")
+                azure_api_version = self.llm_config.get(
+                    "azure_api_version", "2024-02-01"
+                )
+
+                if not azure_endpoint:
+                    logger.error("Azure OpenAI endpoint not provided in configuration")
+                else:
+                    self.azure_openai = AzureOpenAI(
+                        api_key=self.config.llm_api_key,
+                        api_version=azure_api_version,
+                        azure_endpoint=azure_endpoint,
+                    )
 
     def llm_configuration(self):
         """Load the LLM configuration"""
@@ -45,6 +61,7 @@ class LLMConnection:
             temperature = llm_config.get("temperature", 0.5)
             max_tokens = llm_config.get("max_tokens", 5000)
             top_p = llm_config.get("top_p", 0)
+
             self.llm_config = {
                 "provider": provider,
                 "model": model,
@@ -52,6 +69,30 @@ class LLMConnection:
                 "max_tokens": max_tokens,
                 "top_p": top_p,
             }
+
+            # Add Azure OpenAI specific configuration if provider is azureopenai
+            if provider.lower() == "azureopenai":
+                azure_endpoint = llm_config.get("azure_endpoint")
+                azure_api_version = llm_config.get("azure_api_version", "2024-02-01")
+                azure_deployment = llm_config.get("azure_deployment")
+
+                if not azure_endpoint:
+                    logger.error("Azure OpenAI endpoint not provided in configuration")
+
+                if not azure_deployment:
+                    logger.warning(
+                        "Azure deployment name not provided, using model name as deployment"
+                    )
+                    azure_deployment = model
+
+                self.llm_config.update(
+                    {
+                        "azure_endpoint": azure_endpoint,
+                        "azure_api_version": azure_api_version,
+                        "azure_deployment": azure_deployment,
+                    }
+                )
+
             return self.llm_config
         except Exception as e:
             logger.error(f"Error loading LLM configuration: {e}")
@@ -170,6 +211,36 @@ class LLMConnection:
                 else:
                     response = self.deepseek.chat.completions.create(
                         model=self.llm_config["model"],
+                        max_tokens=self.llm_config["max_tokens"],
+                        temperature=self.llm_config["temperature"],
+                        top_p=self.llm_config["top_p"],
+                        messages=messages,
+                    )
+                return response
+            elif self.llm_config["provider"].lower() == "azureopenai":
+                # Check if Azure OpenAI client is initialized
+                if not self.azure_openai:
+                    logger.error("Azure OpenAI client not initialized")
+                    return None
+
+                deployment = self.llm_config.get("azure_deployment")
+                if not deployment:
+                    logger.warning("Azure deployment not specified, using model name")
+                    deployment = self.llm_config["model"]
+
+                if tools:
+                    response = self.azure_openai.chat.completions.create(
+                        model=deployment,  # For Azure, this is the deployment name
+                        max_tokens=self.llm_config["max_tokens"],
+                        temperature=self.llm_config["temperature"],
+                        top_p=self.llm_config["top_p"],
+                        messages=messages,
+                        tools=tools,
+                        tool_choice="auto",
+                    )
+                else:
+                    response = self.azure_openai.chat.completions.create(
+                        model=deployment,  # For Azure, this is the deployment name
                         max_tokens=self.llm_config["max_tokens"],
                         temperature=self.llm_config["temperature"],
                         top_p=self.llm_config["top_p"],
