@@ -71,7 +71,7 @@ class BaseReactAgent:
         Returns a dictionary with the parsed content or an error structure.
         """
         try:
-            action_start = response.find("Action:") or response.find("action:")
+            action_start = response.find("Action:")
             if action_start == -1:
                 return {
                     "error": "No 'Action:' section found in response",
@@ -290,7 +290,6 @@ class BaseReactAgent:
             )
 
         if not tool_data.get("action"):
-            logger.info("NO ACTION FOUND")
             return ToolError(
                 observation=tool_data.get("error", "N/A"),
                 tool_name=tool_data.get("tool_name", "N/A"),
