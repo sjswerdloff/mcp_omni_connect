@@ -30,6 +30,10 @@ class LLMToolSupport:
             "provider": "azureopenai",
             "models": None,  # None means all models support tools
         },
+        "anthropic": {
+            "provider": "anthropic",
+            "models": None,  # None means all models support tools
+        },
     }
 
     @classmethod
