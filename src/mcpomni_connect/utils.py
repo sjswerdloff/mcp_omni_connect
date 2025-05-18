@@ -9,11 +9,16 @@ import uuid
 from collections import deque
 from pathlib import Path
 from typing import Any
-
+from types import SimpleNamespace
 import colorlog
 from decouple import config
 from openai import OpenAI
+from rich.console import Console, Group
+from rich.panel import Panel
+from rich.pretty import Pretty
+from rich.text import Text
 
+console = Console()
 # Configure logging
 logger = logging.getLogger("mcpomni_connect")
 logger.setLevel(logging.INFO)
@@ -442,6 +447,10 @@ def embed_text(text: str) -> list[float]:
     return response.data[0].embedding
 
 
+def dict_to_namespace(d):
+    return json.loads(json.dumps(d), object_hook=lambda x: SimpleNamespace(**x))
+
+
 def strip_json_comments(text: str) -> str:
     """
     Removes // and /* */ style comments from JSON-like text,
@@ -456,6 +465,20 @@ def strip_json_comments(text: str) -> str:
 
     pattern = r'"(?:\\.|[^"\\])*"' + r"|//.*?$|/\*.*?\*/"
     return re.sub(pattern, replacer, text, flags=re.DOTALL | re.MULTILINE)
+
+
+def show_tool_response(agent_name, tool_name, tool_args, observation):
+    content = Group(
+        Text(agent_name.upper(), style="bold magenta"),
+        Text(f"→ Calling tool: {tool_name}", style="bold blue"),
+        Text("→ Tool input:", style="bold yellow"),
+        Pretty(tool_args),
+        Text("→ Tool response:", style="bold green"),
+        Pretty(observation),
+    )
+
+    panel = Panel.fit(content, title="🔧 TOOL CALL LOG", border_style="bright_black")
+    console.print(panel)
 
 
 # # Initialize the model once at module level

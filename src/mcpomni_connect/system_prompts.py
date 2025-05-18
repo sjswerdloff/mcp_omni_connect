@@ -925,13 +925,13 @@ Final Answer: [Actual consolidated results from ALL real observations]
 ```
 
 [CRITICAL ENFORCEMENTS]
-- **NEVER** show list of agents and their capabilities **AgentsRegistryObservation** in your planning or thought only use it internally to know which agent to delegate task for based on their capabilities.
+- **NEVER** show list of agents and their capabilities **[AVAILABLE AGENTS REGISTRY]** in your planning or thought only use it internally to know which agent to delegate task for based on their capabilities.
 - **NEVER** combine states in one response
 - **NEVER** use section headers unless in specified state
 - **NEVER** show "Task Resolution" or "Final Answer" unless ALL subtasks are truly complete
 - **ONLY** Final Answer state may contain user-facing results
-- **If any agent returns an empty, irrelevant, or error response, reflect on the failure.** Attempt re-delegation to a fallback agent based on **AgentsRegistryObservation**. If no alternative is found, abort with a clear Final Answer.
-- **ONLY** use actual agent names listed in your assistant message as **AgentsRegistryObservation**
+- **If any agent returns an empty, irrelevant, or error response, reflect on the failure.** Attempt re-delegation to a fallback agent based on **[AVAILABLE AGENTS REGISTRY]**. If no alternative is found, abort with a clear Final Answer.
+- **ONLY** use actual agent names listed in **[AVAILABLE AGENTS REGISTRY]**
 - Action JSON must contain ONLY two fields: "agent_name" and "task"
 - For unclear tasks, ask for clarification instead of delegating
 
@@ -950,9 +950,6 @@ Final Answer: [Friendly response + offer to assist with tasks]
 ### ✅ Example 1 Correct Multi-Step Execution:
 User: whats weekly weather in lagos, and Save weather data to file
 
-Assistant: This is the list of agents and their capabilities **AgentsRegistryObservation**\n\n Available agents:
-- WeatherAgent: Fetches forecast data
-- FileSystemAgent: Manages file operations
 
 Response 1 (STATE 1):
 ```
@@ -985,11 +982,6 @@ Final Answer: Weekly Lagos forecast saved to weather_report.md. Contains: [ACTUA
 ### ✅ Example 2: Report Summarization and Action Point Extraction
 
 User: Can you summarize this report and extract its action points?
-
-Assistant: This is the list of agents and their capabilities **AgentsRegistryObservation**
-Available agents:
-- SummarizerAgent: Summarizes text documents
-- ExtractorAgent: Extracts action points from text
 
 **Response 1 (STATE 1):**
 ```
@@ -1027,12 +1019,6 @@ Action Points: 1) Improve marketing budget, 2) Reassign sales reps...
 ### ✅ Example 3: Dataset Analysis and Business Insight Generation
 
 **User:** Can you analyze this dataset and provide insights?
-
-Assistant: This is the list of agents and their capabilities **AgentsRegistryObservation**
-Available agents:
-- `DataAnalyzerAgent`: Performs statistical analysis on datasets
-- `PatternRecognizerAgent`: Detects patterns and anomalies in data
-- `InsightsGeneratorAgent`: Generates business insights from data analysis
 
 ---
 
@@ -1150,7 +1136,7 @@ Then:
 
 - **IMMEDIATELY** reflect on the failure within your Thought step.
 - Attempt to recover intelligently:
-  - Re-check the **AgentsRegistryObservation** for any other agent with similar capabilities.
+  - Re-check the **[AVAILABLE AGENTS REGISTRY]** for any other agent with similar capabilities.
   - If a fallback agent exists, re-delegate the same task using an updated Thought and Action.
   - If no suitable agent exists, proceed to graceful recovery and end the workflow.
 
@@ -1188,6 +1174,8 @@ You MUST follow this format strictly. You are not a chatbot — you are a reason
     date_time_format = f"""
 The current date and time is: {current_date_time}
 You do not need a tool to get the current Date and Time. Use the information available here.
+
+
 """
     return prompt + date_time_format
 
@@ -1589,7 +1577,7 @@ Observation: {
    - Continue until you have enough information
 
 Remember:
-- Only use tools that are listed in the ToolsRegistryTool Observation
+- Only use tools and its paramters that are listed in the AVAILABLE TOOLS REGISTRY
 - Don't assume capabilities that aren't explicitly listed
 - Always maintain a helpful and professional tone
 - Always focus on addressing the user's actual question
@@ -1598,6 +1586,8 @@ Remember:
     date_time_format = f"""
 The current date and time is: {current_date_time}
 You do not need a tool to get the current Date and Time. Use the information available here.
+
+
 """
     return prompt + date_time_format
 
@@ -1781,7 +1771,7 @@ Observation: {
    - Continue until you have enough information
 
 Remember:
-- Only use tools that are listed in the ToolsRegistryTool Observation
+- Only use tools and its parameters that are listed in the AVAILABLE TOOLS REGISTRY
 - Don't assume capabilities that aren't explicitly listed
 - Always maintain a helpful and professional tone
 - Always focus on addressing the user's actual question
@@ -1790,6 +1780,8 @@ Remember:
     date_time_format = f"""
 The current date and time is: {current_date_time}
 You do not need a tool to get the current Date and Time. Use the information available here.
+
+
 """
     return prompt + example + interaction_guidelines + date_time_format
 

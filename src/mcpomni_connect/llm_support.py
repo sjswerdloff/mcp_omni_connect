@@ -26,11 +26,10 @@ class LLMToolSupport:
             "provider": "deepseek",
             "models": None,  # None means all models support tools
         },
-        # TODO
-        # "ollama": {
-        #     "provider": "ollama",
-        #     "models": None,  # None means all models support tools
-        # },
+        "azureopenai": {
+            "provider": "azureopenai",
+            "models": None,  # None means all models support tools
+        },
     }
 
     @classmethod

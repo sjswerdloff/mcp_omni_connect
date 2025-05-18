@@ -5,7 +5,6 @@ import uuid
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from typing import Any
-
 from mcpomni_connect.agents.token_usage import (
     Usage,
     UsageLimitExceeded,
@@ -34,6 +33,7 @@ from mcpomni_connect.utils import (
     handle_stuck_state,
     logger,
     strip_json_comments,
+    show_tool_response,
 )
 
 
@@ -291,7 +291,8 @@ class BaseReactAgent:
 
         if not tool_data.get("action"):
             return ToolError(
-                observation=tool_data.get("error"), tool_name=tool_data.get("tool_name")
+                observation=tool_data.get("error", "N/A"),
+                tool_name=tool_data.get("tool_name", "N/A"),
             )
 
         return ToolCallResult(
@@ -318,13 +319,10 @@ class BaseReactAgent:
             sessions=sessions,
             tools_registry=tools_registry,
         )
-        # tool_name_to_used = None
+
         # Early exit on tool validation failure
         if isinstance(tool_call_result, ToolError):
             observation = tool_call_result.observation
-            # tool_name_to_used = tool_call_result.tool_name
-            logger.info(f"error observation: {observation}")
-
         else:
             # Create proper tool call metadata
             tool_call_id = str(uuid.uuid4())
@@ -413,6 +411,13 @@ class BaseReactAgent:
                 str(tool_call_result.tool_name),
                 str(tool_call_result.tool_args),
                 str(observation),
+            )
+        if debug:
+            show_tool_response(
+                agent_name=self.agent_name,
+                tool_name=tool_call_result.tool_name,
+                tool_args=tool_call_result.tool_args,
+                observation=observation,
             )
         # Final observation handling
         self.messages[self.agent_name].append(
@@ -546,8 +551,15 @@ class BaseReactAgent:
         kwargs: if mcp is enbale then it will be sessions and availables_tools else it will be tools_registry
         """
         # Initialize messages with system prompt
+        tools_section = await self.get_tools_registry(
+            available_tools, agent_name=None if is_generic_agent else self.agent_name
+        )
+        system_updated_prompt = (
+            system_prompt + f"[AVAILABLE TOOLS REGISTRY]\n\n{tools_section}"
+        )
+
         self.messages[self.agent_name] = [
-            Message(role=MessageRole.SYSTEM, content=system_prompt)
+            Message(role=MessageRole.SYSTEM, content=system_updated_prompt)
         ]
         # Add initial user message to message history
         await add_message_to_history(
@@ -558,17 +570,13 @@ class BaseReactAgent:
             message_history=message_history, chat_id=chat_id
         )
         # inject the tools registry into the assistant message
-        # TODO UPDATE LATER FOR TOOL_REGISTRY AS WELL
-        tools_section = await self.get_tools_registry(
-            available_tools, agent_name=None if is_generic_agent else self.agent_name
-        )
 
-        self.messages[self.agent_name].append(
-            Message(
-                role=MessageRole.ASSISTANT,
-                content=f"### Tools Registry Observation\n\n{tools_section}",
-            )
-        )
+        # self.messages[self.agent_name].append(
+        #     Message(
+        #         role=MessageRole.ASSISTANT,
+        #         content=f"### Tools Registry Observation\n\n{tools_section}",
+        #     )
+        # )
         # check if the agent is in a valid state to run
         if self.state not in [
             AgentState.IDLE,
