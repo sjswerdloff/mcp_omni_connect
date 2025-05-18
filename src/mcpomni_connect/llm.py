@@ -30,6 +30,10 @@ class LLMConnection:
             base_url="https://api.deepseek.com",
             api_key=self.config.llm_api_key,
         )
+        self.anthropic = OpenAI(
+            base_url="https://api.anthropic.com/v1/",
+            api_key=self.config.llm_api_key,
+        )
         self.ollama = None
         self.ollama_host = OLLAMA_HOST
         self.azure_openai = None
@@ -123,6 +127,26 @@ class LLMConnection:
                     )
                 else:
                     response = self.openai.chat.completions.create(
+                        model=self.llm_config["model"],
+                        max_tokens=self.llm_config["max_tokens"],
+                        temperature=self.llm_config["temperature"],
+                        top_p=self.llm_config["top_p"],
+                        messages=messages,
+                    )
+                return response
+            elif self.llm_config["provider"].lower() == "anthropic":
+                if tools:
+                    response = self.anthropic.chat.completions.create(
+                        model=self.llm_config["model"],
+                        max_tokens=self.llm_config["max_tokens"],
+                        temperature=self.llm_config["temperature"],
+                        top_p=self.llm_config["top_p"],
+                        messages=messages,
+                        tools=tools,
+                        tool_choice="auto",
+                    )
+                else:
+                    response = self.anthropic.chat.completions.create(
                         model=self.llm_config["model"],
                         max_tokens=self.llm_config["max_tokens"],
                         temperature=self.llm_config["temperature"],
