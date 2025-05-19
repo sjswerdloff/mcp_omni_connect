@@ -175,17 +175,6 @@ class OrchestratorAgent(BaseReactAgent):
             # if the observation is empty return general error message
             if not observation:
                 observation = "No observation available right now. try again later. or try a different agent."
-            # # Log final tool interaction using TOOL_RESPONSE_LOG_MESSAGE
-            # REMOTE_AGENT_RESPONSE_LOG_MESSAGE = (
-            #     f"\n{'-' * 30}\n"
-            #     f"{AGENT_LOG_PREFIX}\n"
-            #     f"{Fore.WHITE}Calling Remote Agent: {tool_call_result.tool_name}\n"
-            #     f"{Fore.YELLOW}Tool's input: {json.dumps(tool_call_result.tool_args, indent=2)}\n"
-            #     f"{Fore.CYAN}Tool's response:\n{observation}"
-            #     f"{Fore.RESET}\n{'-' * 30}"
-            # )
-            # if self.debug:
-            #     logger.info(REMOTE_AGENT_RESPONSE_LOG_MESSAGE)
             # add the observation to the orchestrator messages and the message history
             self.orchestrator_messages.append(
                 {
@@ -266,13 +255,6 @@ class OrchestratorAgent(BaseReactAgent):
             agent_name="orchestrator", role="user", content=query, chat_id=self.chat_id
         )
         await self.update_llm_working_memory(message_history)
-
-        # self.orchestrator_messages.append(
-        #     {
-        #         "role": "assistant",
-        #         "content": f"This is the list of agents and their capabilities **AgentsRegistryObservation**:\n\n{agent_registry_output}",
-        #     }
-        # )
         current_steps = 0
         while current_steps < self.max_steps:
             current_steps += 1

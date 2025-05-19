@@ -34,6 +34,7 @@ from mcpomni_connect.utils import (
     logger,
     strip_json_comments,
     show_tool_response,
+    serialize_messages,
 )
 
 
@@ -569,14 +570,6 @@ class BaseReactAgent:
         await self.update_llm_working_memory(
             message_history=message_history, chat_id=chat_id
         )
-        # inject the tools registry into the assistant message
-
-        # self.messages[self.agent_name].append(
-        #     Message(
-        #         role=MessageRole.ASSISTANT,
-        #         content=f"### Tools Registry Observation\n\n{tools_section}",
-        #     )
-        # )
         # check if the agent is in a valid state to run
         if self.state not in [
             AgentState.IDLE,
@@ -596,10 +589,10 @@ class BaseReactAgent:
                 current_steps += 1
 
                 self.usage_limits.check_before_request(usage=usage)
+                # convert message role to openai standard
+                messages = serialize_messages(messages=self.messages[self.agent_name])
                 try:
-                    response = await llm_connection.llm_call(
-                        self.messages[self.agent_name]
-                    )
+                    response = await llm_connection.llm_call(messages)
                     if response:
                         # check if it has usage
                         if hasattr(response, "usage"):
