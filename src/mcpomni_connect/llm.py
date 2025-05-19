@@ -277,7 +277,6 @@ class LLMConnection:
                     )
                 return response
             elif self.llm_config["provider"].lower() == "ollama":
-                serialized_messages = self.serialize_messages(chat_payload=messages)
                 ollama_host = self.llm_config.get("ollama_host", self.ollama_host)
 
                 if not ollama_host:
@@ -289,25 +288,32 @@ class LLMConnection:
                     ollama_host = f"http://{ollama_host}"
                 ollama_host = ollama_host.rstrip("/")  # no trailing slash
 
-                # # Confirm server is running
+                # Confirm server is running
                 # try:
                 #     models_response = requests.get(f"{ollama_host}/api/tags", timeout=5)
                 #     models_response.raise_for_status()
-                #     logger.debug(f"Ollama models: {models_response.json()}")
+                #     logger.info(f"Ollama models: {models_response.json()}")
                 # except Exception as e:
                 #     logger.error(f"Failed to connect to Ollama server at {ollama_host}: {e}")
                 #     return None
 
                 # Convert messages to prompt
                 def messages_to_prompt(messages):
-                    return "\n".join(
-                        f"{m['role'].capitalize()}: {m['content']}" for m in messages
-                    )
+                    prompt_lines = []
+                    for m in messages:
+                        role = (
+                            m.role if hasattr(m, "role") else m.get("role", "unknown")
+                        )
+                        content = (
+                            m.content if hasattr(m, "content") else m.get("content", "")
+                        )
+                        prompt_lines.append(f"{role.capitalize()}: {content}")
+                    return "\n".join(prompt_lines)
 
                 # Use /api/generate (prompt-based models)
                 payload = {
                     "model": self.llm_config["model"],
-                    "prompt": messages_to_prompt(serialized_messages),
+                    "prompt": messages_to_prompt(messages=messages),
                     "stream": False,
                     "options": {
                         "temperature": self.llm_config["temperature"],
@@ -360,35 +366,6 @@ class LLMConnection:
         except Exception as e:
             logger.error(f"Error calling LLM: {e}")
             return None
-
-    def serialize_messages(self, chat_payload: list):
-        serialized_messages = []
-        for message in chat_payload:
-            try:
-                # Check if message is a dictionary or an object with 'role' and 'content'
-                if isinstance(message, dict):
-                    if "role" in message and "content" in message:
-                        role = message["role"]
-                        content = message["content"]
-                        msg = {"role": str(role), "content": str(content)}
-                        serialized_messages.append(msg)
-                    else:
-                        logger.debug(f"Excluded message (missing keys): {message}")
-                elif hasattr(message, "role") and hasattr(message, "content"):
-                    role = message.role.value
-                    content = message.content
-                    msg = {"role": role, "content": content}
-                    serialized_messages.append(msg)
-                else:
-                    # Exclude invalid message
-                    logger.debug(f"Excluded message (missing role/content): {message}")
-            except Exception as e:
-                logger.error(f"Error processing message: {e}")
-                continue
-        if not serialized_messages:
-            logger.warning("No valid messages found for serialization.")
-        # Return the serialized list of messages
-        return serialized_messages
 
     def truncate_messages_for_groq(self, messages):
         """Truncate messages to stay within Groq's token limits (5000 total)."""
