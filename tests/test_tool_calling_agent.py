@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from mcpomni_connect.agents.tool_calling_agent import ToolCallingAgent
-from mcpomni_connect.agents.types import AgentConfig, MessageRole
+from mcpomni_connect.agents.types import AgentConfig
 
 
 @pytest.fixture
@@ -28,8 +28,8 @@ def agent(agent_config):
 async def test_update_llm_working_memory_user_and_assistant(agent):
     message_history = AsyncMock(
         return_value=[
-            {"role": MessageRole.USER, "content": "Hello"},
-            {"role": MessageRole.ASSISTANT, "content": "Hi there!", "metadata": {}},
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi there!", "metadata": {}},
         ]
     )
     await agent.update_llm_working_memory(message_history, "chat1")
@@ -43,9 +43,9 @@ async def test_update_llm_working_memory_user_and_assistant(agent):
 async def test_update_llm_working_memory_with_tool_calls(agent):
     message_history = AsyncMock(
         return_value=[
-            {"role": MessageRole.USER, "content": "Run a tool"},
+            {"role": "user", "content": "Run a tool"},
             {
-                "role": MessageRole.ASSISTANT,
+                "role": "assistant",
                 "content": "Calling tool",
                 "metadata": {
                     "has_tool_calls": True,
@@ -53,7 +53,7 @@ async def test_update_llm_working_memory_with_tool_calls(agent):
                 },
             },
             {
-                "role": MessageRole.TOOL,
+                "role": "tool",
                 "content": "tool output",
                 "metadata": {"tool_call_id": "123"},
             },
