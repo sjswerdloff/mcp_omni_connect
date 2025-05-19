@@ -17,7 +17,6 @@ from rich.console import Console, Group
 from rich.panel import Panel
 from rich.pretty import Pretty
 from rich.text import Text
-from mcpomni_connect.agents.types import Message
 
 console = Console()
 # Configure logging
@@ -480,13 +479,6 @@ def show_tool_response(agent_name, tool_name, tool_args, observation):
 
     panel = Panel.fit(content, title="🔧 TOOL CALL LOG", border_style="bright_black")
     console.print(panel)
-
-
-def serialize_messages(messages: list[Message]) -> list[dict]:
-    return [
-        {**msg.model_dump(exclude_none=True), "role": msg.role.value}
-        for msg in messages
-    ]
 
 
 # # Initialize the model once at module level

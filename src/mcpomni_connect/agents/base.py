@@ -20,7 +20,6 @@ from mcpomni_connect.agents.tools.tools_handler import (
 from mcpomni_connect.agents.types import (
     AgentState,
     Message,
-    MessageRole,
     ParsedResponse,
     ToolCall,
     ToolCallMetadata,
@@ -34,7 +33,6 @@ from mcpomni_connect.utils import (
     logger,
     strip_json_comments,
     show_tool_response,
-    serialize_messages,
 )
 
 
@@ -191,8 +189,8 @@ class BaseReactAgent:
         for message in validated_messages:
             role = message.role
             metadata = message.metadata
-            if role == MessageRole.USER:
-                # Flush any pending assistant-tool-call + responses before new USER message
+            if role == "user":
+                # Flush any pending assistant-tool-call + responses before new "user" message
                 if self.assistant_with_tool_calls:
                     self.messages[self.agent_name].append(
                         self.assistant_with_tool_calls
@@ -202,10 +200,10 @@ class BaseReactAgent:
                     self.pending_tool_responses = []
 
                 self.messages[self.agent_name].append(
-                    Message(role=MessageRole.USER, content=message.content)
+                    Message(role="user", content=message.content)
                 )
 
-            elif role == MessageRole.ASSISTANT:
+            elif role == "assistant":
                 if metadata.has_tool_calls:
                     # If we already have a pending assistant with tool calls, flush it
                     if self.assistant_with_tool_calls:
@@ -219,7 +217,7 @@ class BaseReactAgent:
 
                     # Store this assistant message for later (until we collect all tool responses)
                     self.assistant_with_tool_calls = {
-                        "role": MessageRole.ASSISTANT,
+                        "role": "assistant",
                         "content": message.content,
                         "tool_calls": (
                             [tc.model_dump() for tc in metadata.tool_calls]
@@ -241,24 +239,24 @@ class BaseReactAgent:
                         self.pending_tool_responses = []
 
                     self.messages[self.agent_name].append(
-                        Message(role=MessageRole.ASSISTANT, content=message.content)
+                        Message(role="assistant", content=message.content)
                     )
 
-            elif role == MessageRole.TOOL and hasattr(metadata, "tool_call_id"):
+            elif role == "tool" and hasattr(metadata, "tool_call_id"):
                 # Collect tool responses
                 # Only add if we have a preceding assistant message with tool calls
                 if self.assistant_with_tool_calls:
                     self.pending_tool_responses.append(
                         {
-                            "role": MessageRole.TOOL,
+                            "role": "tool",
                             "content": message.content,
                             "tool_call_id": str(metadata.tool_call_id),
                         }
                     )
 
-            elif role == MessageRole.SYSTEM:
+            elif role == "system":
                 self.messages[self.agent_name].append(
-                    Message(role=MessageRole.SYSTEM, content=message.content)
+                    Message(role="system", content=message.content)
                 )
 
             else:
@@ -386,7 +384,7 @@ class BaseReactAgent:
                 )
                 self.messages[self.agent_name].append(
                     Message(
-                        role=MessageRole.USER,
+                        role="user",
                         content=f"Observation:\n{observation}",
                     )
                 )
@@ -403,7 +401,7 @@ class BaseReactAgent:
 
                 self.messages[self.agent_name].append(
                     Message(
-                        role=MessageRole.USER,
+                        role="user",
                         content=f"Observation:\n{observation}",
                     )
                 )
@@ -423,7 +421,7 @@ class BaseReactAgent:
         # Final observation handling
         self.messages[self.agent_name].append(
             Message(
-                role=MessageRole.USER,
+                role="user",
                 content=f"OBSERVATION(RESULT FROM {tool_call_result.tool_name} TOOL CALL): \n{observation}",
             )
         )
@@ -458,7 +456,7 @@ class BaseReactAgent:
                 f"6. If the issue persists, stop immediately.\n"
             )
             self.messages[self.agent_name].append(
-                Message(role=MessageRole.USER, content=loop_message)
+                Message(role="user", content=loop_message)
             )
             if debug:
                 logger.info(
@@ -471,7 +469,7 @@ class BaseReactAgent:
         # Reset system prompt and keep all messages
 
         old_messages = messages[1:]
-        messages = [Message(role=MessageRole.SYSTEM, content=system_prompt)]
+        messages = [Message(role="system", content=system_prompt)]
         messages.extend(old_messages)
         return messages
 
@@ -560,7 +558,7 @@ class BaseReactAgent:
         )
 
         self.messages[self.agent_name] = [
-            Message(role=MessageRole.SYSTEM, content=system_updated_prompt)
+            Message(role="system", content=system_updated_prompt)
         ]
         # Add initial user message to message history
         await add_message_to_history(
@@ -587,12 +585,12 @@ class BaseReactAgent:
                         f"Sending {len(self.messages[self.agent_name])} messages to LLM"
                     )
                 current_steps += 1
-
                 self.usage_limits.check_before_request(usage=usage)
-                # convert message role to openai standard
-                messages = serialize_messages(messages=self.messages[self.agent_name])
+
                 try:
-                    response = await llm_connection.llm_call(messages)
+                    response = await llm_connection.llm_call(
+                        self.messages[self.agent_name]
+                    )
                     if response:
                         # check if it has usage
                         if hasattr(response, "usage"):
@@ -654,7 +652,7 @@ class BaseReactAgent:
                 if parsed_response.answer is not None:
                     self.messages[self.agent_name].append(
                         Message(
-                            role=MessageRole.ASSISTANT,
+                            role="assistant",
                             content=parsed_response.answer,
                         )
                     )
@@ -706,7 +704,7 @@ class BaseReactAgent:
                     error_message = "Invalid response format. Please use the correct required format"
 
                 self.messages[self.agent_name].append(
-                    Message(role=MessageRole.USER, content=error_message)
+                    Message(role="user", content=error_message)
                 )
                 await add_message_to_history(
                     agent_name=self.agent_name,
@@ -735,7 +733,7 @@ class BaseReactAgent:
                     )
 
                     self.messages[self.agent_name].append(
-                        Message(role=MessageRole.USER, content=loop_message)
+                        Message(role="user", content=loop_message)
                     )
                     self.loop_detector.reset()
                     if debug:
