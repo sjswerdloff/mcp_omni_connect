@@ -9,7 +9,7 @@ from mcpomni_connect.agents.token_usage import (
     session_stats,
     usage,
 )
-from mcpomni_connect.agents.types import AgentConfig, MessageRole
+from mcpomni_connect.agents.types import AgentConfig
 from mcpomni_connect.utils import logger
 
 
@@ -44,7 +44,7 @@ class ToolCallingAgent:
         # Process message history in order
         for _, message in enumerate(short_term_memory_message_history):
             role = message["role"]
-            if role == MessageRole.USER:
+            if role == "user":
                 # First flush any pending tool responses if needed
                 if self.assistant_with_tool_calls and self.pending_tool_responses:
                     self.messages.append(self.assistant_with_tool_calls)
@@ -55,7 +55,7 @@ class ToolCallingAgent:
                 # Add user message to messages that will be sent to LLM
                 self.messages.append({"role": "user", "content": message["content"]})
 
-            elif role == MessageRole.ASSISTANT:
+            elif role == "assistant":
                 # Check if the assistant message has tool calls
                 metadata = message.get("metadata", {})
                 if metadata.get("has_tool_calls", False):
@@ -85,9 +85,7 @@ class ToolCallingAgent:
                         {"role": "assistant", "content": message["content"]}
                     )
 
-            elif role == MessageRole.TOOL and "tool_call_id" in message.get(
-                "metadata", {}
-            ):
+            elif role == "tool" and "tool_call_id" in message.get("metadata", {}):
                 # Collect tool responses
                 # Only add if we have a preceding assistant message with tool calls
                 if self.assistant_with_tool_calls:
@@ -99,7 +97,7 @@ class ToolCallingAgent:
                         }
                     )
 
-            elif role == MessageRole.SYSTEM:
+            elif role == "system":
                 # Add system message to messages
                 self.messages.append({"role": "system", "content": message["content"]})
 

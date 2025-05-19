@@ -25,13 +25,6 @@ class AgentState(str, Enum):
     STUCK = "stuck"
 
 
-class MessageRole(str, Enum):
-    SYSTEM = "system"
-    USER = "user"
-    ASSISTANT = "assistant"
-    TOOL = "tool"
-
-
 class ToolFunction(BaseModel):
     name: str
     arguments: str
@@ -50,7 +43,7 @@ class ToolCallMetadata(BaseModel):
 
 
 class Message(BaseModel):
-    role: MessageRole
+    role: str
     content: str
     tool_call_id: str = None
     tool_calls: str = None
