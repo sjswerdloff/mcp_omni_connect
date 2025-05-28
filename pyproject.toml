@@ -46,8 +46,8 @@ dependencies = [
     "deepseek>=1.0.0",
     "fastapi>=0.115.12",
     "python-multipart>=0.0.20",
-    "mcp[cli]>=1.8.1",
     "colorama>=0.4.6",
+    "mcp[cli]>=1.9.1",
 ]
 
 [project.scripts]

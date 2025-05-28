@@ -19,6 +19,135 @@ from mcpomni_connect.refresh_server_capabilities import refresh_capabilities
 from mcpomni_connect.sampling import samplingCallback
 from mcpomni_connect.system_prompts import generate_react_agent_role_prompt
 from mcpomni_connect.utils import logger
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import parse_qs, urlparse
+from mcp.client.auth import OAuthClientProvider, TokenStorage
+from mcp.shared.auth import OAuthClientInformationFull, OAuthClientMetadata, OAuthToken
+import webbrowser
+import threading
+import time
+
+class InMemoryTokenStorage(TokenStorage):
+    """Simple in-memory token storage implementation."""
+
+    def __init__(self):
+        self._tokens: OAuthToken | None = None
+        self._client_info: OAuthClientInformationFull | None = None
+
+    async def get_tokens(self) -> OAuthToken | None:
+        return self._tokens
+
+    async def set_tokens(self, tokens: OAuthToken) -> None:
+        self._tokens = tokens
+
+    async def get_client_info(self) -> OAuthClientInformationFull | None:
+        return self._client_info
+
+    async def set_client_info(self, client_info: OAuthClientInformationFull) -> None:
+        self._client_info = client_info
+
+class CallbackHandler(BaseHTTPRequestHandler):
+    """Simple HTTP handler to capture OAuth callback."""
+
+    def __init__(self, request, client_address, server, callback_data):
+        """Initialize with callback data storage."""
+        self.callback_data = callback_data
+        super().__init__(request, client_address, server)
+
+    def do_GET(self):
+        """Handle GET request from OAuth redirect."""
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        if "code" in query_params:
+            self.callback_data["authorization_code"] = query_params["code"][0]
+            self.callback_data["state"] = query_params.get("state", [None])[0]
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
+            self.end_headers()
+            self.wfile.write(b"""
+            <html>
+            <body>
+                <h1>Authorization Successful!</h1>
+                <p>You can close this window and return to the terminal.</p>
+                <script>setTimeout(() => window.close(), 2000);</script>
+            </body>
+            </html>
+            """)
+        elif "error" in query_params:
+            self.callback_data["error"] = query_params["error"][0]
+            self.send_response(400)
+            self.send_header("Content-type", "text/html")
+            self.end_headers()
+            self.wfile.write(
+                f"""
+            <html>
+            <body>
+                <h1>Authorization Failed</h1>
+                <p>Error: {query_params['error'][0]}</p>
+                <p>You can close this window and return to the terminal.</p>
+            </body>
+            </html>
+            """.encode()
+            )
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, format, *args):
+        """Suppress default logging."""
+        pass
+
+
+class CallbackServer:
+    """Simple server to handle OAuth callbacks."""
+
+    def __init__(self, port=3000):
+        self.port = port
+        self.server = None
+        self.thread = None
+        self.callback_data = {"authorization_code": None, "state": None, "error": None}
+
+    def _create_handler_with_data(self):
+        """Create a handler class with access to callback data."""
+        callback_data = self.callback_data
+
+        class DataCallbackHandler(CallbackHandler):
+            def __init__(self, request, client_address, server):
+                super().__init__(request, client_address, server, callback_data)
+
+        return DataCallbackHandler
+
+    def start(self):
+        """Start the callback server in a background thread."""
+        handler_class = self._create_handler_with_data()
+        self.server = HTTPServer(("localhost", self.port), handler_class)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        logger.info(f"🖥️  Started callback server on http://localhost:{self.port}")
+
+    def stop(self):
+        """Stop the callback server."""
+        if self.server:
+            self.server.shutdown()
+            self.server.server_close()
+        if self.thread:
+            self.thread.join(timeout=1)
+
+    def wait_for_callback(self, timeout=300):
+        """Wait for OAuth callback with timeout."""
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            if self.callback_data["authorization_code"]:
+                return self.callback_data["authorization_code"]
+            elif self.callback_data["error"]:
+                raise Exception(f"OAuth error: {self.callback_data['error']}")
+            time.sleep(0.1)
+        raise Exception("Timeout waiting for OAuth callback")
+
+    def get_state(self):
+        """Get the received state parameter."""
+        return self.callback_data["state"]
 
 
 @dataclass
@@ -51,7 +180,6 @@ class Configuration:
         with open(config_path, encoding="utf-8") as f:
             return json.load(f)
 
-
 class MCPClient:
     def __init__(self, config: dict[str, Any], debug: bool = False):
         # Initialize session and client objects
@@ -68,7 +196,8 @@ class MCPClient:
         self.llm_connection = LLMConnection(self.config)
         self.sampling_callback = samplingCallback()
         self.tasks = {}
-
+        self.server_count = 0
+        
     async def connect_to_servers(self):
         """Connect to an MCP server"""
         server_config = self.config.load_config("servers_config.json")
@@ -77,15 +206,19 @@ class MCPClient:
             for name, srv_config in server_config["mcpServers"].items()
         ]
         try:
-            async with anyio.create_task_group() as tg:
-                for server in servers:
-                    server_added_name = server["name"]
-                    tg.start_soon(
-                        self._connect_to_single_server, server, server_added_name
-                    )
+            connect_tasks = [
+                self._connect_to_single_server(server, server["name"])
+                for server in servers
+            ]
+            results = await asyncio.gather(*connect_tasks, return_exceptions=True)
+
+            # Log any failed connections
+            for result in results:
+                if isinstance(result, Exception):
+                    logger.error(f"Server connection failed: {result}")
+                logger.info(f"Server connection result: {result}")
         except Exception as e:
             logger.info(f"start servers task error: {e}")
-
         # start the notification stream with an asyncio task
         asyncio.create_task(
             handle_notifications(
@@ -112,15 +245,65 @@ class MCPClient:
             headers = server["srv_config"].get("headers", {})
             timeout = server["srv_config"].get("timeout", 60)
             sse_read_timeout = server["srv_config"].get("sse_read_timeout", 120)
+            auth_config = server["srv_config"].get("auth", None)
+            use_oauth = auth_config and auth_config.get("method") == "oauth"
+
+            # Set up callback server
+            self.server_count+=1
+            callback_port = 3000 + self.server_count
+            callback_server = CallbackServer(port=callback_port)
+            oauth_auth = None
+            # start the callback server if use_oauth
+            if use_oauth:
+                callback_server.start()
+                async def callback_handler() -> tuple[str, str | None]:
+                    """Wait for OAuth callback and return auth code and state."""
+                    logger.info("⏳ Waiting for authorization callback...")
+                    try:
+                        auth_code = callback_server.wait_for_callback(timeout=300)
+                        return auth_code, callback_server.get_state()
+                    finally:
+                        callback_server.stop()
+
+            
+
+                async def _default_redirect_handler(authorization_url: str) -> None:
+                    """Default redirect handler that opens the URL in a browser."""
+                    logger.info(f"Opening browser for authorization: {authorization_url}")
+                    webbrowser.open(authorization_url)
+
+                client_metadata_dict = {
+                    "client_name": "mcpomni_connect",
+                    "redirect_uris": [f"http://localhost:{callback_port}/callback"],
+                    "grant_types": ["authorization_code", "refresh_token"],
+                    "response_types": ["code"],
+                    "token_endpoint_auth_method": "client_secret_post",
+                }
+                # Create OAuth authentication handler using the new interface
+            
+                oauth_auth = OAuthClientProvider(
+                    server_url=url.replace("/mcp", "").replace("/sse", ""),
+                    client_metadata=OAuthClientMetadata.model_validate(
+                        client_metadata_dict
+                    ),
+                    storage=InMemoryTokenStorage(),
+                    redirect_handler=_default_redirect_handler,
+                    callback_handler=callback_handler,
+                )
             if transport_type.lower() == "sse":
                 if self.debug:
                     logger.info(f"SSE connection to {url} with timeout {timeout}")
+                client_kwargs = {
+                    "url": url,
+                    "headers": headers,
+                    "timeout": timeout,
+                    "sse_read_timeout": sse_read_timeout,
+                }
+                if use_oauth:
+                    client_kwargs["auth"] = oauth_auth
                 transport = await stack.enter_async_context(
                     sse_client(
-                        url=url,
-                        headers=headers,
-                        timeout=timeout,
-                        sse_read_timeout=sse_read_timeout,
+                       **client_kwargs
                     )
                 )
                 read_stream, write_stream = transport
@@ -131,12 +314,17 @@ class MCPClient:
                     )
                 timeout = timedelta(seconds=int(timeout))
                 sse_read_timeout = timedelta(seconds=int(sse_read_timeout))
+                client_kwargs = {
+                    "url": url,
+                    "headers": headers,
+                    "timeout": timeout,
+                    "sse_read_timeout": sse_read_timeout,
+                }
+                if use_oauth:
+                    client_kwargs["auth"] = oauth_auth
                 transport = await stack.enter_async_context(
                     streamablehttp_client(
-                        url=url,
-                        headers=headers,
-                        timeout=timeout,
-                        sse_read_timeout=sse_read_timeout,
+                        **client_kwargs
                     )
                 )
                 read_stream, write_stream, _ = transport
