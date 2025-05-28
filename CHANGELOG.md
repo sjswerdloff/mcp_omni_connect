@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.17] - 2025-05-28
+
+### Added
+- OAuth Authentication Support:
+  - Added OAuth 2.0 authentication flow for MCP servers
+  - Support for multiple authentication methods:
+    - OAuth 2.0
+    - Bearer token
+    - Custom headers
+  - Flexible authentication configuration in server settings
+  - Secure credential management
+- Enhanced Server Configuration:
+  - Updated server configuration format to support OAuth
+  - Added authentication method specification
+  - Improved server connection security
+  - Better error handling for authentication failures
+
+### Changed
+- Updated server configuration examples to include OAuth support
+- Enhanced documentation for authentication methods
+- Improved security section in README
+- Updated server management commands documentation
+
+### Fixed
+- Improved authentication error handling
+- Enhanced security documentation
+- Updated configuration validation for authentication methods
+
 ## [0.1.16] - 2025-05-16
 
 ### Added

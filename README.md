@@ -15,11 +15,16 @@ MCPOmni Connect is a powerful, universal command-line interface (CLI) that serve
 ### 🔌 Universal Connectivity
 - **Multi-Protocol Support**
   - Native support for stdio transport
-  - Server-Sent Events (SSE) transport for real-time communication
-  - Streamable HTTP transport for efficient data streaming
+  - Server-Sent Events (SSE) for real-time communication
+  - Streamable HTTP for efficient data streaming
   - Docker container integration
   - NPX package execution
   - Extensible transport layer for future protocols
+- **Authentication Support**
+  - OAuth 2.0 authentication flow
+  - Bearer token authentication
+  - Custom header support
+  - Secure credential management
 - **ReAct Agentic Mode**
   - Autonomous task execution without human intervention
   - Advanced reasoning and decision-making capabilities
@@ -120,6 +125,8 @@ MCPOmni Connect is a powerful, universal command-line interface (CLI) that serve
   - Automatic server health monitoring
   - Graceful connection management
   - Dynamic capability updates
+  - Flexible authentication methods
+  - Runtime server configuration updates
 
 ## 🏗️ Architecture
 
@@ -359,26 +366,26 @@ See the [FastAPI example](examples/fast_api_iml.py) for:
 ```json
 {
     "AgentConfig": {
-        "tool_call_timeout": 30, // tool call timeout
-        "max_steps": 15, // number of steps before it terminates
-        "request_limit": 1000, // number of request limits
-        "total_tokens_limit": 100000 // max number of token usage
+        "tool_call_timeout": 30,
+        "max_steps": 15,
+        "request_limit": 1000,
+        "total_tokens_limit": 100000
     },
     "LLM": {
-        "provider": "openai",  // Supports: "openai", "openrouter", "groq"
-        "model": "gpt-4",      // Any model from supported providers
+        "provider": "openai",
+        "model": "gpt-4",
         "temperature": 0.5,
         "max_tokens": 5000,
-        "max_context_length": 30000, // Maximum of the model context length
+        "max_context_length": 30000,
         "top_p": 0
     },
     "mcpServers": {
-        "filesystem-server": {
-            "command": "npx",
-            "args": [
-                "@modelcontextprotocol/server-filesystem",
-                "/path/to/files"
-            ]
+        "ev_assistant": {
+            "transport_type": "streamable_http",
+            "auth": {
+                "method": "oauth"
+            },
+            "url": "http://localhost:8000/mcp"
         },
         "sse-server": {
             "transport_type": "sse",
@@ -397,13 +404,89 @@ See the [FastAPI example](examples/fast_api_iml.py) for:
             },
             "timeout": 60, 
             "sse_read_timeout": 120
-        },
-        "docker-server": {
-            "command": "docker",
-            "args": ["run", "-i", "--rm", "mcp/server"]
         }
     }
 }
+```
+
+### 🔐 Authentication Methods
+
+MCPOmni Connect supports multiple authentication methods for secure server connections:
+
+#### OAuth 2.0 Authentication
+```json
+{
+    "server_name": {
+        "transport_type": "streamable_http",
+        "auth": {
+            "method": "oauth"
+        },
+        "url": "http://your-server/mcp"
+    }
+}
+```
+
+#### Bearer Token Authentication
+```json
+{
+    "server_name": {
+        "transport_type": "streamable_http",
+        "headers": {
+            "Authorization": "Bearer your-token-here"
+        },
+        "url": "http://your-server/mcp"
+    }
+}
+```
+
+#### Custom Headers
+```json
+{
+    "server_name": {
+        "transport_type": "streamable_http",
+        "headers": {
+            "X-Custom-Header": "value",
+            "Authorization": "Custom-Auth-Scheme token"
+        },
+        "url": "http://your-server/mcp"
+    }
+}
+```
+
+## 🔄 Dynamic Server Configuration
+
+MCPOmni Connect supports dynamic server configuration through commands:
+
+#### Add New Servers
+```bash
+# Add one or more servers from a configuration file
+/add_servers:path/to/config.json
+```
+
+The configuration file can include multiple servers with different authentication methods:
+```json
+{
+    "new-server": {
+        "transport_type": "streamable_http",
+        "auth": {
+            "method": "oauth"
+        },
+        "url": "http://localhost:8000/mcp"
+    },
+    "another-server": {
+        "transport_type": "sse",
+        "headers": {
+            "Authorization": "Bearer token"
+        },
+        "url": "http://localhost:3000/sse"
+    }
+}
+```
+
+#### Remove Servers
+```bash
+# Remove a server by its name
+/remove_server:server_name
 ```
 
 ## 🎯 Usage

@@ -1230,7 +1230,7 @@ class MCPClientCLI:
             Panel(
                 content,
                 title="[bold blue]⚡ MCPOmni Connect ⚡[/]",
-                subtitle="[bold cyan]v0.1.16[/]",
+                subtitle="[bold cyan]v0.1.17[/]",
                 border_style="blue",
                 box=box.DOUBLE_EDGE,
             )

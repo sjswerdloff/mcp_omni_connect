@@ -27,6 +27,7 @@ import webbrowser
 import threading
 import time
 
+
 class InMemoryTokenStorage(TokenStorage):
     """Simple in-memory token storage implementation."""
 
@@ -45,6 +46,7 @@ class InMemoryTokenStorage(TokenStorage):
 
     async def set_client_info(self, client_info: OAuthClientInformationFull) -> None:
         self._client_info = client_info
+
 
 class CallbackHandler(BaseHTTPRequestHandler):
     """Simple HTTP handler to capture OAuth callback."""
@@ -84,7 +86,7 @@ class CallbackHandler(BaseHTTPRequestHandler):
             <html>
             <body>
                 <h1>Authorization Failed</h1>
-                <p>Error: {query_params['error'][0]}</p>
+                <p>Error: {query_params["error"][0]}</p>
                 <p>You can close this window and return to the terminal.</p>
             </body>
             </html>
@@ -180,6 +182,7 @@ class Configuration:
         with open(config_path, encoding="utf-8") as f:
             return json.load(f)
 
+
 class MCPClient:
     def __init__(self, config: dict[str, Any], debug: bool = False):
         # Initialize session and client objects
@@ -197,7 +200,7 @@ class MCPClient:
         self.sampling_callback = samplingCallback()
         self.tasks = {}
         self.server_count = 0
-        
+
     async def connect_to_servers(self):
         """Connect to an MCP server"""
         server_config = self.config.load_config("servers_config.json")
@@ -249,13 +252,14 @@ class MCPClient:
             use_oauth = auth_config and auth_config.get("method") == "oauth"
 
             # Set up callback server
-            self.server_count+=1
+            self.server_count += 1
             callback_port = 3000 + self.server_count
             callback_server = CallbackServer(port=callback_port)
             oauth_auth = None
             # start the callback server if use_oauth
             if use_oauth:
                 callback_server.start()
+
                 async def callback_handler() -> tuple[str, str | None]:
                     """Wait for OAuth callback and return auth code and state."""
                     logger.info("⏳ Waiting for authorization callback...")
@@ -265,11 +269,11 @@ class MCPClient:
                     finally:
                         callback_server.stop()
 
-            
-
                 async def _default_redirect_handler(authorization_url: str) -> None:
                     """Default redirect handler that opens the URL in a browser."""
-                    logger.info(f"Opening browser for authorization: {authorization_url}")
+                    logger.info(
+                        f"Opening browser for authorization: {authorization_url}"
+                    )
                     webbrowser.open(authorization_url)
 
                 client_metadata_dict = {
@@ -280,7 +284,7 @@ class MCPClient:
                     "token_endpoint_auth_method": "client_secret_post",
                 }
                 # Create OAuth authentication handler using the new interface
-            
+
                 oauth_auth = OAuthClientProvider(
                     server_url=url.replace("/mcp", "").replace("/sse", ""),
                     client_metadata=OAuthClientMetadata.model_validate(
@@ -301,11 +305,7 @@ class MCPClient:
                 }
                 if use_oauth:
                     client_kwargs["auth"] = oauth_auth
-                transport = await stack.enter_async_context(
-                    sse_client(
-                       **client_kwargs
-                    )
-                )
+                transport = await stack.enter_async_context(sse_client(**client_kwargs))
                 read_stream, write_stream = transport
             elif transport_type.lower() == "streamable_http":
                 if self.debug:
@@ -323,9 +323,7 @@ class MCPClient:
                 if use_oauth:
                     client_kwargs["auth"] = oauth_auth
                 transport = await stack.enter_async_context(
-                    streamablehttp_client(
-                        **client_kwargs
-                    )
+                    streamablehttp_client(**client_kwargs)
                 )
                 read_stream, write_stream, _ = transport
             else:
