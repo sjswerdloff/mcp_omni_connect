@@ -90,6 +90,7 @@ async def async_main():
         cli = MCPClientCLI(client, llm_connection)
 
         await client.connect_to_servers()
+        
         await cli.chat_loop()
     except KeyboardInterrupt:
         logger.info("Shutting down client...")
